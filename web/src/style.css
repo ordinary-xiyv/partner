@@ -1,0 +1,70 @@
+:root { font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif; color: #18243a; background: #f4f7fb; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+.shell { min-height: 100vh; max-width: 1080px; margin: auto; padding: 32px 24px; }
+.brand { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; }
+.brand-mark { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: #315fdb; color: white; }
+.card { width: min(100%, 460px); margin: clamp(70px, 15vh, 160px) auto 0; padding: 36px; border: 1px solid #e4e9f2; border-radius: 20px; background: white; box-shadow: 0 18px 60px #263b6814; }
+.eyebrow { color: #315fdb; font-size: 12px; font-weight: 800; letter-spacing: .14em; }
+h1 { margin: 10px 0; font-size: 27px; }
+.muted { color: #68758a; font-size: 14px; line-height: 1.6; }
+form { margin-top: 28px; }
+label { display: block; margin-top: 18px; font-size: 14px; font-weight: 600; }
+input { display: block; width: 100%; height: 44px; margin-top: 8px; padding: 0 12px; border: 1px solid #cbd5e2; border-radius: 9px; font: inherit; }
+input:focus { outline: 2px solid #a9bcf4; border-color: #315fdb; }
+button { display: block; width: 100%; min-height: 44px; margin-top: 24px; border: 0; border-radius: 9px; background: #315fdb; color: white; font: inherit; font-weight: 700; cursor: pointer; }
+button:disabled { opacity: .65; cursor: wait; }
+.text-button { width: auto; min-height: 0; padding: 0; background: none; color: #315fdb; font-size: 14px; }
+.error { color: #b42318; font-size: 14px; }
+.dashboard { margin-top: 72px; }
+.dashboard-head, .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.dashboard-head .text-button { margin: 0; }
+.panel { margin-top: 28px; padding: 28px; border: 1px solid #e4e9f2; border-radius: 18px; background: white; box-shadow: 0 12px 42px #263b680d; }
+.panel h2 { margin: 0; font-size: 20px; }
+.panel .muted { margin: 7px 0 0; }
+.search-form { display: flex; gap: 8px; margin: 0; }
+.search-form input { width: 280px; margin: 0; }
+.search-form button { width: auto; min-width: 72px; margin: 0; padding: 0 16px; }
+.table-wrap { overflow-x: auto; margin-top: 22px; }
+table { width: 100%; border-collapse: collapse; white-space: nowrap; text-align: left; font-size: 14px; }
+th, td { padding: 13px 14px; border-bottom: 1px solid #edf0f5; }
+th { color: #65748c; font-weight: 600; background: #f8faff; }
+.empty { padding: 35px 0; color: #68758a; text-align: center; }
+.pagination { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 18px; font-size: 14px; }
+.pagination button { width: auto; min-height: 34px; margin: 0; padding: 0 12px; background: #eef2fc; color: #315fdb; }
+.pagination button:disabled { color: #a0a9b7; }
+@media (max-width: 720px) { .panel-head { align-items: stretch; flex-direction: column; } .search-form input { width: 100%; } .dashboard { margin-top: 42px; } .panel { padding: 18px; } }
+.tabs { display: flex; gap: 8px; margin-top: 24px; border-bottom: 1px solid #dfe6f0; }
+.tabs button { width: auto; margin: 0 0 -1px; padding: 12px 18px; border-radius: 9px 9px 0 0; background: transparent; color: #60708a; }
+.tabs button.selected { color: #315fdb; background: #fff; border: 1px solid #dfe6f0; border-bottom-color: #fff; }
+.log-search { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin: 22px 0 6px; }
+.log-search label { min-width: 130px; flex: 1 1 130px; margin: 0; font-size: 13px; }
+.log-search input, .log-search select { width: 100%; height: 38px; margin-top: 6px; padding: 0 10px; border: 1px solid #cbd5e2; border-radius: 8px; background: #fff; font: inherit; }
+.log-search button { width: auto; min-height: 38px; margin: 0; padding: 0 16px; }
+.log-search .secondary-button { background: #eef2fc; color: #315fdb; }
+.request-id { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
+.trend-panel { margin-top: 28px; }
+.trend-stats { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 23px; }
+.trend-stats > div { min-width: 140px; flex: 1; padding: 15px 18px; border-radius: 11px; background: #f6f8fd; }
+.trend-stats span { display: block; color: #68758a; font-size: 13px; }
+.trend-stats strong { display: block; margin-top: 7px; font-size: 22px; }
+.trend-metrics { display: flex; gap: 8px; margin-top: 24px; }
+.trend-metrics button { width: auto; min-height: 32px; margin: 0; padding: 0 12px; background: #edf2fc; color: #4e6080; font-size: 13px; }
+.trend-metrics button.selected { background: #315fdb; color: white; }
+.trend-chart { display: grid; grid-template-columns: repeat(14, minmax(33px, 1fr)); gap: 7px; min-width: 590px; margin-top: 20px; overflow: hidden; }
+.trend-day { min-width: 0; text-align: center; color: #738097; font-size: 11px; }
+.trend-bar-area { display: flex; align-items: flex-end; justify-content: center; height: 170px; border-bottom: 1px solid #d9e2f0; }
+.trend-bar { width: min(100%, 25px); min-height: 0; border-radius: 5px 5px 0 0; background: linear-gradient(180deg, #7294ee, #315fdb); }
+.trend-day span { display: block; margin-top: 9px; }
+@media (max-width: 720px) { .trend-panel { overflow-x: auto; } }
+.billing-search { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin: 24px 0; }
+.billing-search label { min-width: 160px; margin: 0; font-size: 13px; }
+.billing-search input { height: 38px; margin-top: 6px; }
+.billing-search button { width: auto; min-height: 38px; margin: 0; padding: 0 15px; }
+.billing-search .secondary-button { background: #eef2fc; color: #315fdb; }
+.billing-period { color: #68758a; font-size: 13px; }
+.billing-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 18px 0 25px; }
+.billing-stats > div { min-width: 0; padding: 16px; border-radius: 11px; background: #f6f8fd; }
+.billing-stats span { display: block; color: #68758a; font-size: 13px; }
+.billing-stats strong { display: block; margin-top: 8px; font-size: 20px; overflow-wrap: anywhere; }
+@media (max-width: 720px) { .billing-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
