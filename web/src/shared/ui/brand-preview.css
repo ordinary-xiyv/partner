@@ -1,0 +1,170 @@
+/* 品牌预览：迷你控制台，用于验证主色联动 */
+
+.lynx-brand-preview {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-card);
+}
+
+.lynx-brand-preview__chrome {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 12px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.lynx-brand-preview__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border-hover);
+  flex-shrink: 0;
+}
+
+.lynx-brand-preview__url {
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lynx-brand-preview__body {
+  display: flex;
+  min-height: 168px;
+}
+
+.lynx-brand-preview__sidebar {
+  width: 116px;
+  flex-shrink: 0;
+  padding: 12px 10px;
+  background: var(--bg-base);
+  border-right: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lynx-brand-preview__brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.lynx-brand-preview__brand-name {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lynx-brand-preview__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lynx-brand-preview__nav-item {
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 5px 7px;
+  border-radius: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lynx-brand-preview__nav-item--active {
+  background: var(--accent-primary-rgba-12);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.lynx-brand-preview__main {
+  flex: 1;
+  min-width: 0;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--bg-page);
+}
+
+.lynx-brand-preview__title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lynx-brand-preview__hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+
+.lynx-brand-preview__buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.lynx-brand-preview__btn {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  cursor: default;
+  line-height: 1.5;
+  font-family: inherit;
+}
+
+.lynx-brand-preview__btn--ghost {
+  background: transparent;
+}
+
+.lynx-brand-preview__link {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: default;
+}
+
+.lynx-brand-preview__states {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.lynx-brand-preview__chip {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.lynx-brand-preview__meta {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 7px 12px;
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}

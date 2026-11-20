@@ -1,0 +1,229 @@
+.lynx-login {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  background: var(--bg-page);
+}
+
+/* 左侧品牌区 */
+.lynx-login__brand {
+  position: relative;
+  overflow: hidden;
+  padding: 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: var(--bg-base);
+  border-right: 1px solid var(--border-default);
+}
+
+.lynx-login__brand::before {
+  content: '';
+  position: absolute;
+  width: 520px;
+  height: 520px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-primary-rgba-20, rgba(109, 81, 254, 0.2)) 0%, transparent 68%);
+  top: -160px;
+  left: -120px;
+  pointer-events: none;
+}
+
+.lynx-login__brand::after {
+  content: '';
+  position: absolute;
+  width: 380px;
+  height: 380px;
+  border-radius: 50%;
+  /* 第二层光晕也走品牌色，否则租户换成青绿/琥珀后，
+     右下角仍有一块平台蓝，白标会「漏色」 */
+  background: radial-gradient(circle, var(--accent-primary-rgba-12, rgba(109, 81, 254, 0.12)) 0%, transparent 70%);
+  bottom: -120px;
+  right: -80px;
+  pointer-events: none;
+}
+
+.lynx-login__brand-inner {
+  position: relative;
+  z-index: 1;
+}
+
+.lynx-login__logo-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 64px;
+}
+
+.lynx-login__logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--accent-primary);
+  color: var(--btn-primary-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 19px;
+  letter-spacing: -0.03em;
+}
+
+.lynx-login__logo-text {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.lynx-login__headline {
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1.18;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+  margin-bottom: 18px;
+}
+
+.lynx-login__headline em {
+  font-style: normal;
+  color: var(--accent-text);
+}
+
+.lynx-login__sub {
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--text-secondary);
+  max-width: 420px;
+}
+
+.lynx-login__points {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 44px;
+}
+
+.lynx-login__point {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.lynx-login__point-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  margin-top: 7px;
+  flex-shrink: 0;
+}
+
+.lynx-login__foot {
+  position: relative;
+  z-index: 1;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* 右侧表单区 */
+.lynx-login__panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 40px;
+  background: var(--bg-page);
+}
+
+.lynx-login__form {
+  width: 100%;
+  max-width: 380px;
+}
+
+.lynx-login__form-title {
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.lynx-login__form-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 30px;
+}
+
+.lynx-login__field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 7px;
+}
+
+.lynx-login__field {
+  margin-bottom: 18px;
+}
+
+.lynx-login__hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 16px;
+  line-height: 1.6;
+}
+
+/* 表单下方导航链接：返回首页 / 立即注册 */
+.lynx-login__links {
+  margin-top: 16px;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  text-align: center;
+  line-height: 1.7;
+}
+
+.lynx-login__links a {
+  color: var(--accent-text);
+  text-decoration: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lynx-login__links a:hover {
+  text-decoration: underline;
+}
+
+.lynx-login__mock-tip {
+  margin-top: 22px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+.lynx-login__mock-tip strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* 移动端：隐藏品牌区 */
+@media (max-width: 1023px) {
+  .lynx-login {
+    grid-template-columns: 1fr;
+  }
+
+  .lynx-login__brand {
+    display: none;
+  }
+
+  .lynx-login__panel {
+    padding: 32px 24px;
+    min-height: 100vh;
+  }
+}

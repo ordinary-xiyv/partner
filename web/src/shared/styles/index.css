@@ -1,0 +1,183 @@
+/* ==========================================================================
+   Lynx 经销商体系 · 全局变量
+   来源：lynxtonapi/web/src/index.css（沿用同一套 token 命名，禁止硬编码颜色）
+   ========================================================================== */
+
+:root {
+  --bg-base: #09090b;
+  --bg-elevated: #111113;
+  --bg-card: #18181b;
+  --bg-hover: #1f1f23;
+  --bg-page: #09090b;
+  --bg-inset-panel: var(--bg-hover);
+  --border-default: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.16);
+  --text-primary: #fafafa;
+  --text-secondary: rgba(255, 255, 255, 0.65);
+  --text-tertiary: rgba(255, 255, 255, 0.4);
+  /* --accent-primary 由 theme/brandTokens + applyBrandCss 注入 */
+  /* --accent-text：当文字色用的主色（由 brandTokens 按 AA 4.5 调明度）。
+     color: 一律用这一条，不要用 --accent-primary，否则中亮度品牌色会读不清。 */
+  --accent-text: #8b73ff;
+  --accent-blue: #3b82f6;
+  --accent-purple: #8b5cf6;
+  --btn-primary-text: #fff;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --bp-mobile-max: 767px;
+  --bp-tablet-min: 768px;
+  --bp-tablet-max: 1023px;
+  --bp-desktop-min: 1024px;
+  --sidebar-width: 248px;
+  --header-height: 56px;
+  --chart-grid: rgba(255, 255, 255, 0.08);
+  --chart-bar: var(--accent-blue);
+  --chart-bar-muted: rgba(255, 255, 255, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  width: 100%;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+}
+
+#root {
+  min-height: 100%;
+  background: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 140, 0.28);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 140, 0.45);
+}
+
+/* ===== Ant Design Alert 深色适配 =====
+ * antd 的 Alert 组件 token 里没有暴露背景色（这个版本），
+ * 默认按浅色主题渲染成「浅黄底 + 深字」，放到深色页面上整块发白、
+ * 文字被底色吃掉。这里用属性选择器兜住四种状态的基础色与文字色。
+ */
+body[theme-mode='dark'] .ant-alert,
+html:not([theme-mode='light']) .ant-alert {
+  background: var(--bg-elevated);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+html:not([theme-mode='light']) .ant-alert-warning,
+body[theme-mode='dark'] .ant-alert-warning {
+  background: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.28);
+}
+
+html:not([theme-mode='light']) .ant-alert-info,
+body[theme-mode='dark'] .ant-alert-info {
+  background: rgba(96, 165, 250, 0.1);
+  border-color: rgba(96, 165, 250, 0.28);
+}
+
+html:not([theme-mode='light']) .ant-alert-success,
+body[theme-mode='dark'] .ant-alert-success {
+  background: rgba(52, 211, 153, 0.1);
+  border-color: rgba(52, 211, 153, 0.28);
+}
+
+html:not([theme-mode='light']) .ant-alert-error,
+body[theme-mode='dark'] .ant-alert-error {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.28);
+}
+
+/* 描述文字：默认继承 body 的深色字，深色底上不可读 */
+html:not([theme-mode='light']) .ant-alert .ant-alert-message,
+body[theme-mode='dark'] .ant-alert .ant-alert-message {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+html:not([theme-mode='light']) .ant-alert .ant-alert-description,
+body[theme-mode='dark'] .ant-alert .ant-alert-description {
+  color: var(--text-secondary);
+}
+
+/* ===== Light Theme ===== */
+html[theme-mode='light'],
+body[theme-mode='light'] {
+  --bg-base: #ffffff;
+  --bg-elevated: #f4f4f5;
+  --bg-card: #ffffff;
+  --bg-hover: #f0f0f1;
+  --bg-page: #f9fafc;
+  --bg-inset-panel: #f8fafc;
+  --border-default: rgba(0, 0, 0, 0.1);
+  --border-hover: rgba(0, 0, 0, 0.2);
+  --text-primary: #18181b;
+  --text-secondary: rgba(0, 0, 0, 0.7);
+  --text-tertiary: rgba(0, 0, 0, 0.45);
+  --accent-blue: #2563eb;
+  --accent-purple: #7c3aed;
+  --accent-text: #6d51fe;
+  --btn-primary-text: #fff;
+  --chart-grid: rgba(0, 0, 0, 0.08);
+  --chart-bar-muted: rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+  color: #18181b;
+}
+
+/* ===== 通用文本辅助类 ===== */
+.tx-secondary {
+  color: var(--text-secondary);
+}
+.tx-tertiary {
+  color: var(--text-tertiary);
+}
+.tx-mono {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* ===== Slider 刻度文字 =====
+ * antd 默认把 marks 贴在滑轨下方 0 间距处，刻度文字会被滑轨横线穿过。
+ * 拉开 10px 并降低字重，避免和滑轨打架。
+ */
+.ant-slider .ant-slider-mark {
+  margin-top: 6px;
+}
+
+.ant-slider .ant-slider-mark-text {
+  font-size: 11px !important;
+  color: var(--text-tertiary) !important;
+  white-space: nowrap;
+}
+
+.ant-slider .ant-slider-mark-text-active {
+  color: var(--text-secondary) !important;
+}

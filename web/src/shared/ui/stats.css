@@ -1,0 +1,274 @@
+/* 指标卡 / 图表 / 详情网格的共享样式 */
+
+.lynx-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.lynx-stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg, 16px);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.lynx-stat-card__label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lynx-stat-card__value {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+  line-height: 1.2;
+  word-break: break-all;
+}
+
+.lynx-stat-card__value--sm {
+  font-size: 20px;
+}
+
+.lynx-stat-card__hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.lynx-stat-card__trend {
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.lynx-stat-card__trend--up {
+  color: #f87171;
+}
+
+.lynx-stat-card__trend--down {
+  color: #34d399;
+}
+
+/* ---------- 图表 ---------- */
+.lynx-chart {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg, 16px);
+  padding: 18px 20px;
+  min-width: 0;
+}
+
+.lynx-chart__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.lynx-chart__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.lynx-chart__sub {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.lynx-chart__peak {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg-hover);
+}
+
+.lynx-chart__body {
+  width: 100%;
+  /* 不能 hidden：X 轴日期要允许溢出到柱子宽度之外，否则 30 根柱子时
+     每根只有 17px，而 "10-20" 需要 29px，标签必然被裁成 "1." */
+  overflow: visible;
+}
+
+/* 柱状图 */
+.lynx-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 180px;
+  padding-top: 8px;
+  /* 给底部日期标签留出空间，避免被下方内容压住 */
+  padding-bottom: 20px;
+}
+
+.lynx-bars__col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  justify-content: flex-end;
+  position: relative;
+}
+
+/* 柱顶数值：默认隐藏，hover 时淡入，静态画面保持干净 */
+.lynx-bars__value {
+  font-size: 10px;
+  line-height: 1;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  order: -1;
+}
+
+.lynx-bars__col:hover .lynx-bars__value {
+  opacity: 1;
+}
+
+.lynx-bars__bar {
+  width: 100%;
+  max-width: 34px;
+  border-radius: 4px 4px 2px 2px;
+  background: var(--accent-primary);
+  opacity: 0.85;
+  min-height: 2px;
+  transition: opacity 0.15s ease;
+}
+
+.lynx-bars__col:hover .lynx-bars__bar {
+  opacity: 1;
+}
+
+.lynx-bars__x {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  /* 绝对定位到柱子下方并居中：这样标签不受柱子宽度约束，
+     30 根柱子时也不会被压成 "1."，只是靠 labelStep 隔几根显示一个避免相邻重叠 */
+  position: absolute;
+  bottom: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  line-height: 1;
+  pointer-events: none;
+}
+
+/* 横向排行条 */
+.lynx-ranks {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lynx-ranks__row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.lynx-ranks__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.lynx-ranks__name {
+  color: var(--text-primary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lynx-ranks__value {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.lynx-ranks__track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--chart-bar-muted);
+  overflow: hidden;
+}
+
+.lynx-ranks__fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent-primary);
+  transition: width 0.3s ease;
+}
+
+/* ---------- 详情信息网格 ---------- */
+.lynx-desc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px 24px;
+}
+
+.lynx-desc-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.lynx-desc-item__label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.lynx-desc-item__value {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+  word-break: break-all;
+}
+
+/* 工具栏行 */
+.lynx-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.lynx-toolbar__spacer {
+  flex: 1;
+  min-width: 8px;
+}
+
+/* 页面区块标题 */
+.lynx-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}

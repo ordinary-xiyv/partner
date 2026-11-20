@@ -1,0 +1,45 @@
+/* 页面面板：白卡片叠在灰底页面上（列表页视觉基座） */
+
+.lynx-page-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg, 16px);
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+}
+
+.lynx-page-panel--padded {
+  padding: 20px 24px;
+}
+
+.lynx-page-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lynx-page-panel--flush {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+/* ---------- 表格固定列 ----------
+ * antd 默认靠 box-shadow 给固定列做左侧投影，深色主题下几乎看不见。
+ * 这里补一条 1px 实线分隔，让「固定列从这里开始」一眼可辨；
+ * 不额外加背景色块，避免和表头底色叠加出难看的灰条。
+ */
+.ant-table-cell-fix-right-first {
+  box-shadow: -6px 0 10px -8px rgba(0, 0, 0, 0.5) !important;
+}
+
+.ant-table-tbody .ant-table-cell-fix-right-first::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: var(--border-default);
+  pointer-events: none;
+}
