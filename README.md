@@ -4,6 +4,10 @@
 
 「伙伴」与「经销商」在数据模型上是同一个东西：都指向 `lc_distribution_merchants` 表的一条记录。伙伴登录用的是该表上的 `merchant_code` + `partner_password_hash`，不是 `users` 表的账号。
 
+## Docker 部署
+
+前后端容器及同域反向代理的部署文件位于 [`deploy/`](deploy/README.md)。从仓库构建，复制 `deploy/.env.example` 配置共享数据库与会话密钥，然后在该目录运行 Docker Compose；原平台的部署目录无需参与。
+
 ## 本地运行
 
 先在原项目手工执行伙伴登录 SQL（`202611190001_distribution_merchant_partner_login.up.sql`，以及它依赖的商户表迁移）。平台管理员仍在 admin 后台开通伙伴登录、重置初始密码。
