@@ -6,3 +6,13 @@ dist/
 *.log
 __debug_bin*
 .vscode/
+
+# macOS 文件系统元数据，绝不入库
+.DS_Store
+**/.DS_Store
+
+# 编辑器 / 系统残留
+.idea/
+Thumbs.db
+*.swp
+*.tmp
