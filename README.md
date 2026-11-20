@@ -22,6 +22,8 @@ bun install --frozen-lockfile
 bun run dev
 ```
 
+用 VS Code 打开 `~/partner` 后，可在“运行和调试”中选择 `Partner 后端`、`Partner 前端` 或 `Partner 前后端`。调试后端前先将 `backend/.env.example` 复制为 `backend/.env` 并填入真实的数据库连接与会话密钥；启动前端前先在 `web` 目录执行 `bun install --frozen-lockfile`。从原项目的 VS Code 工作区也可使用 `Launch Partner 后端`、`Web Partner 前端` 和 `Partner 前后端` 启动同一项目。
+
 浏览器打开 `http://127.0.0.1:5176`。Vite 默认代理 `/api/partner` 到 `127.0.0.1:3004`；其他地址用 `PARTNER_API_TARGET` 指定。生产部署时，伙伴前端和伙伴 API 应在同一域名，反向代理 `/api/partner/` 到本服务，其他页面由前端静态服务提供。
 
 ## 接口与隔离

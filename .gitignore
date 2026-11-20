@@ -4,3 +4,5 @@
 node_modules/
 dist/
 *.log
+__debug_bin*
+.vscode/
