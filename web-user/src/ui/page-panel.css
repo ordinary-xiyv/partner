@@ -1,0 +1,17 @@
+.lynx-page-panel {
+  background: var(--bg-card);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg, 16px);
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+}
+
+.lynx-page-panel--padded {
+  padding: 20px 24px;
+}
+
+.lynx-page-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}

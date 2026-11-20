@@ -1,0 +1,460 @@
+/* 令牌管理页 — 布局对齐设计稿，颜色跟站内主题变量 */
+
+.tokens-page {
+  width: 100%;
+}
+
+.tokens-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  box-shadow: 0 16px 40px rgba(30, 37, 64, 0.06);
+  box-sizing: border-box;
+}
+
+.tokens-config {
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.tokens-panel-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.tokens-panel-title h2 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.tokens-panel-title p {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.tokens-config-row {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 50px;
+  padding: 11px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--bg-inset-panel);
+  margin-top: 10px;
+  box-sizing: border-box;
+}
+
+.tokens-config-row--key {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.tokens-config-default {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 11px;
+  border: 1px solid var(--border-default);
+  border-radius: 7px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+}
+
+.tokens-config-default__tag {
+  flex-shrink: 0;
+  color: var(--text-primary);
+}
+
+.tokens-config-default__sep {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.tokens-config-default__name {
+  flex-shrink: 0;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tokens-config-default__key {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.tokens-config-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.tokens-config-value {
+  min-width: 0;
+  color: var(--text-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tokens-copy-btn {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-card);
+  color: var(--theme-color-primary);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.tokens-copy-btn:hover:not(:disabled) {
+  color: var(--theme-color-primary-hover);
+  border-color: var(--theme-color-primary);
+}
+
+.tokens-copy-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tokens-config-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-default);
+}
+
+.tokens-config-footer strong {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.tokens-config-footer .tokens-doc-link {
+  color: var(--theme-color-primary);
+  font-weight: 700;
+  margin-left: 8px;
+}
+
+.tokens-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.tokens-stat-card {
+  min-height: 112px;
+  display: grid;
+  grid-template-columns: 58px 1fr;
+  gap: 16px;
+  align-items: center;
+  padding: 18px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--bg-card);
+  box-shadow: 0 10px 26px rgba(30, 37, 64, 0.04);
+  box-sizing: border-box;
+}
+
+.tokens-stat-icon {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--theme-color-primary-light-default);
+}
+
+.tokens-stat-icon img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  display: block;
+}
+
+.tokens-stat-card:nth-child(2) .tokens-stat-icon {
+  background: rgb(from var(--theme-color-info, #2f8cff) r g b / 0.12);
+}
+
+.tokens-stat-card:nth-child(3) .tokens-stat-icon {
+  background: rgb(from var(--theme-color-warning, #f59e0b) r g b / 0.14);
+}
+
+.tokens-stat-card:nth-child(4) .tokens-stat-icon {
+  color: var(--theme-color-success, #18a56f);
+  background: var(--theme-color-success-light-default, #eaf8f1);
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.tokens-stat-card .tokens-stat-label {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.tokens-stat-card .tokens-stat-value {
+  margin-top: 8px;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--text-primary);
+}
+
+.tokens-stat-card .tokens-stat-desc {
+  margin-top: 7px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.tokens-table-panel {
+  padding: 18px;
+}
+
+.tokens-table-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.tokens-table-toolbar .tokens-panel-title {
+  margin: 0;
+}
+
+.tokens-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tokens-key-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tokens-key-name__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.tokens-key-name b {
+  display: block;
+  min-width: 0;
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tokens-key-name__meta {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+/* 与顶部「即将到期」统计卡同色（theme-color-warning） */
+.tokens-expiring-tag {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--theme-color-warning, #b56a00);
+  background: rgb(from var(--theme-color-warning, #f59e0b) r g b / 0.14);
+}
+
+.tokens-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--text-primary);
+  font-size: 13px;
+  /* 掩码固定 21 字符，宽屏变窄时不允许折行，否则整行被撑高 */
+  white-space: nowrap;
+}
+
+.tokens-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tokens-status__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.tokens-status--on {
+  color: var(--theme-color-success, #138a5b);
+  background: var(--theme-color-success-light-default, #eaf8f1);
+}
+
+.tokens-status--expired {
+  color: var(--theme-color-danger, #e5484d);
+  background: rgb(from var(--theme-color-danger, #e5484d) r g b / 0.12);
+}
+
+.tokens-status--disabled,
+.tokens-status--exhausted,
+.tokens-status--unknown {
+  color: #60687a;
+  background: rgb(from var(--text-primary) r g b / 0.06);
+}
+
+.tokens-usage b {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tokens-mini-meter {
+  height: 4px;
+  width: 94px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: rgb(from var(--text-primary) r g b / 0.08);
+  overflow: hidden;
+}
+
+.tokens-mini-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--theme-color-primary);
+}
+
+.tokens-actions-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+
+.tokens-link {
+  color: var(--theme-color-primary);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0;
+  height: auto;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  /* 文案（如「复制」）不允许折成两行；父级 flex 空间不足时优先让等宽文本区收缩 */
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tokens-link:hover {
+  color: var(--theme-color-primary-hover);
+}
+
+.tokens-link--danger {
+  color: var(--theme-color-danger, #e5484d);
+}
+
+.tokens-link--danger:hover {
+  color: var(--theme-color-danger, #e5484d);
+  opacity: 0.85;
+}
+
+.tokens-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding-top: 12px;
+}
+
+.tokens-table-panel .ant-table {
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tokens-table-panel .ant-table-thead > tr > th {
+  background: rgb(from var(--text-primary) r g b / 0.03) !important;
+  color: var(--text-secondary) !important;
+  font-weight: 700 !important;
+  font-size: 13px;
+}
+
+.tokens-table-panel .ant-table-tbody > tr > td {
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+@media (max-width: 960px) {
+  .tokens-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .tokens-config-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .tokens-config-row--key {
+    grid-template-columns: 1fr;
+  }
+}

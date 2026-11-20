@@ -1,0 +1,166 @@
+.billing-detail-panel.lynx-page-panel {
+  border-top: none;
+}
+
+.billing-detail-panel__header {
+  position: relative;
+  padding: 32px 32px 28px;
+  min-height: 176px;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: var(--bg-card);
+}
+
+.billing-detail-panel__header-main {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 116px;
+  max-width: min(520px, 58%);
+}
+
+/* 原图贴右、完整显示，避免 cover 裁切上下 */
+.billing-detail-panel__header-decor-wrap {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: min(580px, 58%);
+  max-width: 58%;
+  pointer-events: none;
+}
+
+.billing-detail-panel__header-decor {
+  display: block;
+  height: 108%;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  object-position: right center;
+  transform: scale(1.06);
+  transform-origin: right center;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* 图标高度 ≈ 标题 + 说明（含行距），间距约为图标宽 1/3 */
+.billing-detail-panel__intro {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.billing-detail-panel__intro-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.billing-detail-panel__title-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+}
+
+.billing-detail-panel__title-icon img {
+  display: block;
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+}
+
+.billing-detail-panel__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.billing-detail-panel__header .billing-detail-panel__desc.ant-typography {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary) !important;
+}
+
+.billing-detail-panel__filters {
+  margin-top: 16px;
+  padding-bottom: 0;
+}
+
+.billing-detail-panel__body {
+  padding: 4px 20px 20px;
+}
+
+/* 去掉 Tabs 下方两条灰色分割线，保留紫色指示条 */
+.billing-detail-tabs.ant-tabs > .ant-tabs-nav::before {
+  border-bottom: none;
+}
+
+.billing-detail-tabs.ant-tabs > .ant-tabs-nav {
+  margin-bottom: 0;
+}
+
+.billing-detail-tabs.ant-tabs > .ant-tabs-content-holder {
+  border-top: none;
+}
+
+.billing-detail-tabs.ant-tabs .ant-tabs-tab-btn {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.billing-detail-tabs.ant-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--theme-color-primary);
+  font-weight: 600;
+}
+
+.billing-detail-tabs.ant-tabs .ant-tabs-ink-bar {
+  background: var(--theme-color-primary);
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+}
+
+.billing-detail-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 12px 0 16px;
+}
+
+.billing-detail-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .billing-detail-panel__header {
+    min-height: 0;
+    padding: 24px 20px 20px;
+  }
+
+  .billing-detail-panel__header-main {
+    min-height: 0;
+    max-width: 100%;
+  }
+
+  .billing-detail-panel__header-decor-wrap {
+    width: min(280px, 55%);
+    opacity: 0.4;
+  }
+}

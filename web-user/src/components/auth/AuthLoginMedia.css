@@ -1,0 +1,61 @@
+/* 登录页左栏媒体面板（容器圆角在 AuthModal.css 的 .auth-modal-brand 上） */
+
+.auth-login-media {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 24px;
+}
+
+.auth-login-media__img,
+.auth-login-media__poster,
+.auth-login-media__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 24px;
+}
+
+.auth-login-media__poster {
+  z-index: 0;
+}
+
+.auth-login-media__video {
+  z-index: 1;
+  transition: opacity 0.5s ease;
+}
+
+/* 视频缓冲期遮罩：与面板同底（--bg-base），居中标出项目通用 loading。
+   z-index 高于 poster 与 video，保证加载期只看到转圈而不是半张糊图；
+   常驻挂载、仅切透明度，避免视频淡入时遮罩闪现。 */
+.auth-login-media__loading {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 24px;
+  background: var(--bg-base);
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+/* 淡出后不该再拦截任何点击事件（loading 就绪后容器仍在 DOM 里） */
+.auth-login-media__loading[aria-hidden='true'] {
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-login-media__video {
+    display: none;
+  }
+
+  .auth-login-media__loading {
+    display: none;
+  }
+}

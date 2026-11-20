@@ -1,0 +1,205 @@
+@import './ui/list-page.css';
+@import './ui/interactive-card.css';
+@import './ui/selectable-item.css';
+
+/* ===== Global Variables — OpenRouter-inspired Dark Theme ===== */
+
+:root {
+  --bg-base: #09090b;
+  --bg-elevated: #111113;
+  --bg-card: #18181b;
+  --bg-hover: #1f1f23;
+  --bg-page: #09090b;
+  --bg-inset-panel: var(--bg-hover);
+  --border-default: rgba(255,255,255,0.08);
+  --border-hover: rgba(255,255,255,0.16);
+  --text-primary: #fafafa;
+  --text-secondary: rgba(255,255,255,0.65);
+  --text-tertiary: rgba(255,255,255,0.40);
+  /* --accent-primary / --theme-color-primary* / --app-item-selected-* 由 `theme/brandTokens` + `applyBrandCSSVariables` 注入 body */
+  --accent-blue: #3b82f6;
+  --accent-purple: #8b5cf6;
+  /* 消费趋势图：异常高峰顶标（暗黑默认） */
+  --dash-chart-outlier-fill: #fde047;
+  --dash-chart-outlier-stroke: #facc15;
+  --btn-primary-text: #fff;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --bp-mobile-max: 767px;
+  --bp-tablet-min: 768px;
+  --bp-tablet-max: 1023px;
+  --bp-desktop-min: 1024px;
+  --touch-target-min: 44px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* scrollbar-gutter 不在 html 全局启用（会在全站右侧露出竖条）。
+ * 按需：MainLayout `.layout-main`（非 chat 路由）、chat-page / model-picker 内部滚动容器。 */
+
+html {
+  background: var(--bg-base);
+  overflow-x: clip;
+  max-width: 100%;
+  /* 文档级滚动条隐藏，避免右侧常驻 6px 竖条；内部容器仍用下方 ::-webkit-scrollbar */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+}
+
+html,
+body {
+  width: 100%;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+}
+
+#root {
+  min-height: 100%;
+  background: inherit;
+}
+
+/* Scrollbar — 内部滚动容器 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+/* ===== Light Theme ===== */
+html[theme-mode="light"],
+body[theme-mode="light"] {
+  --bg-base: #ffffff;
+  --bg-elevated: #f4f4f5;
+  --bg-card: #ffffff;
+  --bg-hover: #f0f0f1;
+  --bg-page: #F9FAFC;
+  --bg-inset-panel: #f8fafc;
+  --border-default: rgba(0,0,0,0.10);
+  --border-hover: rgba(0,0,0,0.20);
+  --text-primary: #18181b;
+  --text-secondary: rgba(0,0,0,0.70);
+  --text-tertiary: rgba(0,0,0,0.45);
+  --accent-blue: #2563eb;
+  --accent-purple: #7c3aed;
+  --dash-chart-outlier-fill: #facc15;
+  --dash-chart-outlier-stroke: #ca8a04;
+  --btn-primary-text: #fff;
+  background: #ffffff;
+  color: #18181b;
+}
+
+/* Light theme: extended tokens (align with theme-dark.css) */
+html[theme-mode="light"],
+body[theme-mode="light"] {
+  --theme-color-bg-0: #ffffff;
+  --theme-color-bg-1: #f4f4f5;
+  --theme-color-bg-2: #e4e4e7;
+  --theme-color-bg-3: #d4d4d8;
+  --theme-color-bg-4: #a1a1aa;
+  --theme-color-fill-0: rgba(0,0,0,0.04);
+  --theme-color-fill-1: rgba(0,0,0,0.06);
+  --theme-color-fill-2: rgba(0,0,0,0.08);
+  --theme-color-text-0: #18181b;
+  --theme-color-text-1: rgba(0,0,0,0.7);
+  --theme-color-text-2: rgba(0,0,0,0.55);
+  --theme-color-text-3: rgba(0,0,0,0.40);
+  --theme-color-border: rgba(0,0,0,0.1);
+  --theme-color-danger: #dc2626;
+  --theme-color-warning: #d97706;
+  --theme-color-success: #16a34a;
+  --theme-color-success-light-default: rgba(22,163,74,0.12);
+  --theme-color-success-light-hover: rgba(22,163,74,0.2);
+  --theme-color-info: #2563eb;
+  --theme-shadow-elevated: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+
+/* Modal overlay and shadow */
+:root {
+  --shadow-modal: 0 40px 100px rgba(0,0,0,0.5);
+  --overlay-bg: rgba(0,0,0,0.5);
+  /* 全局 message：高于 AuthModal(10050)、模型选择器(10051) 等顶层浮层 */
+  --z-index-message: 10100;
+  
+}
+body[theme-mode="light"] {
+  --shadow-modal: 0 20px 60px rgba(0,0,0,0.15);
+  --overlay-bg: rgba(0,0,0,0.35);
+}
+
+body[theme-mode="light"] ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); }
+
+/* Ant Design Message — align with theme tokens, constrain long API text */
+.ant-message {
+  z-index: var(--z-index-message) !important;
+  max-width: min(520px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.ant-message .ant-message-notice {
+  max-width: 100%;
+  pointer-events: auto;
+}
+.ant-message-notice-content {
+  background: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-default);
+  box-shadow: var(--theme-shadow-elevated, 0 4px 20px rgba(0, 0, 0, 0.15));
+  max-width: 100%;
+  align-items: flex-start !important;
+}
+.ant-message-notice-content .anticon {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+.ant-message .anticon {
+  color: inherit;
+}
+
+/* 图片全屏预览：加深遮罩，缩小图区；footer 才是 1/1 与缩放条（antd 5.29 为 fixed） */
+.ant-image-preview-root .ant-image-preview-mask {
+  background: rgba(0, 0, 0, 0.78);
+}
+.ant-image-preview-root .ant-image-preview-img {
+  max-width: min(64vw, 640px);
+  max-height: min(52vh, 480px);
+}
+.ant-image-preview-footer {
+  bottom: 88px !important;
+}
+
+.lynx-message-bubble {
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  text-align: left;
+  max-height: 8.5em;
+  overflow-y: auto;
+}

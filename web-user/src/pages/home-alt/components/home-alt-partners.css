@@ -1,0 +1,175 @@
+.home-alt-partners {
+  --home-alt-partners-pad-x: clamp(16px, 6.46vw, 124px);
+  --home-alt-partners-ink: var(--home-alt-ink, #111827);
+  --home-alt-partners-type: "PingFang SC", "PingFangSC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --marquee-brand-name-color: var(--home-alt-partner-name, #7a8ba9);
+  --marquee-duration: 32s;
+  --marquee-logo-size: clamp(28px, 2.71vw, 52px);
+  --marquee-name-size: clamp(11px, 1.04vw, 20px);
+  --marquee-item-gap: clamp(4px, 0.63vw, 12px);
+  --marquee-item-pad-inline: clamp(2px, 0.21vw, 4px);
+  --marquee-row-gap: clamp(16px, 1.46vw, 28px);
+  --marquee-row-min-h: clamp(36px, 2.92vw, 56px);
+  --marquee-fade-band: clamp(2%, 1.2vw, 6%);
+  position: relative;
+  z-index: 1;
+  overflow-x: clip;
+  background: var(--home-alt-page-bg, #f8faff);
+}
+
+.home-alt-partners .home-alt-partners__container.home-section-container {
+  max-width: 1920px;
+  padding-top: clamp(40px, 3.75vw, 72px);
+  padding-bottom: clamp(40px, 3.75vw, 72px);
+  padding-left: var(--home-alt-partners-pad-x);
+  padding-right: var(--home-alt-partners-pad-x);
+}
+
+.home-alt-partners__head {
+  margin: 0 auto clamp(32px, 3vw, 48px);
+  max-width: 48em;
+  text-align: center;
+}
+
+.home-alt-partners__title {
+  margin: 0 0 12px;
+  font-family: var(--home-alt-partners-type);
+  font-size: clamp(24px, 2.08vw, 40px);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--home-alt-partners-ink);
+}
+
+.home-alt-partners__subtitle {
+  margin: 0;
+  font-family: var(--home-alt-partners-type);
+  font-size: clamp(14px, 0.94vw, 18px);
+  font-weight: 400;
+  line-height: 1.65;
+  color: var(--home-alt-muted, #667085);
+}
+
+.home-alt-partners__rows {
+  display: grid;
+  gap: var(--marquee-row-gap);
+  width: 100%;
+}
+
+.home-alt-partners__row {
+  --marquee-visible-count: 4;
+  width: 100%;
+  min-height: var(--marquee-row-min-h);
+}
+
+.home-alt-partners__viewport {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    #000 var(--marquee-fade-band),
+    #000 calc(100% - var(--marquee-fade-band)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    #000 var(--marquee-fade-band),
+    #000 calc(100% - var(--marquee-fade-band)),
+    transparent 100%
+  );
+}
+
+.home-alt-partners__track {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  width: 200%;
+  min-width: 200%;
+  max-width: 200%;
+  will-change: transform;
+}
+
+.home-alt-partners__track--rtl {
+  animation: home-alt-partners-flow-rtl var(--marquee-duration) linear infinite;
+}
+
+.home-alt-partners__track--ltr {
+  animation: home-alt-partners-flow-ltr var(--marquee-duration) linear infinite;
+}
+
+@keyframes home-alt-partners-flow-rtl {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes home-alt-partners-flow-ltr {
+  from {
+    transform: translate3d(-50%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.home-alt-partners__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--marquee-item-gap);
+  flex: 0 0 calc(100% / (var(--marquee-visible-count) * 2));
+  width: calc(100% / (var(--marquee-visible-count) * 2));
+  max-width: calc(100% / (var(--marquee-visible-count) * 2));
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0 var(--marquee-item-pad-inline);
+  overflow: hidden;
+}
+
+.home-alt-partners__logo {
+  flex: none;
+  width: var(--marquee-logo-size);
+  height: var(--marquee-logo-size);
+  border-radius: 50%;
+  object-fit: cover;
+  background: none;
+  border: none;
+}
+
+.home-alt-partners__logo--fallback {
+  display: inline-block;
+  background: none;
+}
+
+.home-alt-partners__name {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: var(--marquee-name-size);
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--marquee-brand-name-color);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-alt-partners__viewport {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .home-alt-partners__track--rtl,
+  .home-alt-partners__track--ltr {
+    animation: none;
+    transform: translate3d(0, 0, 0);
+  }
+}

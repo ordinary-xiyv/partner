@@ -1,0 +1,61 @@
+.quota-adjust-drawer__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.quota-adjust-drawer__fields .ant-form-item {
+  margin-bottom: 8px;
+}
+
+.quota-adjust-drawer__fields .ant-form-item:last-child {
+  margin-bottom: 0;
+}
+
+.quota-adjust-drawer__fields .ant-form-item-label {
+  padding-bottom: 4px;
+}
+
+.quota-adjust-drawer__summary-card {
+  margin-bottom: 0;
+}
+
+.quota-adjust-drawer__preview-rows {
+  display: grid;
+  gap: 10px;
+}
+
+.quota-adjust-drawer__preview-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.quota-adjust-drawer__preview-value {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+.quota-adjust-drawer__preview-value--delta-add {
+  color: var(--accent-green, #16a34a);
+}
+
+.quota-adjust-drawer__preview-value--delta-sub {
+  color: var(--accent-red, #ef4444);
+}
+
+.quota-adjust-drawer__hint {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}
+
+.quota-adjust-drawer__hint-icon {
+  margin-top: 2px;
+  flex-shrink: 0;
+}

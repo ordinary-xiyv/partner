@@ -1,0 +1,150 @@
+/* List / admin pages — gray canvas + white panels (see STYLE_GUIDE.md) */
+
+.layout-main {
+  background: var(--bg-page);
+  min-height: 100%;
+  scrollbar-gutter: stable;
+}
+
+.lynx-section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.lynx-section-desc {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.lynx-list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.lynx-list-toolbar--in-panel {
+  margin-bottom: 0;
+}
+
+/* 主内容区列表表格：统一 13px（覆盖 Table size="small" 的 12px） */
+.layout-main .ant-table-wrapper .ant-table-cell,
+.layout-main .ant-table-wrapper .ant-table-thead > tr > th {
+  font-size: 13px;
+}
+
+.layout-main .ant-list-sm .ant-list-item {
+  font-size: 13px;
+}
+
+.layout-main .ant-descriptions-small .ant-descriptions-item-label,
+.layout-main .ant-descriptions-small .ant-descriptions-item-content {
+  font-size: 13px;
+}
+
+.layout-main .ant-card-small > .ant-card-head .ant-card-head-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.layout-main .ant-list .ant-list-item,
+.layout-main .ant-list .ant-list-item-meta-title,
+.layout-main .ant-list .ant-list-item-meta-description {
+  font-size: 13px;
+}
+
+.layout-main .ant-tabs-tab-btn {
+  font-size: 13px;
+}
+
+/* 管理后台：可编辑控件白底（勿把 --bg-elevated 用在输入/筛选上） */
+/* 排除 .ant-select-selection-search-input：showSearch 的 Select 靠透明 input 叠在 placeholder 上，上白底会盖住占位符 */
+.layout-main input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='button']):not([type='submit']):not([type='reset']):not(.ant-select-selection-search-input),
+.layout-main textarea,
+.layout-main select {
+  background-color: var(--bg-card);
+}
+
+.layout-main .lynx-page-panel input:not([type='checkbox']):not([type='radio']):not([type='range']):not(.ant-select-selection-search-input),
+.layout-main .lynx-page-panel textarea,
+.layout-main .lynx-page-panel select {
+  background-color: var(--bg-card);
+}
+
+.layout-main .ant-input,
+.layout-main .ant-input-affix-wrapper,
+.layout-main .ant-input-number,
+.layout-main .ant-input-number-input,
+.layout-main .ant-select-selector,
+.layout-main .ant-picker,
+.layout-main textarea.ant-input {
+  background-color: var(--bg-card) !important;
+}
+
+.layout-main .ant-input[disabled],
+.layout-main .ant-input-affix-wrapper-disabled,
+.layout-main .ant-select-disabled .ant-select-selector,
+.layout-main .ant-input-number-disabled {
+  background-color: var(--bg-hover) !important;
+}
+
+/* Modal / Drawer 挂到 body，不在 .layout-main 内 */
+.ant-modal-root .ant-input,
+.ant-modal-root .ant-input-affix-wrapper,
+.ant-modal-root textarea.ant-input,
+.ant-modal-root .ant-select-selector,
+.ant-modal-root .ant-input-number-input,
+.ant-drawer .ant-input,
+.ant-drawer .ant-input-affix-wrapper,
+.ant-drawer textarea.ant-input {
+  background-color: var(--bg-card) !important;
+}
+
+/* 未选中筛选 pill：白底 + 边框（替代灰底 elevated） */
+.layout-main .lynx-filter-chip--inactive {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-default);
+  color: var(--text-tertiary);
+}
+
+/* 操作列统一不固定，随表格横向滚动 */
+.layout-main .ant-table-wrapper .ant-table-cell-fix-right,
+.layout-main .ant-table-wrapper .ant-table-cell-fix-left,
+.layout-main .ant-table-wrapper .ant-table-cell-fix-sticky {
+  position: static !important;
+  z-index: auto !important;
+}
+
+.layout-main .ant-table-wrapper .ant-table-cell-fix-right-first::after,
+.layout-main .ant-table-wrapper .ant-table-cell-fix-right-last::after,
+.layout-main .ant-table-wrapper .ant-table-cell-fix-left-last::after {
+  box-shadow: none !important;
+}
+
+/* 操作列表头：列设置齿轮靠右 */
+.lynx-table-col-settings-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.lynx-table-col-settings-title__control .lynx-table-column-settings-trigger {
+  color: var(--text-tertiary);
+}
+
+.lynx-table-col-settings-title__control .lynx-table-column-settings-trigger:hover {
+  color: var(--theme-color-primary, var(--ant-color-primary));
+}
+
+/* 操作列文字按钮：收紧 padding，贴近图1 */
+.lynx-table-row-actions .ant-btn-link {
+  padding-inline: 4px;
+  height: auto;
+}

@@ -1,0 +1,77 @@
+/**
+ * 可交互卡片：默认透明边框（视觉无边框、hover 不抖动），悬停/聚焦显示阴影与轻微上浮。
+ * 用于 ModelCard、PlanOfferCard、Dashboard 指标卡、antd Card.hoverable 等。
+ */
+
+.lynx-interactive-card {
+  border: 1px solid transparent;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.lynx-interactive-card:hover,
+.lynx-interactive-card:focus-visible,
+.lynx-interactive-card:has(:focus-visible),
+.lynx-interactive-card--hovered {
+  border-color: transparent;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+body[theme-mode='dark'] .lynx-interactive-card:hover,
+body[theme-mode='dark'] .lynx-interactive-card:focus-visible,
+body[theme-mode='dark'] .lynx-interactive-card:has(:focus-visible),
+body[theme-mode='dark'] .lynx-interactive-card--hovered {
+  border-color: transparent;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.32);
+}
+
+.lynx-interactive-card--disabled,
+.lynx-interactive-card--disabled:hover,
+.lynx-interactive-card--disabled:focus-visible,
+.lynx-interactive-card--disabled:has(:focus-visible),
+.lynx-interactive-card--disabled.lynx-interactive-card--hovered {
+  opacity: 0.55;
+  cursor: not-allowed;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* antd Card.hoverable / outlined */
+.ant-card.lynx-interactive-card {
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease !important;
+}
+
+.ant-card.lynx-interactive-card:hover,
+.ant-card.lynx-interactive-card:focus-visible,
+.ant-card.lynx-interactive-card:has(:focus-visible),
+.ant-card.lynx-interactive-card.lynx-interactive-card--hovered {
+  border-color: transparent !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1) !important;
+  transform: translateY(-1px);
+}
+
+body[theme-mode='dark'] .ant-card.lynx-interactive-card:hover,
+body[theme-mode='dark'] .ant-card.lynx-interactive-card:focus-visible,
+body[theme-mode='dark'] .ant-card.lynx-interactive-card:has(:focus-visible),
+body[theme-mode='dark'] .ant-card.lynx-interactive-card.lynx-interactive-card--hovered {
+  border-color: transparent !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.32) !important;
+}
+
+/* 覆盖 antd hoverable 默认描边/阴影 */
+.ant-card.lynx-interactive-card.ant-card-hoverable:hover {
+  border-color: transparent !important;
+}
+
+body[theme-mode='dark'] .ant-card.lynx-interactive-card.ant-card-hoverable:hover {
+  border-color: transparent !important;
+}

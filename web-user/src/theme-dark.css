@@ -1,0 +1,34 @@
+/* Dark theme: app-level CSS variables + body colors (non-Ant tokens for legacy layout) */
+
+html[theme-mode="dark"],
+html:not([theme-mode="light"]),
+body[theme-mode="dark"],
+body:not([theme-mode="light"]) {
+  --theme-color-bg-0: #09090b;
+  --theme-color-bg-1: #111113;
+  --theme-color-bg-2: #18181b;
+  --theme-color-bg-3: #1f1f23;
+  --theme-color-bg-4: #27272a;
+  --theme-color-fill-0: rgba(255,255,255,0.04);
+  --theme-color-fill-1: rgba(255,255,255,0.06);
+  --theme-color-fill-2: rgba(255,255,255,0.08);
+  --theme-color-text-0: #fafafa;
+  --theme-color-text-1: rgba(255,255,255,0.7);
+  --theme-color-text-2: rgba(255,255,255,0.5);
+  --theme-color-text-3: rgba(255,255,255,0.40);
+  --theme-color-border: rgba(255,255,255,0.08);
+  --theme-color-danger: #f87171;
+  --theme-color-warning: #fbbf24;
+  --theme-color-success: #34d399;
+  --theme-color-success-light-default: rgba(52,211,153,0.12);
+  --theme-color-success-light-hover: rgba(52,211,153,0.2);
+  --theme-color-info: #60a5fa;
+  --theme-shadow-elevated: 0 8px 40px rgba(0,0,0,0.5);
+  background: #09090b;
+  color: #fafafa;
+}
+
+body[theme-mode="dark"] ::-webkit-scrollbar-thumb,
+body:not([theme-mode="light"]) ::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+}

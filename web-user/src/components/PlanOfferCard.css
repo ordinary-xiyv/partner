@@ -1,0 +1,43 @@
+/* 套餐卡片：复用 lynx-interactive-card 悬停描边/阴影 */
+.plan-offer-card.ant-card.lynx-interactive-card {
+  background: var(--bg-card) !important;
+}
+
+/* 订阅页套餐网格：窄屏单列，避免挤压 */
+.plan-offer-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+}
+
+@media (max-width: 480px) {
+  .plan-offer-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+/* 弹窗内三列：超窄时纵向堆叠 */
+.plan-offer-modal-details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 420px) {
+  .plan-offer-modal-details {
+    grid-template-columns: 1fr;
+  }
+}
+
+.plan-offer-modal-price {
+  font-size: clamp(1.25rem, 5vw, 1.875rem);
+}
+
+/* 价格数字随屏宽略缩放，避免小屏溢出 */
+.plan-offer-card__price-main {
+  font-size: clamp(1.35rem, 4.5vw, 2rem);
+  font-weight: 900;
+  color: var(--theme-color-primary);
+  line-height: 1.1;
+}

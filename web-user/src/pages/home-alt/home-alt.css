@@ -1,0 +1,186 @@
+html.home-alt-page {
+  overscroll-behavior-y: none;
+  --home-alt-page-bg: #f8faff;
+  --home-alt-ink: #111827;
+  --home-alt-ink-strong: #000;
+  --home-alt-muted: #667085;
+  --home-alt-muted-2: #6b7280;
+  --home-alt-card: #fff;
+  --home-alt-card-2: #f5f7ff;
+  --home-alt-line: #e8ecf2;
+  --home-alt-accent: #6d51ff;
+  --home-alt-tag-bg: #ebe7ff;
+  --home-alt-legal: rgb(0 0 0 / 0.8);
+  --home-alt-card-shadow: 0 8px 28px rgb(80 90 160 / 0.08);
+  --home-alt-card-shadow-hover: 0 22px 48px rgb(80 90 160 / 0.16);
+  --home-alt-manage-card-bg: linear-gradient(to left, #f3f7ff 0%, #fff 58%);
+  --home-alt-visual-bg: linear-gradient(135deg, #e8f1ff 0%, #eee8ff 100%);
+  --home-alt-btn-secondary-bg: #fff;
+  --home-alt-btn-secondary-border: #d9dee8;
+  --home-alt-btn-secondary-color: #111827;
+  --home-alt-btn-secondary-accent: #795cff;
+  --home-alt-hero-glow-a: rgba(207, 222, 255, 0.78);
+  --home-alt-hero-glow-b: rgba(220, 217, 255, 0.58);
+  --home-alt-eyebrow-bg: rgb(255 255 255 / 0.68);
+  --home-alt-eyebrow-color: #6256d8;
+  --home-alt-eyebrow-border: rgb(104 91 255 / 0.16);
+  --home-alt-hero-secondary-bg: rgb(255 255 255 / 0.9);
+  --home-alt-hero-secondary-color: #4a35ca;
+  --home-alt-hero-secondary-border: rgb(91 76 196 / 0.14);
+  --home-alt-cta-desc: #4b5563;
+  --home-alt-cta-veil: transparent;
+  --home-alt-partner-name: #7a8ba9;
+  --home-alt-chrome-dot: #c5cef5;
+  --home-alt-chrome-border: rgb(180 190 220 / 0.18);
+  --home-alt-card-border: #e8eaf2;
+  --home-alt-mix-base: #fff;
+  --home-alt-status-bg: rgb(255 255 255 / 0.92);
+  --home-alt-skeleton: linear-gradient(90deg, #eef1f8 25%, #f7f8fc 50%, #eef1f8 75%);
+  --home-alt-map-dot: #aaa3ff;
+}
+
+html.home-alt-page[theme-mode='dark'] {
+  --home-alt-page-bg: #0b0d14;
+  --home-alt-ink: #f4f4f5;
+  --home-alt-ink-strong: #fafafa;
+  --home-alt-muted: rgb(255 255 255 / 0.62);
+  --home-alt-muted-2: rgb(255 255 255 / 0.55);
+  --home-alt-card: #18181b;
+  --home-alt-card-2: #1c1e28;
+  --home-alt-line: rgb(255 255 255 / 0.1);
+  --home-alt-accent: #6d51ff;
+  --home-alt-tag-bg: rgb(109 81 255 / 0.22);
+  --home-alt-legal: rgb(255 255 255 / 0.7);
+  --home-alt-card-shadow: 0 8px 28px rgb(0 0 0 / 0.35);
+  --home-alt-card-shadow-hover: 0 22px 48px rgb(0 0 0 / 0.45);
+  --home-alt-manage-card-bg: linear-gradient(to left, #1a1d28 0%, #18181b 58%);
+  --home-alt-visual-bg: linear-gradient(135deg, #16182a 0%, #1a1630 100%);
+  --home-alt-btn-secondary-bg: rgb(255 255 255 / 0.06);
+  --home-alt-btn-secondary-border: rgb(255 255 255 / 0.16);
+  --home-alt-btn-secondary-color: #e4e4e7;
+  --home-alt-btn-secondary-accent: #c4b8ff;
+  --home-alt-hero-glow-a: rgba(88, 110, 255, 0.28);
+  --home-alt-hero-glow-b: rgba(120, 90, 255, 0.22);
+  --home-alt-eyebrow-bg: rgb(255 255 255 / 0.08);
+  --home-alt-eyebrow-color: #c4b8ff;
+  --home-alt-eyebrow-border: rgb(139 124 255 / 0.28);
+  --home-alt-hero-secondary-bg: rgb(255 255 255 / 0.08);
+  --home-alt-hero-secondary-color: #c4b8ff;
+  --home-alt-hero-secondary-border: rgb(139 124 255 / 0.28);
+  --home-alt-cta-desc: rgb(255 255 255 / 0.62);
+  --home-alt-cta-veil: rgb(9 9 11 / 0.48);
+  --home-alt-partner-name: rgb(255 255 255 / 0.55);
+  --home-alt-chrome-dot: #4a4d66;
+  --home-alt-chrome-border: rgb(255 255 255 / 0.08);
+  --home-alt-card-border: rgb(255 255 255 / 0.1);
+  --home-alt-mix-base: #18181b;
+  --home-alt-status-bg: rgb(24 24 27 / 0.92);
+  --home-alt-skeleton: linear-gradient(90deg, #1f1f23 25%, #27272a 50%, #1f1f23 75%);
+  --home-alt-map-dot: #b8b2ff;
+}
+
+html.home-alt-page,
+html.home-alt-page body,
+html.home-alt-page #root {
+  background:
+    radial-gradient(ellipse 90% 48% at 50% -6%, var(--home-alt-hero-glow-a), transparent 72%),
+    radial-gradient(ellipse 70% 40% at 82% 0%, var(--home-alt-hero-glow-b), transparent 68%),
+    var(--home-alt-page-bg);
+}
+
+html.home-alt-page[theme-mode='dark'],
+html.home-alt-page[theme-mode='dark'] body,
+html.home-alt-page[theme-mode='dark'] #root {
+  background:
+    radial-gradient(ellipse 52% 40% at 8% -8%, var(--home-alt-hero-glow-a), transparent 72%),
+    radial-gradient(ellipse 52% 40% at 92% -8%, var(--home-alt-hero-glow-b), transparent 72%),
+    var(--home-alt-page-bg);
+}
+
+.home-alt-shell {
+  --home-alt-radius: 8px;
+  --home-alt-font: "Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  position: relative;
+  min-height: 100vh;
+  overflow-x: hidden;
+  color: var(--home-alt-ink);
+  background: var(--home-alt-page-bg);
+  font-family: var(--home-alt-font);
+}
+
+html.home-alt-page header.app-header--scroll-driven {
+  z-index: 1000;
+}
+
+.home-alt-hero-region {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  overflow-x: hidden;
+  padding: 0;
+  background: var(--home-alt-page-bg);
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.home-alt-shell .home-section-hero-title.ant-typography,
+.home-alt-shell .home-section-hero-title__accent,
+.home-alt-shell .home-section-hero-title__rest {
+  font-family: var(--home-alt-font) !important;
+  font-size: clamp(28px, 3.2vw, 40px) !important;
+  letter-spacing: -0.04em;
+}
+
+.home-alt-shell .home-section-hero-title__accent {
+  background: none !important;
+  color: var(--theme-color-primary) !important;
+  -webkit-background-clip: unset;
+  background-clip: unset;
+}
+
+.home-alt-shell .home-section-lead-desc,
+.home-alt-shell .home-section-lead-desc.ant-typography {
+  font-family: var(--home-alt-font) !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 1.65 !important;
+  color: var(--text-secondary) !important;
+  white-space: normal !important;
+  max-width: 40em !important;
+}
+
+.home-alt-shell .home-section-container {
+  padding-top: clamp(40px, 3.75vw, 72px);
+  padding-bottom: clamp(40px, 3.75vw, 72px);
+}
+
+.home-alt-shell .ant-card {
+  border: 1px solid var(--border-default) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+.home-alt-shell .home-bottom-cta-banner {
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.home-alt-lower,
+.home-alt-footer-block {
+  position: relative;
+  z-index: 1;
+}
+
+html.home-alt-page[theme-mode='dark'] .home-alt-partners__logo {
+  filter: brightness(1.12);
+}
+
+html[theme-mode='dark'] .home-alt-manage__icon,
+html[theme-mode='dark'] .home-alt-values__icon,
+html[theme-mode='dark'] .home-alt-sdk__feature-icon,
+html[theme-mode='dark'] .home-alt-footer__social-logo {
+  filter: invert(1) brightness(1.45);
+}
+

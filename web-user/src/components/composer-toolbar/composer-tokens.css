@@ -1,0 +1,16 @@
+/**
+ * Chat / Video 底部输入壳共用尺寸令牌。
+ * - Omni 视频右侧 textarea 无内边距：`min-height` = `--chat-composer-textarea-field-min-height`
+ * - ChatShell 原生 textarea 带 composer 内边距：`min-height` = 字段高度 + 上下 inset（见 chat-page.css）
+ *
+ * 引入方式：
+ * - ChatShell：`import .../composer-toolbar/composer-tokens.css`（在 chat-page.css 之前）
+ * - VideoGen：经 `composer-toolbar/index.ts` 侧载本文件
+ */
+
+.chat-input-box {
+  --chat-composer-inset: 24px;
+  --chat-composer-inset-bottom: 12px;
+  /* 多行输入可视区域最小高度（与视频 Omni 文案区 content-box 对齐） */
+  --chat-composer-textarea-field-min-height: 104px;
+}

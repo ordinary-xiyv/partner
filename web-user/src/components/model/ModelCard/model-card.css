@@ -1,0 +1,198 @@
+/* 模型广场卡片：对齐蓝湖 206px；描述两行；标签距底 */
+
+.model-plaza-card-wrap {
+  position: relative;
+  width: 100%;
+  height: 206px;
+  min-height: 206px;
+  max-height: 206px;
+  border-radius: 12px;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-default, transparent);
+  overflow: hidden;
+}
+
+.model-plaza-card__corner-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 3;
+  height: 31px;
+  padding: 5px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 22px;
+  white-space: nowrap;
+  pointer-events: none;
+  color: #fff;
+  background: #faad14;
+  border-top-right-radius: 12px;
+  border-bottom-left-radius: 8px;
+}
+
+.model-plaza-card.ant-card {
+  height: 100%;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+
+.model-plaza-card.ant-card .ant-card-body {
+  height: 100%;
+  background: transparent;
+}
+
+.model-plaza-card__layout {
+  --model-plaza-card-desc-block-height: 44px;
+  --model-plaza-card-tag-row-height: 26px;
+  box-sizing: border-box;
+  position: relative;
+  height: 100%;
+  padding: 24px;
+  display: grid;
+  grid-template-rows: auto var(--model-plaza-card-desc-block-height) 1fr;
+  row-gap: 12px;
+}
+
+.model-plaza-card__layout--has-tags {
+  padding-bottom: calc(23px + var(--model-plaza-card-tag-row-height));
+}
+
+.model-plaza-card__head {
+  min-height: 54px;
+}
+
+.model-plaza-card__logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 54px;
+  height: 54px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+.model-plaza-card__logo-img,
+.model-plaza-card__logo-icon.model-icon,
+.model-plaza-card__logo-icon .model-icon-img {
+  width: 54px;
+  height: 54px;
+  object-fit: contain;
+  border-radius: 0;
+}
+
+.model-plaza-card__logo-icon.model-icon {
+  font-size: 16px;
+  background: transparent;
+}
+
+.model-plaza-card__titles {
+  min-width: 0;
+  flex: 1;
+  width: 0;
+  padding-right: 4px;
+}
+
+.model-plaza-card-wrap--has-badge .model-plaza-card__titles {
+  padding-right: 80px;
+}
+
+.model-plaza-card__name.ant-typography,
+.model-plaza-card__provider.ant-typography {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  text-align: left;
+}
+
+.model-plaza-card__name,
+.model-plaza-card__name.ant-typography {
+  font-family: "PingFang SC", "PingFangSC-Semibold", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--text-primary, rgba(0, 0, 0, 0.88));
+  text-align: left;
+}
+
+.model-plaza-card__provider,
+.model-plaza-card__provider.ant-typography {
+  font-family: "PingFang SC", "PingFangSC-Regular", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 16px;
+  color: var(--text-tertiary, rgba(0, 0, 0, 0.45));
+  margin-top: 2px;
+  text-align: left;
+}
+
+.model-plaza-card__layout .model-plaza-card__desc {
+  --model-plaza-card-desc-line-height: 22px;
+  --model-plaza-card-desc-font-size: 16px;
+  --model-plaza-card-desc-lines: 2;
+  height: var(--model-plaza-card-desc-block-height);
+  min-height: var(--model-plaza-card-desc-block-height);
+  max-height: var(--model-plaza-card-desc-block-height);
+  margin: 0;
+  font-family: "PingFang SC", "PingFangSC-Regular", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-size: var(--model-plaza-card-desc-font-size);
+  font-weight: 400;
+  line-height: 22px;
+  text-align: left;
+  color: var(--text-secondary, #64748b);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--model-plaza-card-desc-lines);
+  line-clamp: var(--model-plaza-card-desc-lines);
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
+.model-plaza-card__tags-footer {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 23px;
+  min-width: 0;
+  max-height: var(--model-plaza-card-tag-row-height);
+  overflow: hidden;
+}
+
+.model-plaza-card__tags {
+  flex-shrink: 0;
+  min-width: 0;
+  margin: 0;
+}
+
+.model-plaza-card__tag.ant-tag {
+  margin: 0;
+  padding: 2px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 22px;
+  color: var(--theme-color-primary, #6d51ff);
+  background: var(--theme-color-primary-light-default, #f1eefe);
+  border: none;
+  border-radius: 8px;
+}
+
+.model-plaza-card--skeleton.ant-card {
+  pointer-events: none;
+  border: none !important;
+}
+
+.model-plaza-card-wrap--skeleton {
+  height: 206px;
+}
+
+@media (max-width: 480px) {
+  .model-plaza-card-wrap--has-badge .model-plaza-card__titles {
+    padding-right: 64px;
+  }
+}

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="16px" height="16px" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>箭头_向下</title>
+    <g id="箭头_向下" stroke="none" fill="none" fill-rule="evenodd" stroke-width="1">
+        <g id="编组">
+            <rect id="矩形" fill="#F1EEFE" opacity="0" x="0" y="0" width="16" height="16"></rect>
+            <polygon id="路径" fill="#6D51FF" points="8.66667188 11.1333281 8.66667188 1.66667188 7.33332813 1.66667188 7.33332813 11.0666719 5.26667188 9 4.33332813 10 8 13.6666719 11.6666719 10 10.7333281 9.06667188"></polygon>
+        </g>
+    </g>
+</svg>

@@ -1,0 +1,75 @@
+/**
+ * 模型接入 — 字号与平台核心能力统一（变量见 home-platform-plates-scale.css）
+ */
+
+/* 区块标题：平台核心能力 / 模型接入 / 稳定调度 同级 */
+.home-platform-bento-row .home-model-access-card .home-block-title--surface-gradient.home-block-title--accent .home-block-title__text {
+  font-family: "Alimama ShuHeiTi", "Alibaba PuHuiTi", "PingFang SC", "Microsoft YaHei", sans-serif !important;
+  font-size: var(--platform-font-block) !important;
+  font-weight: 700 !important;
+  font-style: normal;
+  line-height: var(--platform-font-block-lh) !important;
+  color: #0a1e63 !important;
+  letter-spacing: 0;
+  text-align: left;
+  white-space: nowrap;
+}
+
+body[theme-mode='dark'] .home-platform-bento-row .home-model-access-card .home-block-title--surface-gradient.home-block-title--accent .home-block-title__text,
+body:not([theme-mode='light']) .home-platform-bento-row .home-model-access-card .home-block-title--surface-gradient.home-block-title--accent .home-block-title__text {
+  color: #fff !important;
+}
+
+/* 内卡标题：与「可接入模型」同级，小于 26+ 数字 */
+.home-platform-bento-row .home-model-access-card__title.ant-typography {
+  font-family: "PingFang SC", "PingFangSC", sans-serif !important;
+  font-size: var(--platform-font-label) !important;
+  font-weight: 600 !important;
+  font-style: normal;
+  line-height: var(--platform-font-label-lh) !important;
+  color: #6e56ff !important;
+  text-align: left;
+  letter-spacing: 0;
+  margin: 0 !important;
+}
+
+/* 内卡描述：与「覆盖常用对话…」同级 */
+.home-platform-bento-row .home-model-access-card__desc.ant-typography {
+  font-family: "PingFang SC", "PingFangSC", sans-serif !important;
+  font-size: var(--platform-font-body) !important;
+  font-weight: 400 !important;
+  font-style: normal;
+  line-height: var(--platform-font-body-lh) !important;
+  color: #151a2d !important;
+  text-align: left;
+  letter-spacing: 0;
+  margin: calc(8px * var(--platform-stat-s)) 0 0 !important;
+}
+
+body[theme-mode='dark'] .home-platform-bento-row .home-model-access-card__title.ant-typography,
+body:not([theme-mode='light']) .home-platform-bento-row .home-model-access-card__title.ant-typography {
+  color: #fff !important;
+}
+
+body[theme-mode='dark'] .home-platform-bento-row .home-model-access-card__desc.ant-typography,
+body:not([theme-mode='light']) .home-platform-bento-row .home-model-access-card__desc.ant-typography {
+  color: #fff !important;
+}
+
+@media (max-width: 991px) {
+  .home-platform-bento-row .home-model-access-card .home-block-title--surface-gradient.home-block-title--accent .home-block-title__text {
+    font-size: clamp(calc(30px * var(--platform-type-s)), 5.5vw, var(--platform-font-block)) !important;
+    line-height: 1.393 !important;
+    white-space: normal;
+  }
+
+  .home-platform-bento-row .home-model-access-card__title.ant-typography {
+    font-size: clamp(calc(16px * var(--platform-stat-s)), 3.2vw, var(--platform-font-label)) !important;
+    line-height: 1.375 !important;
+  }
+
+  .home-platform-bento-row .home-model-access-card__desc.ant-typography {
+    font-size: clamp(calc(14px * var(--platform-stat-s)), 3.4vw, var(--platform-font-body)) !important;
+    line-height: 1.611 !important;
+  }
+}

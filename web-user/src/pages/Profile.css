@@ -1,0 +1,549 @@
+.profile-page {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.profile-page__header {
+  margin-bottom: 20px;
+}
+
+.profile-page__title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.profile-page__subtitle {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin: 4px 0 0;
+}
+
+/* ── 顶部账号 + 用量概览 ── */
+.profile-hero {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 16px;
+}
+
+.profile-hero__top {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.profile-hero__avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-primary), #8b7bff);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.profile-hero__identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-hero__display-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+  word-break: break-all;
+}
+
+.profile-hero__username {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 8px;
+}
+
+.profile-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.profile-hero__meta-item {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1.4;
+}
+
+.profile-hero__meta-item strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.profile-hero__stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.profile-hero__stat {
+  background: var(--bg-page, var(--bg-card));
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.profile-hero__stat-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+
+.profile-hero__stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.profile-hero__stat-sub {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.profile-hero__quota-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 8px;
+  color: var(--text-tertiary);
+}
+
+.profile-hero__quota-bar {
+  background: var(--border-default);
+  border-radius: 4px;
+  height: 6px;
+  overflow: hidden;
+}
+
+.profile-hero__quota-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+
+/* ── 双栏卡片区 ── */
+.profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.profile-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.profile-card__head {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-default);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-card__head-icon {
+  color: var(--accent-primary);
+  display: flex;
+}
+
+.profile-card__body {
+  padding: 4px 20px 20px;
+}
+
+.profile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.profile-row:last-child {
+  border-bottom: none;
+}
+
+.profile-row__label {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.profile-row__value {
+  font-size: 13px;
+  color: var(--text-primary);
+  text-align: right;
+  word-break: break-all;
+}
+
+.profile-row__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-row__title-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+
+.profile-row__title-line .profile-row__title {
+  margin-bottom: 0;
+}
+
+.profile-verify-status-tag {
+  margin-inline-end: 0;
+}
+
+.profile-row__title {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.profile-row__desc {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+
+.profile-action-btn {
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-card);
+  color: var(--accent-primary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.profile-action-btn:hover {
+  border-color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+}
+
+.profile-action-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  color: var(--text-tertiary);
+  border-color: var(--border-default);
+}
+
+.profile-action-btn:disabled:hover {
+  border-color: var(--border-default);
+  background: var(--bg-card);
+}
+
+.profile-form-block {
+  padding-top: 16px;
+  margin-top: 4px;
+  border-top: 1px dashed var(--border-default);
+}
+
+.profile-field {
+  margin-bottom: 12px;
+}
+
+.profile-field--inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.profile-field--inline .profile-field__label {
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.profile-field--inline .profile-input {
+  width: 200px;
+  max-width: 100%;
+}
+
+.profile-field__label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+
+.profile-input {
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.profile-input:focus {
+  border-color: var(--accent-primary);
+}
+
+.profile-btn-primary {
+  padding: 9px 20px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  background: var(--accent-primary);
+  color: var(--btn-primary-text);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.profile-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.profile-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.profile-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+.profile-turnstile {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+  margin: 8px 0;
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-page, var(--bg-card));
+}
+
+/* ── 重置密码发码前的图形验证码弹窗 ── */
+.profile-captcha-phone {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.profile-captcha-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-captcha-image {
+  flex: 0 0 108px;
+  width: 108px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+  overflow: hidden;
+  box-sizing: border-box;
+  transition: opacity 0.15s;
+}
+
+.profile-captcha-image:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.profile-captcha-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 2px;
+  box-sizing: border-box;
+}
+
+.profile-captcha-loading {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+
+/* ── 弹窗（对齐忘记密码子弹窗风格） ── */
+.profile-modal-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.profile-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--overlay-bg, rgba(0, 0, 0, 0.5));
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  pointer-events: auto;
+}
+
+.profile-modal-layer__content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 420px;
+  pointer-events: auto;
+}
+
+.profile-modal {
+  width: 100%;
+  max-height: min(90vh, calc(100dvh - 32px));
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 44px 32px 36px;
+  border-radius: 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-modal, 0 4px 28px rgba(0, 3, 76, 0.1));
+}
+
+.profile-modal__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.profile-modal__close:hover {
+  background: var(--border-default);
+  color: var(--text-primary);
+}
+
+.profile-modal__title {
+  margin: 0 0 8px;
+  padding-right: 28px;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--text-primary);
+}
+
+.profile-modal__desc {
+  margin: 0 0 20px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.profile-modal__submit {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.profile-modal-form .ant-form-item {
+  margin-bottom: 12px;
+}
+
+.profile-modal-form .ant-form-item-label > label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.profile-modal-ant-input.ant-input,
+.profile-modal-ant-input.ant-input-affix-wrapper {
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13px;
+  background: var(--bg-card);
+  border-color: var(--border-default);
+}
+
+.profile-modal-ant-input.ant-input-affix-wrapper .ant-input {
+  font-size: 13px;
+}
+
+.profile-modal-ant-input.ant-input-affix-wrapper:focus,
+.profile-modal-ant-input.ant-input-affix-wrapper-focused,
+.profile-modal-ant-input.ant-input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 15%, transparent);
+}
+
+.profile-modal-ant-input .ant-input-password-icon {
+  color: var(--text-tertiary);
+}
+
+.profile-modal-ant-input .ant-input-password-icon:hover {
+  color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+  .profile-hero__stats {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-hero__top {
+    flex-direction: column;
+  }
+}

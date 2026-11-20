@@ -1,0 +1,12 @@
+<svg width="42" height="42" viewBox="0 0 42 42" xmlns="http://www.w3.org/2000/svg">
+  <rect width="42" height="42" rx="21" fill="#7F66FF"/>
+  <text
+    x="21"
+    y="28.5"
+    text-anchor="middle"
+    fill="#FFFFFF"
+    font-size="22"
+    font-weight="600"
+    font-family="PingFang SC, Microsoft YaHei, system-ui, sans-serif"
+  >&#165;</text>
+</svg>

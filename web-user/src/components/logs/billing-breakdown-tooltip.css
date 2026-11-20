@@ -1,0 +1,138 @@
+.billing-breakdown-tooltip {
+  box-sizing: border-box;
+  width: min(400px, calc(100vw - 48px));
+  max-height: min(70vh, 680px);
+  overflow-y: auto;
+  padding: 16px;
+  border: 1px solid #f0f0f4;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 8px 28px rgb(21 27 48 / 14%);
+  color: #171d2c;
+  line-height: 1.5;
+}
+
+.billing-breakdown-tooltip__title {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.billing-breakdown-tooltip__strategy {
+  margin-top: 9px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.billing-breakdown-tooltip__tier-change {
+  display: grid;
+  gap: 2px;
+  margin-top: 6px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  background: #eef2ff;
+  font-size: 12px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+}
+
+.billing-breakdown-tooltip__tier-change-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.billing-breakdown-tooltip__tier-change-row span {
+  color: #536078;
+}
+
+.billing-breakdown-tooltip__tier-change-row strong {
+  color: #1d43c6;
+  font-weight: 700;
+  text-align: right;
+}
+
+.billing-breakdown-tooltip__multipliers {
+  margin: 5px 0 11px;
+  color: #8d96a8;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.billing-breakdown-tooltip__lines {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.billing-breakdown-tooltip__line {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f7f5fc;
+}
+
+.billing-breakdown-tooltip__line-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.billing-breakdown-tooltip__line-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.billing-breakdown-tooltip__line-amount {
+  flex-shrink: 0;
+  color: #1d43c6;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.billing-breakdown-tooltip__line-formula {
+  margin-top: 3px;
+  color: #8992a4;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.billing-breakdown-tooltip__rounding {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  color: #8992a4;
+  font-size: 12px;
+}
+
+.billing-breakdown-tooltip__total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #e8eaf0;
+}
+
+.billing-breakdown-tooltip__total-label {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.billing-breakdown-tooltip__total-formula {
+  margin-left: auto;
+  padding: 7px 9px;
+  border-radius: 9px;
+  background: #f0edfb;
+  color: #1d43c6;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}

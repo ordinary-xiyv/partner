@@ -1,0 +1,283 @@
+/**
+ * 全站可选项交互态
+ * - 默认：白底 + 浅灰边 + 黑色文字
+ * - hover（未选中）：白底 + 主题紫边 + 紫色文字
+ * - 选中 active：浅紫底 + 主题紫边 + 紫色文字（非灰色底）
+ */
+
+.lynx-selectable {
+  box-sizing: border-box;
+  margin: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-primary);
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.lynx-selectable:hover:not(:disabled):not(.lynx-selectable--active) {
+  background: var(--bg-card);
+  border-color: var(--theme-color-primary);
+  color: var(--lynx-select-text, var(--theme-color-primary));
+}
+
+.lynx-selectable--active,
+.lynx-selectable--active:hover {
+  background: var(--lynx-select-bg, var(--theme-color-primary-light-default));
+  border-color: var(--theme-color-primary);
+  color: var(--lynx-select-text, var(--theme-color-primary));
+  font-weight: 600;
+  box-shadow: none;
+}
+
+/* ── 侧栏导航行 ── */
+.lynx-selectable--nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--lynx-select-radius, 8px);
+  font-size: var(--lynx-nav-font-size, 15px);
+  line-height: 1.35;
+}
+
+.lynx-selectable--nav:not(.lynx-selectable--active):not(:hover) {
+  color: var(--text-secondary);
+}
+
+.lynx-selectable--nav-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--lynx-select-radius, 8px);
+  font-size: var(--lynx-nav-font-size-sub, 13px);
+  line-height: 1.35;
+}
+
+.lynx-selectable--nav-sub:not(.lynx-selectable--active):not(:hover) {
+  color: var(--text-secondary);
+}
+
+.lynx-selectable__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--lynx-nav-icon-size, 16px);
+  line-height: 1;
+}
+
+.lynx-selectable--nav-sub .lynx-selectable__icon {
+  font-size: 14px;
+  opacity: 0.75;
+}
+
+.lynx-selectable__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lynx-selectable__chevron {
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 12px;
+  opacity: 0.5;
+  transition: transform 0.2s ease;
+}
+
+.lynx-selectable__chevron--expanded {
+  transform: rotate(0deg);
+}
+
+.lynx-selectable__chevron--collapsed {
+  transform: rotate(-90deg);
+}
+
+/* ── 顶部分类 Tab（模型广场等） ── */
+.lynx-selectable--tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: var(--lynx-select-radius, 8px);
+  font-size: var(--lynx-tab-font-size, 16px);
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.lynx-selectable--tab:not(.lynx-selectable--active):not(:hover) {
+  color: var(--text-secondary);
+}
+
+.lynx-selectable--tab .lynx-selectable__icon {
+  font-size: var(--lynx-tab-font-size, 16px);
+}
+
+/* ── 筛选胶囊按钮 ── */
+.lynx-selectable--pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border-radius: var(--lynx-select-radius, 8px);
+  font-size: var(--lynx-pill-font-size, 13px);
+  line-height: 1.35;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lynx-selectable--pill-fixed {
+  width: 128px;
+  max-width: 128px;
+  height: 34px;
+  line-height: 34px;
+}
+
+/* ── 顶部 Header 导航（无描边、无底色；宽度由 .header-nav__label--shadow 预留） ── */
+.lynx-selectable--header {
+  display: inline-grid;
+  align-items: center;
+  justify-items: center;
+  padding: 6px var(--app-header-nav-link-padding-inline, 12px);
+  border: none;
+  border-radius: var(--lynx-select-radius, 8px);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-decoration: none;
+  background: transparent;
+  vertical-align: middle;
+}
+
+.lynx-selectable--header:not(.lynx-selectable--active):not(:hover) {
+  color: var(--text-secondary);
+  background: transparent;
+}
+
+.lynx-selectable--header:hover:not(:disabled):not(.lynx-selectable--active) {
+  background: transparent;
+  border: none;
+  color: var(--lynx-select-text, var(--theme-color-primary));
+}
+
+.lynx-selectable--header.lynx-selectable--active,
+.lynx-selectable--header.lynx-selectable--active:hover {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: var(--lynx-select-text, var(--theme-color-primary));
+  font-weight: 600;
+}
+
+.header-nav__label {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+}
+
+.header-nav__label--shadow {
+  font-weight: 600;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: var(--app-header-nav-margin-left, 28px);
+  flex-shrink: 0;
+}
+
+/* ── 对话页会话列表行（文本 / 图像 / 视频三处一致） ── */
+.lynx-selectable--conv {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border-radius: var(--lynx-select-radius, 8px);
+  min-height: 34px;
+  margin-bottom: 8px;
+  text-decoration: none;
+  color: var(--text-primary);
+}
+
+.lynx-selectable--conv:not(.lynx-selectable--active):not(:hover) {
+  background: var(--bg-card);
+  border-color: var(--border-default);
+}
+
+.lynx-selectable--conv.lynx-selectable--active .sidebar-item-title,
+.lynx-selectable--conv:hover:not(.lynx-selectable--active) .sidebar-item-title {
+  color: var(--lynx-select-text, var(--theme-color-primary));
+}
+
+.lynx-selectable--conv.lynx-selectable--active .sidebar-item-title {
+  font-weight: 600;
+}
+
+.lynx-selectable--conv .sidebar-rename-input-affix,
+.lynx-selectable--conv .sidebar-rename-input-affix.ant-input-affix-wrapper,
+.lynx-selectable--conv .sidebar-rename-input,
+.lynx-selectable--conv .sidebar-rename-input.ant-input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-radius: 0;
+  color: inherit;
+  font-weight: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.lynx-selectable--conv .sidebar-rename-input-affix.ant-input-affix-wrapper-focused,
+.lynx-selectable--conv .sidebar-rename-input.ant-input:focus,
+.lynx-selectable--conv .sidebar-rename-input-affix:focus-within {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.lynx-selectable--conv.lynx-selectable--active .sidebar-rename-input,
+.lynx-selectable--conv.lynx-selectable--active .sidebar-rename-input-affix,
+.lynx-selectable--conv:hover:not(.lynx-selectable--active) .sidebar-rename-input,
+.lynx-selectable--conv:hover:not(.lynx-selectable--active) .sidebar-rename-input-affix {
+  color: var(--lynx-select-text, var(--theme-color-primary));
+}
+
+.lynx-selectable--conv.lynx-selectable--active .sidebar-rename-input,
+.lynx-selectable--conv.lynx-selectable--active .sidebar-rename-input-affix {
+  font-weight: 600;
+}
+
+.conv-sidebar-popconfirm-trigger {
+  display: inline-flex;
+  flex-shrink: 0;
+}

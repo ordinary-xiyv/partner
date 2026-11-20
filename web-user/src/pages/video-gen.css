@@ -1,0 +1,2530 @@
+/* 桌面输入壳与图像对话一致：使用全局 .chat-input-box；此处仅做视频区局部覆盖 */
+
+.video-gen-body {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Center column: keep enough width for composer toolbar (inline minWidth:0 was overriding chat-page min-width and collapsed this column). */
+.video-gen-body.chat-body > .chat-main.video-gen-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: min(520px, max(300px, calc(100vw - var(--chat-sidebar-width, 248px) - 280px - 40px)));
+}
+
+.video-gen-debug-aside {
+  flex: 0 0 280px;
+  width: 280px;
+  max-width: 280px;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  box-sizing: border-box;
+  align-self: stretch;
+  contain: inline-size;
+}
+
+.video-gen-debug-stack {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.video-gen-debug-card {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.video-gen-debug-meta {
+  min-width: 0;
+  max-width: 100%;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  border-top: 1px solid var(--theme-color-border);
+  padding-top: 8px;
+}
+
+.video-gen-debug-meta-row {
+  min-width: 0;
+  max-width: 100%;
+  margin-bottom: 6px;
+}
+
+.video-gen-debug-meta-row:last-child {
+  margin-bottom: 0;
+}
+
+.video-gen-debug-prompt {
+  margin-top: 4px;
+  max-height: 140px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
+  line-height: 1.45;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--theme-color-fill-0, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--theme-color-border);
+}
+
+.video-gen-body--stacked {
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.video-gen-main-stack {
+  flex: 1;
+  min-height: 0;
+}
+
+.video-gen-bottom-dock {
+  flex-shrink: 0;
+  border-top: 1px solid var(--semi-color-border);
+  background: var(--semi-color-bg-0);
+}
+
+.video-gen-bottom-dock__inner {
+  width: 100%;
+  max-width: min(100%, var(--chat-content-max-width, 960px));
+  margin: 0 auto;
+  padding: 10px var(--chat-horizontal-inset, 16px) 0;
+  box-sizing: border-box;
+}
+
+.video-gen-history-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.video-gen-history-new-btn {
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgb(from var(--theme-color-primary) r g b / 0.45);
+  background: var(--theme-color-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgb(from var(--theme-color-primary) r g b / 0.14);
+}
+
+.video-gen-history-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid var(--semi-color-border);
+  background: var(--semi-color-bg-1);
+  min-width: 140px;
+  max-width: 220px;
+}
+
+.video-gen-history-search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.video-gen-history-chips-scroll {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.video-gen-history-chip-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  padding: 2px;
+  border-radius: 999px;
+  border: 1px solid var(--semi-color-border);
+  background: var(--semi-color-bg-1);
+}
+
+.video-gen-history-chip-group.is-active {
+  border-color: rgb(from var(--theme-color-primary) r g b / 0.55);
+  background: rgb(from var(--theme-color-primary) r g b / 0.1);
+}
+
+.video-gen-history-chip {
+  border: none;
+  background: transparent;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  max-width: 160px;
+  cursor: pointer;
+}
+
+.video-gen-history-chip-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-gen-history-chip-del {
+  border: none;
+  background: transparent;
+  padding: 4px;
+  border-radius: 999px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-gen-history-chip-del:hover {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.video-gen-history-empty {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.video-gen-pill-select {
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--semi-color-border);
+  background: var(--semi-color-bg-1);
+  color: var(--text-primary);
+  padding: 0 10px;
+  font-size: 13px;
+  max-width: min(280px, 100%);
+}
+
+.video-gen-pill-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.video-gen-pill-field__l {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.video-gen-pill-field__v {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 2ch;
+}
+
+.video-gen-pill-field--range {
+  gap: 6px;
+}
+
+.video-gen-pill-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.video-gen-pill-seg button {
+  height: 30px;
+  min-width: 44px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgb(from var(--theme-color-primary) r g b / 0.28);
+  background: rgb(from var(--theme-color-primary) r g b / 0.06);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.video-gen-pill-seg button.is-active {
+  border-color: var(--theme-color-primary);
+  background: rgb(from var(--theme-color-primary) r g b / 0.14);
+  color: var(--theme-color-primary);
+}
+
+.video-gen-pill-seg button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.video-gen-send-circle {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, var(--theme-color-primary) 0%, var(--theme-color-primary-active) 100%);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-gen-send-circle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* VideoGen mobile layout */
+.video-gen-mobile-page {
+  height: calc(100dvh - var(--app-site-top-chrome-h, 56px));
+  margin: -16px -12px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+.video-gen-mobile-topbar {
+  height: 52px;
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--border-default);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+}
+
+.video-gen-mobile-back {
+  border: none;
+  background: transparent;
+  font-size: 28px;
+  color: var(--text-secondary);
+  line-height: 1;
+  padding: 0;
+}
+
+.video-gen-mobile-title { text-align: center; font-size: 18px; font-weight: 700; }
+
+.video-gen-mobile-new {
+  border: none;
+  border-radius: 12px;
+  height: 32px;
+  padding: 0 12px;
+  background: var(--theme-color-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.video-gen-mobile-history-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px 8px;
+  overflow-x: auto;
+}
+
+.video-gen-mobile-history-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.video-gen-mobile-history-chip {
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  padding: 6px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+  min-width: 80px;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+}
+
+.video-gen-mobile-history-chip.is-active {
+  border-color: rgb(from var(--theme-color-primary) r g b / 0.45);
+  color: var(--theme-color-primary);
+  background: rgb(from var(--theme-color-primary) r g b / 0.08);
+  min-width: 100px;
+  max-width: 100px;
+}
+
+.video-gen-mobile-history-more {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.video-gen-mobile-history-panel {
+  border-top: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--border-default);
+  max-height: 180px;
+  overflow: auto;
+}
+
+.video-gen-mobile-history-row {
+  width: 100%;
+  border: none;
+  background: transparent;
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  text-align: left;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.video-gen-mobile-history-row.is-active {
+  background: var(--app-item-selected-bg);
+  color: var(--text-primary);
+  box-shadow:
+    0 0 0 1px var(--app-item-selected-ring),
+    0 3px 12px var(--app-item-selected-glow);
+}
+.video-gen-mobile-history-row-text {
+  flex: 1;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  line-height: 1.35;
+}
+.video-gen-mobile-history-model { color: var(--text-tertiary); font-size: 12px; }
+.video-gen-mobile-history-delete {
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.video-gen-mobile-history-delete:hover {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.video-gen-mobile-scroll {
+  flex: 1 1 0%;
+  min-height: 0;
+  height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 8px 10px 12px;
+  display: grid;
+  gap: 10px;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.video-gen-mobile-scroll:hover,
+.video-gen-mobile-scroll:focus-within,
+.video-gen-mobile-scroll.is-scrolling {
+  scrollbar-color: var(--border-default) transparent;
+}
+.video-gen-mobile-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.video-gen-mobile-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.video-gen-mobile-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+}
+.video-gen-mobile-scroll:hover::-webkit-scrollbar-thumb,
+.video-gen-mobile-scroll:focus-within::-webkit-scrollbar-thumb,
+.video-gen-mobile-scroll.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+}
+body:not([theme-mode="light"]) .video-gen-mobile-scroll:hover::-webkit-scrollbar-thumb,
+body:not([theme-mode="light"]) .video-gen-mobile-scroll:focus-within::-webkit-scrollbar-thumb,
+body:not([theme-mode="light"]) .video-gen-mobile-scroll.is-scrolling::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+.video-gen-mobile-scroll:has(> .chat-welcome-pane) {
+  overflow-y: hidden;
+  height: auto;
+}
+
+.video-gen-mobile-card {
+  border: 1px solid var(--border-default, #ececf0);
+  border-radius: 0;
+  padding: clamp(16px, 4vw, 24px) clamp(12px, 3.5vw, 16px) clamp(20px, 5vw, 28px);
+  display: grid;
+  gap: 10px;
+  background: var(--bg-elevated, var(--bg-card));
+  box-sizing: border-box;
+}
+
+.video-gen-mobile-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.video-gen-mobile-card-title { font-size: 22px; font-weight: 700; line-height: 1.2; }
+.video-gen-mobile-card-meta { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; }
+
+.video-gen-mobile-player {
+  width: 100%;
+  max-width: 100%;
+  border: none;
+  border-radius: 0;
+  background: #000;
+  max-height: min(44vh, 340px);
+  height: auto;
+  display: block;
+}
+
+.video-gen-media-stage {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+}
+
+.video-gen-media-download-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: rgb(0 0 0 / 0.52);
+  color: #fff;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, background 0.18s ease;
+}
+
+.video-gen-media-stage:hover .video-gen-media-download-btn:not(:disabled),
+.video-gen-media-stage:focus-within .video-gen-media-download-btn:not(:disabled) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.video-gen-media-download-btn:hover:not(:disabled) {
+  background: rgb(0 0 0 / 0.72);
+}
+
+/* 禁用态默认整颗隐藏；唯一例外是「下载中」——那时必须显示 loading 圈，
+   否则用户点了下载后按钮直接消失，看不出正在下载。 */
+.video-gen-media-download-btn:disabled {
+  display: none;
+}
+
+.video-gen-media-download-btn[aria-busy="true"]:disabled {
+  display: inline-flex;
+  opacity: 1;
+  pointer-events: none;
+}
+
+@media (hover: none) {
+  .video-gen-media-stage .video-gen-media-download-btn:not(:disabled) {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.video-gen-result-task-id {
+  display: block;
+  width: 100%;
+  max-width: min(100%, 520px);
+  margin: 0 0 -6px;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-tertiary, #6b7280);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  word-break: break-all;
+}
+
+.video-gen-result-footnote {
+  margin: -6px 0 0;
+  max-width: min(100%, 520px);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-tertiary, #6b7280);
+}
+
+.video-gen-mobile-placeholder {
+  border: 1px dashed var(--border-default);
+  border-radius: 0;
+  background: var(--theme-color-fill-0);
+  padding: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* 统一等待态：复用全站 .chat-spinner（紫色旋转圈），只负责排版与文字样式 */
+.video-gen-waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * 进行中卡片（方案 B）：状态 / 进度 / 任务 ID / 取消，全部左对齐成一条竖线。
+ * 以前 spinner 与文案居中、进度和按钮却靠左，左边缘会锯齿轮廓。
+ * ───────────────────────────────────────────────────────────── */
+.video-gen-run {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  color: var(--text-secondary);
+}
+
+/* 作为气泡使用时不必重复内边距（.msg-bubble--ai 已有 16px 20px） */
+.video-gen-run.msg-bubble--ai {
+  padding: 16px 20px;
+}
+
+.video-gen-run--mobile {
+  gap: 10px;
+  font-size: 12px;
+}
+
+.video-gen-run__status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.video-gen-run--mobile .video-gen-run__status {
+  font-size: 12px;
+  gap: 8px;
+}
+
+/* 行内状态用 18px 转圈即可，24px 是整屏 loading 的尺寸 */
+.video-gen-run__spinner {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.video-gen-run--mobile .video-gen-run__spinner {
+  width: 16px;
+  height: 16px;
+}
+
+/* 进度行：标签 + 细轨道 + 数字 */
+.video-gen-run__progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.video-gen-run__progress-label {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--text-tertiary, #6b7280);
+}
+
+.video-gen-run__progress-track {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  /* 主题主色由运行时注入；万一未注入也不算透明，兜底用全站紫 */
+  background: rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.12);
+  overflow: hidden;
+}
+
+.video-gen-run__progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--theme-color-primary, #7c3aed);
+  transition: width 0.35s ease;
+}
+
+/* 等宽数字：进度跳动时宽度不变，避免右侧数字左右晃 */
+.video-gen-run__progress-value {
+  flex: 0 0 auto;
+  min-width: 36px;
+  text-align: right;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary, #6b7280);
+}
+
+/* 任务 ID：气泡底部的小字元信息，弱化处理，不与状态文字抢视线 */
+.video-gen-run__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-tertiary, #6b7280);
+  min-width: 0;
+}
+
+.video-gen-run__meta-label {
+  flex: 0 0 auto;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.video-gen-run__meta-value {
+  min-width: 0;
+  word-break: break-all;
+  font-variant-numeric: tabular-nums;
+}
+
+.video-gen-run--mobile .video-gen-run__meta {
+  font-size: 10px;
+}
+
+.video-gen-waiting--compact {
+  gap: 8px;
+  font-size: 12px;
+}
+
+.video-gen-waiting__text {
+  color: inherit;
+}
+
+/*
+ * 轮询「问不到状态」的软提示：任务在服务端还在跑，只是这次没问到。
+ * 用弱化的琥珀色，和真正的失败红区分开，避免用户误以为要重新生成。
+ */
+.video-gen-poll-warning {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #b45309;
+}
+
+/* 复用 .chat-spinner 的视觉，只按行内场景缩小尺寸（不改变全站那份定义） */
+.video-gen-waiting--compact .video-gen-waiting__spinner {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+  flex-shrink: 0;
+}
+
+/*
+ * 停止键在取消中的转圈：复用 .chat-spinner 的尺寸与旋转，
+ * 但底是红/灰实心按钮，环必须转白才看得见（默认紫色在红底上几乎不可辨）。
+ */
+.chat-send-btn__spinner {
+  width: 16px;
+  height: 16px;
+  border-color: rgb(255 255 255 / 0.35);
+  border-top-color: #fff;
+}
+
+/* 下载按钮内的 loading：浮在视频右上角的深色圆钮上，紫环在暗底上偏暗，改白环 */
+.video-gen-media-download-spinner {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+  border-color: rgb(255 255 255 / 0.3);
+  border-top-color: #fff;
+}
+
+/*
+ * 卡片内的取消按钮：任务进行中时出现在该卡片的等待块里。
+ * 视频支持并发，取消必须精确指向单张卡片，所以不再复用输入框的发送/停止键。
+ */
+.video-gen-cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  gap: 6px;
+  margin-top: 0;
+  padding: 5px 14px;
+  border: 1px solid rgb(220 38 38 / 0.35);
+  border-radius: 999px;
+  background: rgb(220 38 38 / 0.06);
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.video-gen-cancel-btn:hover:not(:disabled) {
+  background: rgb(220 38 38 / 0.12);
+  border-color: rgb(220 38 38 / 0.5);
+}
+
+.video-gen-cancel-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* 按钮里的小方块图标：复用 .stop-icon 的形态，但改成跟随文字色的红色 */
+.video-gen-cancel-btn__icon {
+  width: 8px;
+  height: 8px;
+  border-radius: 1px;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* 取消中的转圈：红字浅底，用当前色描边即可，不需要白环 */
+.video-gen-cancel-btn__spinner {
+  width: 12px;
+  height: 12px;
+  border-width: 2px;
+  border-color: rgb(220 38 38 / 0.25);
+  border-top-color: currentColor;
+  flex-shrink: 0;
+}
+
+/* 探测失败后的「重新加载」按钮：低干扰的次要操作 */
+.video-gen-probe-retry {
+  margin-top: 8px;
+  padding: 4px 12px;
+  border: 1px solid rgb(from var(--theme-color-primary) r g b / 0.45);
+  border-radius: 999px;
+  background: rgb(from var(--theme-color-primary) r g b / 0.08);
+  color: var(--theme-color-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.video-gen-probe-retry:hover {
+  background: rgb(from var(--theme-color-primary) r g b / 0.14);
+}
+
+.video-gen-mobile-download {
+  border: 1px solid rgb(from var(--theme-color-primary) r g b / 0.45);
+  border-radius: 10px;
+  height: 36px;
+  background: rgb(from var(--theme-color-primary) r g b / 0.08);
+  color: var(--theme-color-primary);
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.video-gen-mobile-download:disabled { opacity: 0.45; }
+
+.video-gen-mobile-field-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.video-gen-mobile-field-row select {
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  padding: 0 10px;
+}
+
+.video-gen-mobile-segment {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.video-gen-mobile-segment button {
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.video-gen-mobile-segment button.is-active {
+  border-color: rgb(from var(--theme-color-primary) r g b / 0.45);
+  background: rgb(from var(--theme-color-primary) r g b / 0.14);
+  color: var(--theme-color-primary);
+}
+
+/* VideoGen 附件区：点击 / 拖拽 / 空状态（取代单行 .video-gen-mobile-attach） */
+.video-gen-attachment-zone {
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--bg-elevated);
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.video-gen-attachment-zone--empty {
+  min-height: 112px;
+}
+
+.video-gen-attachment-zone--drag {
+  border-color: rgb(from var(--theme-color-primary) r g b / 0.65) !important;
+  box-shadow: 0 0 0 3px rgb(from var(--theme-color-primary) r g b / 0.14);
+  background: rgb(from var(--theme-color-primary) r g b / 0.06);
+}
+
+.video-gen-attachment-zone__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: var(--text-secondary);
+}
+
+.video-gen-attachment-zone__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.video-gen-attachment-zone__count {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.video-gen-attachment-zone__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  padding: 18px 14px 16px;
+  border-radius: 10px;
+  border: 1px dashed rgb(from var(--theme-color-primary) r g b / 0.38);
+  background: linear-gradient(180deg, rgb(from var(--theme-color-primary) r g b / 0.07) 0%, rgb(from var(--theme-color-primary) r g b / 0.02) 100%);
+}
+
+.video-gen-attachment-zone__placeholder-icon {
+  font-size: 28px;
+  line-height: 1;
+  opacity: 0.88;
+}
+
+.video-gen-attachment-zone__placeholder-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.video-gen-attachment-zone__placeholder-sub {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-tertiary);
+  max-width: 280px;
+}
+
+.video-gen-attachment-zone__chips {
+  padding: 0 !important;
+  border-bottom: none !important;
+}
+
+.video-gen-attachment-zone--mobile {
+  border-radius: 10px;
+}
+
+.video-gen-attachment-zone--mobile.video-gen-attachment-zone--empty {
+  min-height: 0;
+}
+
+.video-gen-attachment-zone--mobile .video-gen-attachment-zone__placeholder {
+  padding: 14px 12px;
+}
+
+.video-gen-attachment-zone--mobile .video-gen-attachment-zone__placeholder-sub {
+  max-width: 100%;
+}
+
+.video-gen-mobile-bottom {
+  border-top: 1px solid var(--border-default);
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* 移动端底部主操作：与 Ant Design 主按钮对齐尺寸（文本/图像/视频共用 .video-gen-mobile-bottom） */
+.video-gen-mobile-bottom > .ant-btn-lg {
+  min-height: 46px;
+  font-weight: 700;
+  border-radius: 12px;
+}
+
+/* 移动底部提示词：chat-input-box + antd Input.TextArea（随 ConfigProvider 主题） */
+
+/* ── Desktop composer (reference-style) ── */
+
+.video-gen-input-box {
+  --video-gen-composer-media-row-h: var(--chat-composer-textarea-field-min-height, 104px);
+}
+
+/*
+ * 全能参考 / 首尾帧 / video-edit：左侧媒体槽 + 右侧提示词共用固定行高，切换模式不跳动。
+ */
+.video-gen-input-box--media-row .video-gen-composer-top--media-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 14px;
+  padding: var(--chat-composer-inset) var(--chat-composer-inset) var(--chat-composer-inset-bottom, 12px);
+}
+
+.video-gen-input-box--media-row .video-gen-composer-top--media-row .chat-textarea {
+  flex: 1 1 0%;
+  min-width: 0;
+  width: auto !important;
+  max-width: none !important;
+  min-height: var(--video-gen-composer-media-row-h, 104px);
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.video-gen-input-box--media-row .video-gen-composer-top--media-row .video-gen-composer-slots {
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: var(--video-gen-composer-media-row-h, 104px);
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+}
+
+/* 首尾帧双槽：为两列卡牌 + 箭头预留宽度 */
+.video-gen-input-box--frames:not(.video-gen-input-box--frames-first-only)
+  .video-gen-composer-top--media-row
+  .video-gen-composer-slots {
+  min-width: calc(var(--video-gen-ref-card-w, 56px) * 2 + 2.75rem);
+}
+
+/* 单首帧（欢马 i2v 等）：列宽随内容，避免右侧大块空白 */
+.video-gen-input-box--frames-first-only .video-gen-composer-top--media-row .video-gen-composer-slots {
+  flex: 0 0 auto;
+  width: max-content;
+  min-width: 0;
+  max-width: none;
+}
+
+.video-gen-input-box--frames-first-only .video-gen-frame-upload--first-only {
+  width: max-content;
+}
+
+.video-gen-input-box--frames-first-only .video-gen-frame-slot-col {
+  width: max-content;
+  max-width: min(100%, 7.5rem);
+}
+
+.video-gen-composer-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: var(--chat-composer-inset) var(--chat-composer-inset) 0;
+  align-items: flex-start;
+  position: relative;
+}
+
+/* 欢马文生视频等：无左侧上传槽，提示词占满 composer 上行 */
+.video-gen-input-box--prompt-only .video-gen-composer-top--prompt-only {
+  display: block;
+  padding: var(--chat-composer-inset) var(--chat-composer-inset) var(--chat-composer-inset-bottom, 12px);
+}
+
+.video-gen-input-box--prompt-only .video-gen-composer-top--prompt-only .chat-textarea {
+  display: block;
+  width: 100% !important;
+  max-width: none !important;
+  min-height: var(--chat-composer-textarea-field-min-height, 104px);
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* 画面/时长等下拉向上展开，需放开输入框裁切（与 chat-page .chat-input-box overflow:hidden 对冲） */
+.video-gen-input-box.chat-input-box {
+  overflow: visible;
+}
+
+/*
+ * 全能参考（桌面 · 精确指针）：左侧固定窄列占位；首张参考图贴左锚定不动，条带只向右展开；
+ * 整条在窄列内仅垂直居中。展开宽度不参与 flex，避免挤压右侧提示词。
+ * 触控 / 窄屏：回退为可横向滚动。
+ */
+.video-gen-input-box--omni.chat-input-box {
+  --video-gen-omni-slot-col-w: calc(var(--video-gen-ref-card-w, 56px) + 40px);
+}
+
+/*
+ * 全能参考上传槽：背景对齐对话主列（浅色 #f9fafc / 深色 var(--bg-hover)）；「+」用主题紫。
+ */
+.video-gen-input-box--omni .video-gen-omni-ref-anchor {
+  margin-left: 4px;
+  --vg-ref-plus-surface: var(--bg-hover);
+  --vg-ref-plus-ink: var(--theme-color-primary);
+  --vg-ref-plus-dash: rgb(from var(--theme-color-primary) r g b / 0.38);
+}
+
+body[theme-mode='light'] .video-gen-input-box--omni .video-gen-omni-ref-anchor {
+  --vg-ref-plus-surface: #f9fafc;
+}
+
+.video-gen-input-box .video-gen-composer-top--omni {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 14px;
+  /* 与 ChatShell `.chat-textarea` 一致：上/左右 inset + 文案区下留白（textarea 内 padding-bottom） */
+  padding: var(--chat-composer-inset) var(--chat-composer-inset)
+    var(--chat-composer-inset-bottom, 12px);
+}
+
+.video-gen-input-box .video-gen-composer-top--omni .chat-textarea {
+  flex: 1 1 0%;
+  min-width: 0;
+  width: auto !important;
+  max-width: none !important;
+  min-height: var(--chat-composer-textarea-field-min-height, 104px);
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 1;
+}
+
+@media (hover: hover) and (min-width: 721px) {
+  .video-gen-input-box .video-gen-composer-top--omni .video-gen-composer-slots {
+    flex: 0 0 var(--video-gen-omni-slot-col-w, 108px);
+    width: var(--video-gen-omni-slot-col-w, 108px);
+    min-width: var(--video-gen-omni-slot-col-w, 108px);
+    max-width: var(--video-gen-omni-slot-col-w, 108px);
+    overflow: visible;
+    position: relative;
+    z-index: 2;
+  }
+
+  .video-gen-input-box .video-gen-composer-top--omni .video-gen-omni-ref-anchor {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    position: relative;
+    width: 100%;
+    min-height: var(--chat-composer-textarea-field-min-height, 104px);
+    max-width: none;
+    overflow: visible;
+    /* 未上传 / 已上传共用同一基准上移；要大位移可把此处改成例如 20px */
+    --video-gen-omni-ref-vertical-nudge: 10px;
+  }
+
+  .video-gen-input-box .video-gen-composer-top--omni .video-gen-omni-ref-anchor > .video-gen-ref-empty {
+    transform: translateY(calc(-1 * var(--video-gen-omni-ref-vertical-nudge)));
+  }
+
+  .video-gen-input-box .video-gen-composer-top--omni .video-gen-omni-ref-anchor > .video-gen-ref-zone {
+    align-self: stretch;
+  }
+
+  .video-gen-input-box .video-gen-composer-top--omni .video-gen-ref-zone {
+    position: relative;
+    min-height: var(--chat-composer-textarea-field-min-height, 104px);
+    width: 100%;
+  }
+
+  /* 贴左锚定 + 仅垂直居中；向右溢出由 overflow:visible 铺开，不挤压 textarea */
+  .video-gen-input-box .video-gen-composer-top--omni .video-gen-ref-stack {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(calc(-50% - var(--video-gen-omni-ref-vertical-nudge)));
+    z-index: 8;
+    width: max-content;
+    max-width: min(960px, calc(100vw - 120px));
+    pointer-events: auto;
+  }
+}
+
+@media (hover: none), (max-width: 720px) {
+  .video-gen-input-box .video-gen-composer-top--omni .video-gen-composer-slots {
+    flex: 0 1 auto;
+    width: auto;
+    min-width: 0;
+    max-width: min(360px, 100%);
+    overflow: visible;
+    position: relative;
+  }
+
+  .video-gen-input-box .video-gen-composer-top--omni .video-gen-omni-ref-anchor {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: visible;
+    scrollbar-width: thin;
+    min-height: 0;
+  }
+
+  .video-gen-input-box .video-gen-composer-top--omni .video-gen-ref-zone {
+    min-height: 0;
+  }
+
+  .video-gen-input-box .video-gen-composer-top--omni .video-gen-ref-stack {
+    position: relative;
+    left: auto;
+    top: auto;
+    z-index: auto;
+    width: auto;
+    max-width: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .video-gen-input-box .video-gen-composer-top--omni {
+    flex-wrap: wrap;
+  }
+
+  .video-gen-input-box .video-gen-composer-top--omni .video-gen-composer-slots {
+    max-width: 100%;
+  }
+
+  .video-gen-input-box .video-gen-composer-top--omni .chat-textarea {
+    flex: 1 1 100%;
+  }
+}
+
+.video-gen-ref-zone .video-gen-ref-add-slot.ant-btn.is-at-capacity {
+  cursor: pointer;
+  opacity: 1 !important;
+  filter: saturate(0.75);
+  color: var(--text-tertiary) !important;
+  background: var(--bg-hover) !important;
+  box-shadow:
+    inset 0 0 0 1px dashed var(--border-hover),
+    0 0 0 1px rgb(from var(--border-default) r g b / 0.65) !important;
+}
+
+.video-gen-input-box--omni .video-gen-ref-zone .video-gen-ref-add-slot.ant-btn.is-at-capacity {
+  filter: none !important;
+  color: var(--vg-ref-plus-ink, var(--theme-color-text-0)) !important;
+  background: var(--vg-ref-plus-surface, var(--theme-color-bg-4)) !important;
+  border: 1px solid var(--theme-color-border) !important;
+  box-shadow: inset 0 0 0 1px dashed var(--vg-ref-plus-dash, var(--theme-color-text-1)) !important;
+}
+
+.video-gen-ref-zone .video-gen-ref-add-slot.ant-btn.is-at-capacity:hover:not(:disabled) {
+  filter: saturate(0.9);
+  color: var(--text-secondary) !important;
+}
+
+.video-gen-input-box--omni .video-gen-ref-zone .video-gen-ref-add-slot.ant-btn.is-at-capacity:hover:not(:disabled) {
+  background: var(--vg-ref-plus-surface) !important;
+  filter: none !important;
+  color: var(--vg-ref-plus-ink) !important;
+  border-color: var(--theme-color-border) !important;
+  box-shadow: inset 0 0 0 1px dashed var(--vg-ref-plus-dash) !important;
+}
+
+.video-gen-input-box--omni .video-gen-ref-strip {
+  padding-top: 8px;
+  padding-left: 4px;
+  padding-right: 8px;
+}
+
+.video-gen-composer-slots {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 auto;
+  max-width: 100%;
+}
+
+/* 参考条展开/聚焦时浮在提示词 textarea 之上，不改变文档流占位 */
+.video-gen-composer-slots:has(.video-gen-ref-strip:hover),
+.video-gen-composer-slots:has(.video-gen-ref-strip:focus-within) {
+  position: relative;
+  z-index: 40;
+}
+
+.video-gen-mobile-slots:has(.video-gen-ref-strip:hover),
+.video-gen-mobile-slots:has(.video-gen-ref-strip:focus-within) {
+  position: relative;
+  z-index: 40;
+}
+
+/* ── 全能参考上传：图二空态 hover、图三单张倾斜、图四·五多张扇形叠放 ── */
+.video-gen-omni-ref-anchor {
+  flex: 0 0 auto;
+  align-self: flex-end;
+  max-width: min(100%, 440px);
+  --video-gen-ref-card-w: 56px;
+  --video-gen-ref-card-h: 75px;
+  --video-gen-ref-radius: 0;
+}
+
+.video-gen-ref-zone {
+  --video-gen-ref-dur: 0.58s;
+}
+
+.video-gen-ref-zone--mobile {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* 缩略纸条；添加钮展开后插入纸条末尾 */
+.video-gen-ref-stack {
+  position: relative;
+  display: inline-flex;
+  align-items: flex-end;
+  max-width: 100%;
+}
+
+.video-gen-ref-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px 8px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.video-gen-ref-empty:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.video-gen-ref-empty--mobile {
+  width: 100%;
+}
+
+.video-gen-ref-empty-box {
+  width: var(--video-gen-ref-card-w, 56px);
+  height: var(--video-gen-ref-card-h, 75px);
+  border-radius: 0;
+  border: 1px solid var(--border-default, #2a2a30);
+  background: var(--bg-hover);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-primary);
+  transform: translate(1px, 2px) rotate(-12deg);
+  transform-origin: 50% 50%;
+  box-shadow: inset 0 0 0 1px dashed rgb(from var(--text-tertiary) r g b / 0.45);
+  transition:
+    color 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    filter 0.18s ease;
+}
+
+body[theme-mode='light'] .video-gen-ref-empty-box {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: rgba(0, 0, 0, 0.14);
+  box-shadow: inset 0 0 0 1px dashed rgba(0, 0, 0, 0.3);
+}
+
+/* Omni：空态盒子与「添加」槽共用表面；仅用边框 + 内虚线，无外投影 */
+.video-gen-input-box--omni .video-gen-omni-ref-anchor .video-gen-ref-empty-box,
+.video-gen-input-box--omni .video-gen-omni-ref-anchor .video-gen-ref-add-slot.ant-btn {
+  background: var(--vg-ref-plus-surface) !important;
+  color: var(--vg-ref-plus-ink) !important;
+  border: 1px solid var(--theme-color-border) !important;
+  box-shadow: inset 0 0 0 1px dashed var(--vg-ref-plus-dash);
+}
+
+/* Omni「+」槽几何变换保留过渡，底色不参与过渡（避免经过 bg-card 泛白） */
+.video-gen-input-box--omni .video-gen-omni-ref-anchor .video-gen-ref-add-slot.ant-btn {
+  transition:
+    margin-left var(--video-gen-ref-dur, 0.58s) cubic-bezier(0.33, 1, 0.68, 1),
+    transform var(--video-gen-ref-dur, 0.58s) cubic-bezier(0.33, 1, 0.68, 1),
+    width var(--video-gen-ref-dur, 0.58s) cubic-bezier(0.33, 1, 0.68, 1),
+    height var(--video-gen-ref-dur, 0.58s) cubic-bezier(0.33, 1, 0.68, 1),
+    min-width var(--video-gen-ref-dur, 0.58s) cubic-bezier(0.33, 1, 0.68, 1),
+    border-radius var(--video-gen-ref-dur, 0.58s) cubic-bezier(0.33, 1, 0.68, 1),
+    border-color 0.28s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease,
+    color 0.18s ease;
+}
+
+.video-gen-input-box--omni .video-gen-omni-ref-anchor .video-gen-ref-add-slot.ant-btn .anticon svg,
+.video-gen-input-box--omni .video-gen-omni-ref-anchor .video-gen-ref-empty-plus svg {
+  fill: currentColor;
+}
+
+.video-gen-input-box--omni .video-gen-omni-ref-anchor .video-gen-ref-add-slot.ant-btn .anticon,
+.video-gen-input-box--omni .video-gen-omni-ref-anchor .video-gen-ref-empty-plus {
+  color: inherit !important;
+}
+
+.video-gen-ref-empty-plus {
+  font-size: 18px !important;
+}
+
+.video-gen-input-box--omni .video-gen-omni-ref-anchor .video-gen-ref-empty-plus {
+  font-size: 19px !important;
+}
+
+.video-gen-ref-empty:hover:not(:disabled) .video-gen-ref-empty-box {
+  color: var(--theme-color-primary);
+  filter: brightness(1.05);
+  border-color: rgb(from var(--theme-color-primary) r g b / 0.42);
+  box-shadow: inset 0 0 0 1px dashed rgb(from var(--theme-color-primary) r g b / 0.65);
+  background: var(--bg-hover);
+}
+
+.video-gen-input-box--omni .video-gen-omni-ref-anchor .video-gen-ref-empty:hover:not(:disabled) .video-gen-ref-empty-box {
+  background: var(--vg-ref-plus-surface) !important;
+  color: var(--theme-color-primary);
+  border-color: rgb(from var(--theme-color-primary) r g b / 0.42) !important;
+  filter: brightness(1.05);
+  box-shadow: inset 0 0 0 1px dashed rgb(from var(--theme-color-primary) r g b / 0.65);
+}
+
+.video-gen-ref-empty-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  line-height: 1.3;
+  max-width: 15em;
+}
+
+.video-gen-ref-strip {
+  position: relative;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: flex-end;
+  flex-wrap: nowrap;
+  gap: 0;
+  padding: 6px 12px 8px 8px;
+  min-height: 0;
+}
+
+/* 叠放区：收起态绝对定位的「+」锚定在本区域右下角（最后一张缩略图叠放位置） */
+.video-gen-ref-strip-cards {
+  position: relative;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: flex-end;
+  flex-wrap: nowrap;
+  gap: 0;
+}
+
+.video-gen-ref-zone--mobile .video-gen-ref-strip {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: thin;
+  padding-bottom: 16px;
+}
+
+.video-gen-ref-strip--single .video-gen-ref-strip-cards {
+  gap: 14px;
+}
+
+.video-gen-ref-strip--multi .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(1) {
+  z-index: 1;
+}
+
+.video-gen-ref-strip--multi .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(2) {
+  z-index: 2;
+}
+
+.video-gen-ref-strip--multi .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(3) {
+  z-index: 3;
+}
+
+.video-gen-ref-strip--multi .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(4) {
+  z-index: 4;
+}
+
+.video-gen-ref-strip--multi .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(5) {
+  z-index: 5;
+}
+
+.video-gen-ref-strip--multi .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(6) {
+  z-index: 6;
+}
+
+.video-gen-ref-strip--multi .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(7) {
+  z-index: 7;
+}
+
+.video-gen-ref-strip--multi .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(8) {
+  z-index: 8;
+}
+
+.video-gen-ref-strip--multi .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(9) {
+  z-index: 9;
+}
+
+/* 「添加」槽：默认与缩略图同规格；桌面收起时由下方 @media(hover:hover) 改为右下角小圆 */
+.video-gen-ref-add-slot.ant-btn {
+  /* 收起↔展开几何变换单独加快，避免鼠标移开后长时间“拖尾” */
+  --video-gen-ref-dur: 0.2s;
+  --ant-border-radius: 0;
+  --ant-border-radius-sm: 0;
+  --ant-border-radius-lg: 0;
+  flex-shrink: 0;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: var(--video-gen-ref-card-w, 56px) !important;
+  min-width: var(--video-gen-ref-card-w, 56px) !important;
+  height: var(--video-gen-ref-card-h, 75px) !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  border: 1px solid var(--theme-color-border) !important;
+  color: var(--text-secondary);
+  background: var(--bg-hover) !important;
+  opacity: 1 !important;
+  transform: rotate(var(--ref-add-rotate, 0deg));
+  margin-left: 0;
+  transition:
+    margin-left var(--video-gen-ref-dur, 0.58s) cubic-bezier(0.33, 1, 0.68, 1),
+    transform var(--video-gen-ref-dur, 0.58s) cubic-bezier(0.33, 1, 0.68, 1),
+    width var(--video-gen-ref-dur, 0.58s) cubic-bezier(0.33, 1, 0.68, 1),
+    height var(--video-gen-ref-dur, 0.58s) cubic-bezier(0.33, 1, 0.68, 1),
+    min-width var(--video-gen-ref-dur, 0.58s) cubic-bezier(0.33, 1, 0.68, 1),
+    border-radius var(--video-gen-ref-dur, 0.58s) cubic-bezier(0.33, 1, 0.68, 1),
+    border-color 0.28s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease,
+    opacity 0.2s ease,
+    filter 0.22s ease,
+    color 0.18s ease;
+  transition-delay: 0ms;
+  box-shadow: inset 0 0 0 1px dashed rgb(from var(--text-tertiary) r g b / 0.35);
+}
+
+body[theme-mode='light'] .video-gen-ref-add-slot.ant-btn {
+  background: var(--bg-elevated) !important;
+  border-color: var(--theme-color-border) !important;
+  box-shadow: inset 0 0 0 1px dashed rgba(0, 0, 0, 0.28);
+}
+
+.video-gen-ref-add-slot.ant-btn:hover:not(:disabled) {
+  color: var(--theme-color-primary);
+  filter: brightness(1.06);
+  border-color: rgb(from var(--theme-color-primary) r g b / 0.45) !important;
+  box-shadow:
+    inset 0 0 0 1px dashed rgb(from var(--theme-color-primary) r g b / 0.55),
+    0 0 0 2px rgb(from var(--theme-color-primary) r g b / 0.18);
+}
+
+/*
+ * Omni「+」槽：与对话列对齐的表面色；hover / 展开不收窄到 bg-card、不做亮度滤镜，
+ * 避免恢复卡片尺寸时背景「洗白」或闪烁。
+ */
+.video-gen-input-box--omni .video-gen-omni-ref-anchor .video-gen-ref-add-slot.ant-btn:hover:not(:disabled),
+.video-gen-input-box--omni .video-gen-omni-ref-anchor .video-gen-ref-add-slot.ant-btn:focus-visible:not(:disabled),
+.video-gen-input-box--omni .video-gen-omni-ref-anchor .video-gen-ref-add-slot.ant-btn:active:not(:disabled) {
+  background: var(--vg-ref-plus-surface) !important;
+  color: var(--vg-ref-plus-ink) !important;
+  filter: none !important;
+  border-color: var(--theme-color-border) !important;
+  box-shadow: inset 0 0 0 1px dashed var(--vg-ref-plus-dash) !important;
+}
+
+.video-gen-ref-add-slot.ant-btn .anticon {
+  font-size: 18px !important;
+}
+
+.video-gen-input-box--omni .video-gen-omni-ref-anchor .video-gen-ref-add-slot.ant-btn .anticon {
+  font-size: 19px !important;
+}
+
+/*
+ * 多张：绕卡片中心旋转；奇槽偏左、偶槽偏右（角度与 TSX refSlotRotateExpandedDeg 一致）。
+ * 桌面：收起重叠；hover/focus-within 拉开；「添加」收起为小圆贴右下角，展开后与下一槽同尺寸、同转角。
+ * 触控：始终展开；添加槽恒为卡片尺寸。
+ */
+@media (hover: none) {
+  .video-gen-ref-strip--multi .video-gen-ref-strip-cards > .video-gen-ref-card--media:not(:first-child) {
+    margin-left: -10px;
+  }
+
+  .video-gen-ref-strip--multi .video-gen-ref-add-slot.ant-btn {
+    margin-left: -10px;
+  }
+
+  .video-gen-ref-strip--multi .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(1) {
+    transform: translate(1px, 1px) rotate(-12deg);
+    transition-delay: 0ms;
+  }
+
+  .video-gen-ref-strip--multi .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(2) {
+    transform: translate(-1px, 0) rotate(11deg);
+    transition-delay: 54ms;
+  }
+
+  .video-gen-ref-strip--multi .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(3) {
+    transform: translate(1px, 1px) rotate(-14deg);
+    transition-delay: 108ms;
+  }
+
+  .video-gen-ref-strip--multi .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(4) {
+    transform: translate(-1px, 1px) rotate(13deg);
+    transition-delay: 162ms;
+  }
+
+  .video-gen-ref-strip--multi .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(5) {
+    transform: translate(0, 0) rotate(-11deg);
+    transition-delay: 216ms;
+  }
+
+  .video-gen-ref-strip--multi .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(6) {
+    transform: translate(1px, -1px) rotate(12deg);
+    transition-delay: 270ms;
+  }
+
+  .video-gen-ref-strip--multi .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(7) {
+    transform: translate(-1px, 1px) rotate(-13deg);
+    transition-delay: 324ms;
+  }
+
+  .video-gen-ref-strip--multi .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(8) {
+    transform: translate(1px, 0) rotate(14deg);
+    transition-delay: 378ms;
+  }
+
+  .video-gen-ref-strip--multi .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(9) {
+    transform: translate(-1px, 1px) rotate(-12deg);
+    transition-delay: 432ms;
+  }
+}
+
+@media (hover: hover) {
+  /*
+   * 收起：叠放负 margin 不得超过单卡宽度；否则后续卡片布局左缘会超过第一张（溢出输入框左侧）。
+   * 卡宽等于 --video-gen-ref-card-w → pull 同宽叠摞。
+   */
+  .video-gen-ref-strip--multi .video-gen-ref-strip-cards > .video-gen-ref-card--media:not(:first-child) {
+    margin-left: calc(-1 * var(--video-gen-ref-card-w, 56px));
+  }
+
+  /* 收起：重叠 + 中心旋转；奇左偶右 */
+  .video-gen-ref-strip--multi:not(:hover):not(:focus-within) .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(1) {
+    transform: translate(1px, 2px) rotate(-12deg);
+    transition-delay: 0ms;
+  }
+
+  .video-gen-ref-strip--multi:not(:hover):not(:focus-within) .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(2) {
+    transform: translate(-1px, 1px) rotate(11deg);
+    transition-delay: 46ms;
+  }
+
+  .video-gen-ref-strip--multi:not(:hover):not(:focus-within) .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(3) {
+    transform: translate(2px, 0) rotate(-14deg);
+    transition-delay: 92ms;
+  }
+
+  .video-gen-ref-strip--multi:not(:hover):not(:focus-within) .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(4) {
+    transform: translate(-2px, 2px) rotate(13deg);
+    transition-delay: 138ms;
+  }
+
+  .video-gen-ref-strip--multi:not(:hover):not(:focus-within) .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(5) {
+    transform: translate(1px, 1px) rotate(-11deg);
+    transition-delay: 184ms;
+  }
+
+  .video-gen-ref-strip--multi:not(:hover):not(:focus-within) .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(6) {
+    transform: translate(-1px, 0) rotate(12deg);
+    transition-delay: 230ms;
+  }
+
+  .video-gen-ref-strip--multi:not(:hover):not(:focus-within) .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(7) {
+    transform: translate(2px, 2px) rotate(-13deg);
+    transition-delay: 276ms;
+  }
+
+  .video-gen-ref-strip--multi:not(:hover):not(:focus-within) .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(8) {
+    transform: translate(-1px, 1px) rotate(14deg);
+    transition-delay: 322ms;
+  }
+
+  .video-gen-ref-strip--multi:not(:hover):not(:focus-within) .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(9) {
+    transform: translate(1px, 0) rotate(-12deg);
+    transition-delay: 368ms;
+  }
+
+  /* 单张：首张与多张「收起」首张同款 tilt；hover/focus-within 拉回到展开角，才有与多张一致的 hover 反馈 */
+  .video-gen-ref-strip--single:not(:hover):not(:focus-within) .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(1) {
+    transform: translate(1px, 2px) rotate(-12deg);
+    transition-delay: 0ms;
+  }
+
+  .video-gen-ref-strip--single:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(1),
+  .video-gen-ref-strip--single:focus-within .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(1) {
+    transform: rotate(-9deg);
+    transition-delay: 0ms;
+  }
+
+  .video-gen-ref-strip--single:not(:hover):not(:focus-within) .video-gen-ref-strip-cards > .video-gen-ref-card--media {
+    box-shadow: none;
+  }
+
+  .video-gen-ref-strip--multi:not(:hover):not(:focus-within) .video-gen-ref-strip-cards > .video-gen-ref-card--media {
+    box-shadow: none;
+  }
+
+  /* 收起：小圆「+」相对叠放区右下角定位，压住末张缩略图一角 */
+  .video-gen-ref-strip--multi:not(:hover):not(:focus-within) .video-gen-ref-add-slot.ant-btn,
+  .video-gen-ref-strip--single:not(:hover):not(:focus-within) .video-gen-ref-add-slot.ant-btn {
+    position: absolute;
+    right: -8px;
+    bottom: -3px;
+    width: 26px !important;
+    min-width: 26px !important;
+    height: 26px !important;
+    padding: 0 !important;
+    border-radius: 999px !important;
+    border: 1px solid var(--theme-color-border) !important;
+    transform: rotate(0deg) !important;
+    margin-left: 0 !important;
+    z-index: 44;
+    box-shadow: inset 0 0 0 1px var(--border-default);
+    transition-delay: 0ms !important;
+    background: var(--bg-card) !important;
+    opacity: 1 !important;
+  }
+
+  /* Omni 收起小圆钮：与空态 / 展开槽同一套表面色，避免灰底弱对比 */
+  .video-gen-input-box--omni .video-gen-ref-strip--multi:not(:hover):not(:focus-within) .video-gen-ref-add-slot.ant-btn,
+  .video-gen-input-box--omni .video-gen-ref-strip--single:not(:hover):not(:focus-within) .video-gen-ref-add-slot.ant-btn {
+    background: var(--vg-ref-plus-surface) !important;
+    color: var(--vg-ref-plus-ink) !important;
+    border: 1px solid var(--theme-color-border) !important;
+    box-shadow: inset 0 0 0 1px dashed var(--vg-ref-plus-dash);
+  }
+
+  .video-gen-input-box--omni .video-gen-ref-strip--multi:not(:hover):not(:focus-within) .video-gen-ref-add-slot.ant-btn .anticon,
+  .video-gen-input-box--omni .video-gen-ref-strip--single:not(:hover):not(:focus-within) .video-gen-ref-add-slot.ant-btn .anticon {
+    font-size: 13px !important;
+  }
+
+  .video-gen-ref-strip--multi:not(:hover):not(:focus-within) .video-gen-ref-add-slot.ant-btn .anticon,
+  .video-gen-ref-strip--single:not(:hover):not(:focus-within) .video-gen-ref-add-slot.ant-btn .anticon {
+    font-size: 13px !important;
+  }
+
+  .video-gen-ref-strip--multi:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:not(:first-child),
+  .video-gen-ref-strip--multi:focus-within .video-gen-ref-strip-cards > .video-gen-ref-card--media:not(:first-child) {
+    margin-left: -10px;
+  }
+
+  /* 展开：与 TSX refSlotRotateExpandedDeg 一致 */
+  .video-gen-ref-strip--multi:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(1),
+  .video-gen-ref-strip--multi:focus-within .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(1) {
+    transform: rotate(-9deg);
+    transition-delay: 0ms;
+  }
+
+  .video-gen-ref-strip--multi:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(2),
+  .video-gen-ref-strip--multi:focus-within .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(2) {
+    transform: rotate(8deg);
+    transition-delay: 52ms;
+  }
+
+  .video-gen-ref-strip--multi:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(3),
+  .video-gen-ref-strip--multi:focus-within .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(3) {
+    transform: rotate(-11deg);
+    transition-delay: 104ms;
+  }
+
+  .video-gen-ref-strip--multi:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(4),
+  .video-gen-ref-strip--multi:focus-within .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(4) {
+    transform: rotate(10deg);
+    transition-delay: 156ms;
+  }
+
+  .video-gen-ref-strip--multi:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(5),
+  .video-gen-ref-strip--multi:focus-within .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(5) {
+    transform: rotate(-8deg);
+    transition-delay: 208ms;
+  }
+
+  .video-gen-ref-strip--multi:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(6),
+  .video-gen-ref-strip--multi:focus-within .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(6) {
+    transform: rotate(9deg);
+    transition-delay: 260ms;
+  }
+
+  .video-gen-ref-strip--multi:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(7),
+  .video-gen-ref-strip--multi:focus-within .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(7) {
+    transform: rotate(-10deg);
+    transition-delay: 312ms;
+  }
+
+  .video-gen-ref-strip--multi:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(8),
+  .video-gen-ref-strip--multi:focus-within .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(8) {
+    transform: rotate(11deg);
+    transition-delay: 364ms;
+  }
+
+  .video-gen-ref-strip--multi:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(9),
+  .video-gen-ref-strip--multi:focus-within .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(9) {
+    transform: rotate(-9deg);
+    transition-delay: 416ms;
+  }
+
+  /* 展开：添加槽 → 下一格满尺寸 + 同步转角 */
+  .video-gen-ref-strip--multi:hover .video-gen-ref-add-slot.ant-btn,
+  .video-gen-ref-strip--multi:focus-within .video-gen-ref-add-slot.ant-btn {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    width: var(--video-gen-ref-card-w, 56px) !important;
+    min-width: var(--video-gen-ref-card-w, 56px) !important;
+    height: var(--video-gen-ref-card-h, 75px) !important;
+    padding: 0 !important;
+    border-radius: var(--video-gen-ref-radius, 0) !important;
+    border: 1px solid var(--theme-color-border) !important;
+    margin-left: -10px !important;
+    transform: rotate(var(--ref-add-rotate)) !important;
+    transition-delay: 0ms !important;
+    z-index: 14;
+    box-shadow: inset 0 0 0 1px dashed var(--border-default);
+    background: var(--bg-card) !important;
+    opacity: 1 !important;
+  }
+
+  .video-gen-ref-strip--multi:hover .video-gen-ref-add-slot.ant-btn .anticon,
+  .video-gen-ref-strip--multi:focus-within .video-gen-ref-add-slot.ant-btn .anticon {
+    font-size: 18px !important;
+  }
+
+  .video-gen-ref-strip--single:hover .video-gen-ref-add-slot.ant-btn,
+  .video-gen-ref-strip--single:focus-within .video-gen-ref-add-slot.ant-btn {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    width: var(--video-gen-ref-card-w, 56px) !important;
+    min-width: var(--video-gen-ref-card-w, 56px) !important;
+    height: var(--video-gen-ref-card-h, 75px) !important;
+    padding: 0 !important;
+    border-radius: var(--video-gen-ref-radius, 0) !important;
+    border: 1px solid var(--theme-color-border) !important;
+    margin-left: 0 !important;
+    transform: rotate(var(--ref-add-rotate)) !important;
+    transition-delay: 0ms !important;
+    z-index: 14;
+    box-shadow: inset 0 0 0 1px dashed var(--border-default);
+    background: var(--bg-card) !important;
+    opacity: 1 !important;
+  }
+
+  .video-gen-ref-strip--single:hover .video-gen-ref-add-slot.ant-btn .anticon,
+  .video-gen-ref-strip--single:focus-within .video-gen-ref-add-slot.ant-btn .anticon {
+    font-size: 18px !important;
+  }
+
+  /* Omni 展开：与收起圆钮同一套表面（禁止沿用上方的 bg-card） */
+  .video-gen-input-box--omni .video-gen-ref-strip--multi:hover .video-gen-ref-add-slot.ant-btn,
+  .video-gen-input-box--omni .video-gen-ref-strip--multi:focus-within .video-gen-ref-add-slot.ant-btn,
+  .video-gen-input-box--omni .video-gen-ref-strip--single:hover .video-gen-ref-add-slot.ant-btn,
+  .video-gen-input-box--omni .video-gen-ref-strip--single:focus-within .video-gen-ref-add-slot.ant-btn {
+    background: var(--vg-ref-plus-surface) !important;
+    color: var(--vg-ref-plus-ink) !important;
+    filter: none !important;
+    border: 1px solid var(--theme-color-border) !important;
+    box-shadow: inset 0 0 0 1px dashed var(--vg-ref-plus-dash) !important;
+  }
+
+  .video-gen-ref-strip--multi:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(-n + 9):hover {
+    z-index: 92;
+    filter: brightness(1.14);
+    box-shadow: 0 0 0 2px rgb(from var(--theme-color-primary) r g b / 0.38);
+  }
+
+  .video-gen-ref-strip--multi:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(1):hover {
+    transform: rotate(-9deg) scale(1.07) translateY(-8px);
+  }
+
+  .video-gen-ref-strip--single:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(-n + 9):hover {
+    z-index: 92;
+    filter: brightness(1.14);
+    box-shadow: 0 0 0 2px rgb(from var(--theme-color-primary) r g b / 0.38);
+  }
+
+  .video-gen-ref-strip--single:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(1):hover {
+    transform: rotate(-9deg) scale(1.07) translateY(-8px);
+  }
+
+  .video-gen-ref-strip--multi:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(2):hover {
+    transform: rotate(8deg) scale(1.07) translateY(-8px);
+  }
+
+  .video-gen-ref-strip--multi:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(3):hover {
+    transform: rotate(-11deg) scale(1.07) translateY(-8px);
+  }
+
+  .video-gen-ref-strip--multi:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(4):hover {
+    transform: rotate(10deg) scale(1.07) translateY(-8px);
+  }
+
+  .video-gen-ref-strip--multi:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(5):hover {
+    transform: rotate(-8deg) scale(1.07) translateY(-8px);
+  }
+
+  .video-gen-ref-strip--multi:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(6):hover {
+    transform: rotate(9deg) scale(1.07) translateY(-8px);
+  }
+
+  .video-gen-ref-strip--multi:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(7):hover {
+    transform: rotate(-10deg) scale(1.07) translateY(-8px);
+  }
+
+  .video-gen-ref-strip--multi:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(8):hover {
+    transform: rotate(11deg) scale(1.07) translateY(-8px);
+  }
+
+  .video-gen-ref-strip--multi:hover .video-gen-ref-strip-cards > .video-gen-ref-card--media:nth-child(9):hover {
+    transform: rotate(-9deg) scale(1.07) translateY(-8px);
+  }
+}
+
+.video-gen-ref-card {
+  position: relative;
+  flex-shrink: 0;
+  width: var(--video-gen-ref-card-w, 56px);
+  height: var(--video-gen-ref-card-h, 75px);
+  border-radius: var(--video-gen-ref-radius, 0);
+  border: 1px solid rgb(from var(--border-hover) r g b / 0.55);
+  background: var(--bg-elevated, #1a1a1e);
+  overflow: visible;
+  transition:
+    margin-left var(--video-gen-ref-dur, 0.58s) cubic-bezier(0.33, 1, 0.68, 1),
+    transform var(--video-gen-ref-dur, 0.58s) cubic-bezier(0.33, 1, 0.68, 1),
+    filter 0.22s ease,
+    border-color 0.28s ease;
+  transition-delay: 0ms;
+  box-shadow: none;
+}
+
+body[theme-mode='light'] .video-gen-ref-card {
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: none;
+}
+
+.video-gen-ref-card-body {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--video-gen-ref-radius, 0);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.video-gen-ref-card-body > * {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.video-gen-ref-tooltip-trigger {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.video-gen-ref-tooltip-trigger > .video-gen-ref-card-tooltip-fill {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.video-gen-ref-card--media {
+  transform-origin: 50% 50%;
+}
+
+.video-gen-ref-card--media.is-tilt-a {
+  transform: rotate(-9deg);
+}
+
+.video-gen-ref-card--media.is-tilt-b {
+  transform: rotate(8deg);
+}
+
+.video-gen-ref-card-tooltip-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--video-gen-ref-radius, 0);
+  overflow: hidden;
+}
+
+/* antd Image：全能参考缩略图填满卡片（预览走 Image.PreviewGroup） */
+.video-gen-ref-thumb-ant-image.ant-image {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  display: flex !important;
+}
+
+.video-gen-ref-thumb-ant-image.ant-image .ant-image-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  cursor: zoom-in;
+  border-radius: 0 !important;
+}
+
+/* 参考上传：空态 / 展开「+」槽 / 缩略图统一直角（收起态右下角小圆钮仍用下方 999px 规则） */
+.video-gen-omni-ref-anchor .video-gen-ref-empty-box,
+.video-gen-omni-ref-anchor .video-gen-ref-card,
+.video-gen-omni-ref-anchor .video-gen-ref-card-body,
+.video-gen-omni-ref-anchor .video-gen-ref-card-tooltip-fill,
+.video-gen-omni-ref-anchor .video-gen-ref-card-video,
+.video-gen-omni-ref-anchor .video-gen-ref-thumb-ant-image.ant-image,
+.video-gen-omni-ref-anchor .video-gen-ref-add-slot.ant-btn {
+  border-radius: 0 !important;
+}
+
+.video-gen-ref-card-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 0;
+}
+
+.video-gen-ref-card-audio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: var(--fill-secondary, #2a2a2a);
+}
+
+.video-gen-ref-card-audio-label {
+  font-size: 22px;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.video-gen-ref-tooltip-trigger {
+  position: relative;
+}
+
+.video-gen-ref-upload-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.video-gen-ref-upload-overlay .ant-progress-text {
+  color: #fff !important;
+  font-size: 10px !important;
+}
+
+.video-gen-ref-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+@media (hover: hover) {
+  .video-gen-ref-card--media .video-gen-ref-remove {
+    opacity: 0;
+  }
+
+  .video-gen-ref-card--media:hover .video-gen-ref-remove {
+    opacity: 1;
+  }
+}
+
+@media (hover: none) {
+  .video-gen-ref-remove {
+    opacity: 0.92;
+  }
+}
+
+.video-gen-ref-remove:hover {
+  transform: scale(1.06);
+  background: rgba(220, 38, 38, 0.92);
+}
+
+.video-gen-input-box
+  .video-gen-composer-top:not(.video-gen-composer-top--omni):not(.video-gen-composer-top--media-row)
+  .chat-textarea {
+  flex: 1 1 220px;
+  min-width: 0;
+  width: auto;
+  max-width: 100%;
+  padding: 0;
+}
+
+/* 首尾帧 / 单首帧：卡牌 + 下方标签；⇄ 仅与卡牌行对齐（与 omni 空态「+」同色） */
+.video-gen-frame-upload {
+  --video-gen-ref-card-w: 56px;
+  --video-gen-ref-card-h: 75px;
+  --vg-ref-plus-surface: var(--bg-hover);
+  --vg-ref-plus-ink: var(--theme-color-primary);
+  --vg-ref-plus-dash: rgb(from var(--theme-color-primary) r g b / 0.38);
+}
+
+.video-gen-frame-upload--first-only {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  width: max-content;
+}
+
+.video-gen-frame-upload--first-last {
+  display: grid;
+  grid-template-columns: var(--video-gen-ref-card-w, 56px) auto var(--video-gen-ref-card-w, 56px);
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  row-gap: 4px;
+  align-items: center;
+}
+
+.video-gen-frame-upload--first-last .video-gen-frame-slot-col--first {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.video-gen-frame-upload--first-last .video-gen-frame-upload__arrow {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  justify-self: center;
+  line-height: 1;
+}
+
+.video-gen-frame-upload--first-last .video-gen-frame-slot-col--last {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.video-gen-frame-upload--first-last .video-gen-frame-upload__label-first {
+  grid-column: 1;
+  grid-row: 2;
+  justify-self: center;
+}
+
+.video-gen-frame-upload--first-last .video-gen-frame-upload__arrow-spacer {
+  grid-column: 2;
+  grid-row: 2;
+  width: 1em;
+}
+
+.video-gen-frame-upload--first-last .video-gen-frame-upload__label-last {
+  grid-column: 3;
+  grid-row: 2;
+  justify-self: center;
+}
+
+body[theme-mode='light'] .video-gen-frame-upload {
+  --vg-ref-plus-surface: #f9fafc;
+}
+
+.video-gen-frame-upload .video-gen-ref-empty-box {
+  background: var(--vg-ref-plus-surface) !important;
+  color: var(--vg-ref-plus-ink) !important;
+  border: 1px solid var(--theme-color-border) !important;
+  box-shadow: inset 0 0 0 1px dashed var(--vg-ref-plus-dash);
+}
+
+.video-gen-frame-upload .video-gen-ref-empty-plus {
+  color: inherit !important;
+}
+
+.video-gen-frame-upload .video-gen-ref-empty-plus svg {
+  fill: currentColor;
+}
+
+.video-gen-frame-upload .video-gen-ref-empty:hover:not(:disabled) .video-gen-ref-empty-box {
+  background: var(--vg-ref-plus-surface) !important;
+  color: var(--theme-color-primary);
+  border-color: rgb(from var(--theme-color-primary) r g b / 0.42) !important;
+  filter: brightness(1.05);
+  box-shadow: inset 0 0 0 1px dashed rgb(from var(--theme-color-primary) r g b / 0.65);
+}
+
+.video-gen-frame-slot-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.video-gen-frame-slot-empty {
+  padding: 0;
+}
+
+.video-gen-frame-upload .video-gen-ref-empty-box {
+  transform: none !important;
+  margin-left: 0 !important;
+}
+
+.video-gen-frame-upload .video-gen-frame-slot-filled {
+  margin-left: 0 !important;
+  transform: none;
+  transition:
+    transform 0.22s ease,
+    filter 0.22s ease,
+    box-shadow 0.28s ease,
+    border-color 0.28s ease;
+}
+
+@media (hover: hover) {
+  .video-gen-frame-upload .video-gen-frame-slot-filled:hover {
+    z-index: 92;
+    filter: brightness(1.14);
+    box-shadow: 0 0 0 2px rgb(from var(--theme-color-primary) r g b / 0.38);
+    transform: scale(1.07) translateY(-8px) !important;
+    border-color: rgb(from var(--theme-color-primary) r g b / 0.35);
+  }
+
+  .video-gen-frame-upload .video-gen-frame-slot-filled:hover .video-gen-ref-remove {
+    opacity: 1;
+  }
+}
+
+@media (hover: none) {
+  .video-gen-frame-upload .video-gen-frame-slot-filled .video-gen-ref-remove {
+    opacity: 0.92;
+  }
+}
+
+.video-gen-frame-slot-label,
+.video-gen-frame-upload--first-last .video-gen-frame-slot-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.2;
+  max-width: 12em;
+  margin: 0;
+  padding: 0;
+}
+
+.video-gen-slot-arrow {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  user-select: none;
+}
+
+.video-gen-input-box .chat-input-toolbar {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 0 var(--chat-composer-inset) var(--chat-composer-inset-bottom);
+}
+
+.video-gen-toolbar-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.video-gen-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.video-gen-toolbar-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-default, #2a2a30);
+  background: transparent;
+  color: var(--text-primary, #e4e4e7);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.video-gen-toolbar-pill:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--border-hover, #3f3f46);
+}
+
+.video-gen-toolbar-pill:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.video-gen-toolbar-pill-sub {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-gen-toolbar-model {
+  max-width: min(200px, 36vw);
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border-default, #2a2a30);
+  padding: 0 10px;
+  font-size: 12px;
+  background: transparent;
+  color: var(--text-primary, #e4e4e7);
+}
+
+.video-gen-dropdown-wrap {
+  position: relative;
+}
+
+.video-gen-dropdown-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.video-gen-dropdown-panel {
+  position: absolute;
+  z-index: 50;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 200px;
+  max-width: min(92vw, 320px);
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--border-default, var(--bg-hover));
+  background: var(--bg-card, #141417);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+
+.video-gen-dropdown-panel--visual {
+  min-width: 240px;
+}
+
+.video-gen-dropdown-panel--duration {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.video-gen-dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.video-gen-dropdown-item:hover {
+  background: var(--bg-hover, var(--bg-card));
+}
+
+.video-gen-dropdown-item.is-active {
+  font-weight: 600;
+  color: var(--theme-color-primary);
+}
+
+.video-gen-dropdown-check {
+  color: var(--theme-color-primary);
+  font-size: 12px;
+}
+
+.video-gen-visual-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  margin: 6px 4px 4px;
+}
+
+.video-gen-visual-grid {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.video-gen-visual-grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.video-gen-visual-grid--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.video-gen-visual-chip {
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border-default, #2a2a30);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.video-gen-visual-chip.is-active {
+  border-color: rgb(from var(--theme-color-primary) r g b / 0.55);
+  background: rgb(from var(--theme-color-primary) r g b / 0.12);
+  color: var(--theme-color-primary);
+}
+
+.video-gen-input-box .chat-input-toolbar .input-tool-btn {
+  height: 36px;
+  min-width: 36px;
+  padding: 0 8px;
+  border-radius: 8px;
+}
+
+.video-gen-mobile-slots {
+  margin-top: 10px;
+}
+
+.video-gen-mobile-details {
+  margin-top: 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: var(--bg-elevated);
+}
+
+.video-gen-mobile-details summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.video-gen-mobile-mode-btn {
+  flex: 1;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.video-gen-mobile-mode-btn.is-active {
+  border-color: rgb(from var(--theme-color-primary) r g b / 0.45);
+  color: var(--theme-color-primary);
+  background: rgb(from var(--theme-color-primary) r g b / 0.1);
+}
