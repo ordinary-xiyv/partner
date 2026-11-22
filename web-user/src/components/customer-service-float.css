@@ -193,6 +193,49 @@ body:not([theme-mode='light']) .customer-service-float__scan-tip {
   font-weight: 500;
 }
 
+/* ── 伙伴后台下发的文本联系方式（邮箱/电话/微信/服务时间） ── */
+.customer-service-float__support-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--border-default, rgba(0, 0, 0, 0.08));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.customer-service-float__support-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.customer-service-float__support-label {
+  flex-shrink: 0;
+  min-width: 56px;
+  color: var(--text-tertiary, #6b7280);
+  font-weight: 500;
+}
+
+.customer-service-float__support-value {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-primary, #18181b);
+  /* 邮箱地址可能很长，允许在任意位置断开，避免撑破浮窗 */
+  word-break: break-all;
+}
+
+.customer-service-float__support-value--link {
+  color: var(--theme-color-primary, #6d51fe);
+  text-decoration: none;
+}
+
+.customer-service-float__support-value--link:hover {
+  text-decoration: underline;
+}
+
 .customer-service-float__bar {
   display: flex;
   flex-direction: column;

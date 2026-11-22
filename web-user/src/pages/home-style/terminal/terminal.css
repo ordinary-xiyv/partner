@@ -1,0 +1,908 @@
+/* ============================================================================
+ * 首页 · B 终端网格（Terminal）
+ *
+ * 设计原则：用「界面即工具」的语言建立技术信任。
+ *   · 56px 细网格铺底，像编辑器里的参考线
+ *   · 等宽字体做标签、编号、指标单位
+ *   · 主色扮演「光」：光标、边框辉光、数据高亮
+ *
+ * 为什么这套对白标也安全：
+ * 主色在这里从不承载大面积色块，只做发光和描边。
+ * 深底上一点彩色光天然是装饰，即便伙伴配了很浅的颜色，
+ * 发光效果依然成立（浅色光晕在深底上同样好看）。
+ *
+ * 明暗两版是同一套语言的两个亮度：
+ * 暗色 = 近黑 + 通电的网格；亮色 = 浅灰 + 铅笔线网格。
+ * 注意亮色下网格必须压得很淡（.045 透明度），否则整页会显脏。
+ * ========================================================================== */
+
+.tm-page {
+  --tm-bg: #f4f5f7;
+  --tm-ink: #14161a;
+  --tm-ink-2: rgba(20, 22, 26, 0.7);
+  --tm-ink-3: rgba(20, 22, 26, 0.48);
+  --tm-ink-4: rgba(20, 22, 26, 0.34);
+  --tm-line: rgba(20, 22, 26, 0.12);
+  --tm-line-soft: rgba(20, 22, 26, 0.07);
+  --tm-grid: rgba(20, 22, 26, 0.045);
+  --tm-surface: rgba(255, 255, 255, 0.72);
+  --tm-surface-hover: rgba(255, 255, 255, 0.94);
+  --tm-card: #ffffff;
+  --tm-glass-line: rgba(20, 22, 26, 0.1);
+
+  position: relative;
+  background: var(--tm-bg);
+  color: var(--tm-ink);
+  font-family: "Inter", "PingFang SC", -apple-system, system-ui, sans-serif;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+[theme-mode="dark"] .tm-page {
+  --tm-bg: #08090b;
+  --tm-ink: #f2f4f7;
+  --tm-ink-2: rgba(242, 244, 247, 0.72);
+  --tm-ink-3: rgba(242, 244, 247, 0.46);
+  --tm-ink-4: rgba(242, 244, 247, 0.3);
+  --tm-line: rgba(242, 244, 247, 0.12);
+  --tm-line-soft: rgba(242, 244, 247, 0.07);
+  --tm-grid: rgba(242, 244, 247, 0.04);
+  --tm-surface: rgba(255, 255, 255, 0.035);
+  --tm-surface-hover: rgba(255, 255, 255, 0.06);
+  --tm-card: #101216;
+  --tm-glass-line: rgba(242, 244, 247, 0.09);
+}
+
+/* 网格层：用背景渐变画，不占 DOM。
+ * 单独一个绝对定位层而不是给 .tm-page 直接上 background-image，
+ * 是为了让它能单独淡入（见下）且不影响页面本身的底色。 */
+.tm-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--tm-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--tm-grid) 1px, transparent 1px);
+  background-size: 56px 56px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 顶部辉光：主色的第一个落点。用 radial-gradient 而不是大圆 blur，
+ * 前者在低端设备上便宜得多。 */
+.tm-page::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 520px;
+  background: radial-gradient(
+    900px 420px at 50% -8%,
+    rgba(var(--tm-brand-rgb), 0.2),
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.tm-mono {
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+}
+
+.tm-shell {
+  position: relative;
+  z-index: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 40px;
+}
+
+/* ---------------------------------------------------------------- Hero --- */
+
+/*
+ * 顶部留白 = 页头实际占位 + 呼吸空间。
+ *
+ * 页头是 fixed（Header 的 scrollBehavior="shrink-glass"），不占文档流，
+ * 所以这块留白必须自己算。早先写死 86px，页头高度一变首屏徽章就会被
+ * 导航项压住——截图里能看到「企业级AI接入平台」和「模型广场」叠在一起。
+ *
+ * 用 --app-site-top-chrome-h 而不是写死像素：它等于页头展开高度
+ * （定义在 components/header.css），项目里另外 7 处顶部定位都用的它。
+ * 跟它走，顶栏高度将来再变也不用改这里。
+ *
+ * 用 padding-block 而不是 padding 简写：.tm-hero 和 .tm-shell 是同一个
+ * 元素，写简写会把 .tm-shell 的左右内边距一起清零。桌面端因为容器
+ * 1200px 居中，看起来只是文字贴边；窄屏上就直接顶到屏幕外，
+ * 标题开头的字被裁掉了。
+ */
+.tm-hero {
+  padding-block: calc(var(--app-site-top-chrome-h, 64px) + var(--app-header-capsule-top, 0px) + 40px) 60px;
+  /* 内容整体居中：容器本身已经是 1200px 居中，但内部的文字块全是左对齐，
+   * 视觉上整屏重量压在左边、右侧空一大片。这里把 hero 变成一列居中，
+   * 各子块再各自设 max-width，避免长行被拉得过宽。 */
+  text-align: center;
+}
+
+/*
+ * 居中之后每一块都要自己收窄。
+ *
+ * 不能靠父级 max-width 一刀切：标题需要更宽（占满整行才有气势），
+ * 副标题和按钮行要窄很多（一行太长读起来很累，按钮也不需要那么宽）。
+ * 用 margin-inline:auto 让收窄后的块继续居中。
+ */
+.tm-hero__body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 状态徽标：这颗呼吸点就是「系统在跑」的信号 */
+.tm-hero__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tm-brand-lifted);
+  border: 1px solid rgba(var(--tm-brand-rgb), 0.3);
+  border-radius: 999px;
+  padding: 6px 13px;
+  background: rgba(var(--tm-brand-rgb), 0.07);
+  margin-bottom: 28px;
+}
+
+.tm-hero__status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--tm-brand-lifted);
+  box-shadow: 0 0 8px 2px rgba(var(--tm-brand-rgb), 0.8);
+  animation: tm-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes tm-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.85); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tm-hero__status-dot { animation: none; }
+}
+
+.tm-hero__title {
+  font-size: clamp(38px, 5.4vw, 58px);
+  line-height: 1.14;
+  letter-spacing: -0.025em;
+  font-weight: 600;
+  margin: 0;
+}
+
+.tm-hero__title-line {
+  display: block;
+}
+
+/* 第二行是「终端里正在被输入的一行」：
+ * 词本身用提亮后的主色 + 一个方块光标。
+ * 光标用 ::after 而不是独立元素，省一个节点。 */
+.tm-hero__typed {
+  display: inline-block;
+  color: var(--tm-brand-lifted);
+}
+
+.tm-hero__cursor {
+  display: inline-block;
+  width: 3px;
+  height: 0.86em;
+  background: var(--tm-brand-lifted);
+  vertical-align: -0.06em;
+  margin-left: 4px;
+  box-shadow: 0 0 12px rgba(var(--tm-brand-rgb), 0.9);
+  animation: tm-blink 1.1s step-end infinite;
+}
+
+@keyframes tm-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tm-hero__cursor { animation: none; }
+}
+
+.tm-hero__lead {
+  margin: 24px auto 0;
+  font-size: 14.5px;
+  line-height: 1.85;
+  color: var(--tm-ink-2);
+  max-width: 560px;
+}
+
+/*
+ * 副标题两句各自成行。
+ *
+ * 用 block 而不是 <br>：<br> 在响应式里不参与布局计算，窄屏时句中还会再折，
+ * 变成「一行拆成两行」的混杂效果；block 每一句整体换行，句内才允许折行，
+ * 窄屏下语义仍然是一句一段。
+ *
+ * 两行之间不留额外间距：line-height 1.85 已经把行距撑开了，
+ * 再补 margin 会让这两句看起来像两个独立段落。
+ */
+.tm-hero__lead-line {
+  display: block;
+}
+
+.tm-hero__cta {
+  display: flex;
+  gap: 13px;
+  margin-top: 34px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.tm-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--tm-brand);
+  color: var(--tm-brand-ink);
+  border: none;
+  padding: 12px 25px;
+  border-radius: 7px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 0 30px -6px rgba(var(--tm-brand-rgb), 0.7);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.tm-btn-primary:hover {
+  box-shadow: 0 0 46px -4px rgba(var(--tm-brand-rgb), 0.95);
+  transform: translateY(-1px);
+}
+
+.tm-btn-sec {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--tm-surface);
+  color: var(--tm-ink);
+  border: 1px solid var(--tm-line);
+  padding: 12px 22px;
+  border-radius: 7px;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  backdrop-filter: blur(8px);
+}
+
+.tm-btn-sec:hover {
+  background: var(--tm-surface-hover);
+}
+
+/* 指标条：三条声明等分，用一条顶线把「数据面板」的感觉建立起来 */
+.tm-hero__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 52px;
+  border-top: 1px solid var(--tm-line);
+  padding-top: 26px;
+}
+
+.tm-hero__metric {
+  padding-right: 20px;
+}
+
+/*
+ * 纯文字声明（当前形态）。
+ *
+ * 没有数字之后，原来的 27px 大数字样式就空转了 —— 文字用那个字号会
+ * 在首屏下方抢走注意力，把视觉重心从标题拉走。这里降到 13px 并加一点
+ * 字重，让它读起来像「系统状态栏里的三条事实」而不是标语。
+ *
+ * 左侧那条主色竖线是终端语言的标记习惯（与 tm-manage__item 一致），
+ * 让三项之间形成节奏，不至于像一行散落的说明文字。
+ *
+ * hero 整体改成居中之后，这三条也要跟着居中：它们是 1fr 等分的三列，
+ * 每列内部再用 margin-inline:auto + max-content 把「竖线 + 文案」作为一个
+ * 整体摆到列中央。之前的 padding-right:20px 是左对齐时代用来跟下一列拉开
+ * 距离的，居中后这个间距由 grid 的列宽自然承担，留着会让整体偏左。
+ */
+.tm-hero__metric--text {
+  display: flex;
+  justify-content: center;
+  padding-right: 0;
+}
+
+.tm-hero__metric--text span {
+  display: block;
+  border-left: 2px solid var(--tm-brand-lifted);
+  padding-left: 14px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+  color: var(--tm-ink-2);
+  text-transform: none;
+  margin-top: 0;
+}
+
+/* ------------------------------------------------------- 通用区块标题 --- */
+
+.tm-section {
+  position: relative;
+  z-index: 1;
+  /* padding-block 而非简写：与 .tm-shell 同元素，简写会清掉左右内边距 */
+  padding-block: 72px;
+}
+
+.tm-section--tight {
+  padding: 48px 0;
+}
+
+.tm-head {
+  margin-bottom: 36px;
+}
+
+.tm-head__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--tm-brand-lifted);
+  margin-bottom: 14px;
+}
+
+/* 标签前面的短横线，替代"图标"这个成本更高的选择 */
+.tm-head__label::before {
+  content: "";
+  width: 18px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.7;
+}
+
+.tm-head__title {
+  font-size: clamp(24px, 2.8vw, 32px);
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+  font-weight: 600;
+  margin: 0;
+}
+
+.tm-head__desc {
+  font-size: 13.5px;
+  line-height: 1.8;
+  color: var(--tm-ink-2);
+  margin: 12px 0 0;
+  max-width: 560px;
+}
+
+/* ------------------------------------------------------ 特性带（三列） --- */
+
+
+.tm-feature {
+  position: relative;
+  padding: 20px;
+  border-radius: 9px;
+  border: 1px solid var(--tm-glass-line);
+  background: var(--tm-surface);
+  backdrop-filter: blur(10px);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+/* hover 时描边变主色 —— 这就是"主色作光"最典型的一处用法：
+ * 只亮一条 1px 的边，面积可以忽略，但注意力被准确引导。 */
+.tm-feature:hover {
+  border-color: rgba(var(--tm-brand-rgb), 0.45);
+  background: rgba(var(--tm-brand-rgb), 0.05);
+}
+
+.tm-feature__label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--tm-brand-lifted);
+  margin-bottom: 11px;
+}
+
+.tm-feature__title {
+  font-size: 14.5px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.tm-feature__desc {
+  font-size: 12px;
+  line-height: 1.75;
+  color: var(--tm-ink-3);
+  margin: 0;
+}
+
+/* ------------------------------------------------------------- 模型区 --- */
+
+
+
+
+
+/* 选中态：主色描边 + 极淡主色底。不填充实心主色块，
+ * 因为一排 tab 里只要有一个实心块，主色就变成了"大面积色块"。 */
+
+
+
+
+.tm-model {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  text-align: left;
+  padding: 17px;
+  border-radius: 9px;
+  border: 1px solid var(--tm-glass-line);
+  background: var(--tm-surface);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+  font: inherit;
+  color: inherit;
+}
+
+.tm-model:hover {
+  border-color: rgba(var(--tm-brand-rgb), 0.5);
+  background: rgba(var(--tm-brand-rgb), 0.05);
+  transform: translateY(-2px);
+}
+
+.tm-model__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.tm-model__logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  object-fit: cover;
+  flex: none;
+  background: var(--tm-line-soft);
+}
+
+.tm-model__logo.is-fallback {
+  display: grid;
+  place-items: center;
+  background: rgba(var(--tm-brand-rgb), 0.12);
+  border: 1px solid rgba(var(--tm-brand-rgb), 0.4);
+  color: var(--tm-brand-lifted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.tm-model__titles {
+  min-width: 0;
+  flex: 1;
+}
+
+.tm-model__titles strong {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tm-model__titles span {
+  display: block;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tm-ink-4);
+  margin-top: 3px;
+}
+
+.tm-model__desc {
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--tm-ink-3);
+  margin: 0 0 14px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+}
+
+.tm-model__tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+
+.tm-model__tags span {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--tm-ink-3);
+  border: 1px solid var(--tm-line-soft);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.tm-model__skeleton {
+  height: 148px;
+  border-radius: 9px;
+  border: 1px solid var(--tm-glass-line);
+  background: linear-gradient(
+    90deg,
+    var(--tm-surface) 0%,
+    var(--tm-surface-hover) 50%,
+    var(--tm-surface) 100%
+  );
+  background-size: 200% 100%;
+  animation: tm-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes tm-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.tm-status {
+  padding: 40px 0;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--tm-ink-3);
+}
+
+.tm-status button {
+  background: var(--tm-surface);
+  border: 1px solid var(--tm-line);
+  border-radius: 6px;
+  padding: 7px 15px;
+  font-size: 12px;
+  color: var(--tm-ink);
+  cursor: pointer;
+  margin-top: 12px;
+}
+
+/* ------------------------------------------------------------ 管理区 --- */
+
+
+
+
+
+
+/* -------------------------------------------------------------- SDK --- */
+
+.tm-sdk {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 40px;
+  /*
+   * stretch 而不是 start：左右两栏等高。
+   *
+   * 原来写 start 时，左栏（代码块）和右栏（三张卡）各自按内容撑高，
+   * 高度天然对不齐 —— 切换 tab 时代码块还会从 264px 跳到 381px，
+   * 整个区块跟着往下窜一下。现在两栏拉平，代码块内部再按最大行数锁高，
+   * 切 tab 时框体不动。
+   */
+  align-items: stretch;
+}
+
+/*
+ * 代码块高度锁死。
+ *
+ * 片段行数：cURL 8 行、Python 13 行、Node 13 行。取最大值 13 行，
+ * 行高 1.95 × 12px ≈ 23.4px，加上 pre 的上下内边距 20px + 20px，
+ * 约 344px；再留 1 行余量应对个别语言的极端换行。
+ *
+ * 用 min-height 而不是 height：真出现超长行导致内容更高时，
+ * 让它自然撑开而不是把内容裁掉 —— 宁可高一点，也不能看不到代码。
+ */
+.tm-sdk__code {
+  border-radius: 10px;
+  border: 1px solid rgba(var(--tm-brand-rgb), 0.28);
+  background: #0b0d10;
+  overflow: hidden;
+  box-shadow: 0 20px 60px -24px rgba(var(--tm-brand-rgb), 0.5);
+  display: flex;
+  flex-direction: column;
+  min-height: calc(13 * 12px * 1.95 + 40px + 42px);
+}
+
+/*
+ * pre 吃掉剩余高度，让终端框底部始终贴合右栏。
+ *
+ * flex:1 之后代码无论多短，深色区域都填到底 —— 否则 cURL（8 行）
+ * 会在框底留一条空白，看起来像"框比内容大"。
+ */
+.tm-sdk__code pre {
+  flex: 1;
+}
+
+/* 亮色模式下终端框仍然是深的 —— 这是有意为之：
+ * 一个浅色的"终端窗口"不成立，会显得是个普通的灰盒子。 */
+.tm-sdk__code-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tm-sdk__dots {
+  display: flex;
+  gap: 6px;
+}
+
+.tm-sdk__dots i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  display: block;
+}
+
+.tm-sdk__tabs {
+  display: flex;
+  gap: 14px;
+}
+
+.tm-sdk__tab {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  transition: color 0.18s ease;
+}
+
+.tm-sdk__tab:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.tm-sdk__tab.is-active {
+  color: var(--tm-brand-lifted);
+}
+
+.tm-sdk__code pre {
+  margin: 0;
+  padding: 20px 16px;
+  font-size: 12px;
+  line-height: 1.95;
+  overflow-x: auto;
+  color: rgba(255, 255, 255, 0.88);
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+}
+
+.tm-sdk__code .tok-key { color: var(--tm-brand-lifted); }
+.tm-sdk__code .tok-str { color: rgba(255, 255, 255, 0.62); }
+.tm-sdk__code .tok-com { color: rgba(255, 255, 255, 0.3); font-style: italic; }
+
+/*
+ * 三张卡等分右栏高度。
+ *
+ * 右栏现在和代码块等高（.tm-sdk 的 align-items:stretch），
+ * 如果卡片还是各自按内容撑高 + gap，三张卡加起来会比右栏矮，
+ * 底部留一块空 —— 看起来像"卡片没排满"。
+ *
+ * flex:1 + min-height:0 让三张卡平分剩余高度：
+ *   · flex:1         → 各自分到 1/3
+ *   · min-height:0   → 允许收缩到内容以下（默认 min-height:auto 会卡住）
+ * 内容居中，所以卡片被拉高时文字不会贴顶。
+ */
+.tm-sdk__features {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tm-sdk__feature {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 16px 18px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--tm-brand) 12%, var(--tm-glass-line));
+  background:
+    linear-gradient(
+      150deg,
+      rgba(var(--tm-brand-rgb), 0.05) 0%,
+      rgba(var(--tm-brand-rgb), 0) 70%
+    ),
+    var(--tm-surface);
+  transition: border-color 0.2s ease;
+}
+
+.tm-sdk__feature:hover {
+  border-color: rgba(var(--tm-brand-rgb), 0.32);
+}
+
+.tm-sdk__feature-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 7px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 标题前的小方块，用主色描边 + 淡填充 —— 又一个"小面积主色"落点 */
+.tm-sdk__feature-title::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  background: var(--tm-brand);
+  box-shadow: 0 0 8px rgba(var(--tm-brand-rgb), 0.9);
+  flex: none;
+}
+
+.tm-sdk__feature-desc {
+  font-size: 11.5px;
+  line-height: 1.75;
+  color: var(--tm-ink-3);
+  margin: 0;
+}
+
+/* ------------------------------------------------------------- 场景 --- */
+
+.tm-scenes {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  /*
+   * 四张卡强制等高。
+   *
+   * grid 默认 align-items: stretch 只保证**同一行内**等高，两行之间各算各的：
+   * 实测第二张卡的说明文字换成两行，于是它和第一张卡是 113px，
+   * 下面两张只有 93px —— 用户看到的就是「四个卡片不一样高」。
+   *
+   * 1fr 把每行高度设成等分，行与行就被拉齐了。
+   * 不用 auto-rows: 1fr 之外的写法，是因为总高度仍应由内容撑开，
+   * 只是把「撑开的结果」均分给每一行。
+   */
+  grid-auto-rows: 1fr;
+}
+
+/*
+ * 场景卡。
+ *
+ * 原先只有 hover 才出现品牌色描边，静止状态是一张纯灰边的白卡 ——
+ * 满页卡片长一个样，和主色没有任何关系，看起来像通用模板。
+ *
+ * 现在静止时也给两处极轻的品牌色：一层几乎看不见的主色底晕（2%），
+ * 和一条压在主色上的细边。轻到不影响阅读，但和页面上其他白底块
+ * 拉开了层次 —— 读者能感到这张卡属于这个品牌，而不是随便套的。
+ * hover 时这两处同时加深，形成「点亮」的动作感。
+ */
+.tm-scene {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 0;
+  padding: 20px;
+  border-radius: 9px;
+  border: 1px solid color-mix(in srgb, var(--tm-brand) 14%, var(--tm-glass-line));
+  background:
+    linear-gradient(
+      140deg,
+      rgba(var(--tm-brand-rgb), 0.055) 0%,
+      rgba(var(--tm-brand-rgb), 0) 62%
+    ),
+    var(--tm-surface);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tm-scene:hover {
+  border-color: rgba(var(--tm-brand-rgb), 0.4);
+  box-shadow: 0 8px 26px -14px rgba(var(--tm-brand-rgb), 0.5);
+}
+
+.tm-scene__tag {
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tm-brand-lifted);
+  padding-top: 3px;
+}
+
+.tm-scene__title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.tm-scene__desc {
+  font-size: 11.5px;
+  line-height: 1.8;
+  color: var(--tm-ink-3);
+  margin: 0;
+}
+
+/* -------------------------------------------------------------- CTA --- */
+
+.tm-cta {
+  position: relative;
+  z-index: 1;
+  margin: 20px 0 0;
+  padding-block: 60px;
+  border-top: 1px solid var(--tm-line);
+  border-bottom: 1px solid var(--tm-line);
+  background: rgba(var(--tm-brand-rgb), 0.04);
+}
+
+.tm-cta__inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 44px;
+  align-items: center;
+}
+
+.tm-cta__title {
+  font-size: clamp(24px, 3vw, 34px);
+  line-height: 1.28;
+  letter-spacing: -0.015em;
+  font-weight: 600;
+  margin: 0 0 14px;
+}
+
+.tm-cta__desc {
+  font-size: 13.5px;
+  line-height: 1.8;
+  color: var(--tm-ink-2);
+  margin: 0;
+  max-width: 520px;
+}
+
+.tm-cta__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.tm-cta__hint {
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tm-ink-4);
+}
+
+/* ------------------------------------------------------------ 响应式 --- */
+
+@media (max-width: 1080px) {
+  .tm-shell { padding: 0 32px; }
+  .tm-hero { padding-block: calc(var(--app-site-top-chrome-h, 64px) + var(--app-header-capsule-top, 0px) + 28px) 48px; }
+  .tm-hero__metrics { grid-template-columns: 1fr; gap: 16px 0; }
+  .tm-section { padding-block: 56px; }
+  .tm-sdk { grid-template-columns: 1fr; gap: 28px; }
+}
+
+@media (max-width: 720px) {
+  .tm-shell { padding: 0 20px; }
+  .tm-hero { padding-block: calc(var(--app-site-top-chrome-h, 64px) + var(--app-header-capsule-top, 0px) + 20px) 36px; }
+  .tm-hero__title { font-size: clamp(30px, 9vw, 42px); }
+  /* 三项纯文字在窄屏必须单列：两列时第三项会掉到第二行左侧，
+   * 留下右边一块空白，读起来像漏了一项。 */
+  .tm-hero__metrics { grid-template-columns: 1fr; gap: 14px 0; }
+  .tm-scenes { grid-template-columns: 1fr; }
+  .tm-scene { grid-template-columns: 74px 1fr; }
+  .tm-cta { padding-block: 44px; }
+  .tm-cta__inner { grid-template-columns: 1fr; gap: 26px; }
+  .tm-cta__actions { align-items: flex-start; }
+  .tm-section { padding-block: 44px; }
+}

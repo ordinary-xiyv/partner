@@ -3,6 +3,7 @@ import { lazy } from './utils/lazyChunk';
 import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { normalizeLocale } from './i18n/resolveLocale';
+import { syncDocumentTitleFromBrand } from './i18n/siteBrandInterpolation';
 import { useStatus } from './contexts/StatusContext';
 import MainLayout from './layouts/MainLayout';
 import { useUser } from './contexts/UserContext';
@@ -225,7 +226,12 @@ export default function App() {
   const { siteBrand } = useStatus();
 
   useEffect(() => {
-    document.title = t('app.title');
+    /*
+     * 走 syncDocumentTitleFromBrand 而不是直接赋值：
+     * 伙伴后台可能配了自定义 page_title，那个值存在 theme/brandOverride 里，
+     * 统一由那个函数决定用哪个。直接写 t('app.title') 会把商户配的标题覆盖掉。
+     */
+    syncDocumentTitleFromBrand();
     document.documentElement.lang = normalizeLocale(i18n.language);
   }, [t, i18n.language, siteBrand.brand_name_zh, siteBrand.brand_name_en]);
 

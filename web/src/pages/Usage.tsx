@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Button, DatePicker, Input, Select, Space, Table, Tag, Typography } from 'antd';
+import { Alert, Button, DatePicker, Input, Select, Space, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { DownloadOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -9,7 +9,6 @@ import {
   AsyncTableCard,
   BarChart,
   PageStack,
-  RankList,
   StatCard,
   dealerApi,
   downloadBlob,
@@ -23,15 +22,25 @@ import {
   notifyApiSuccess,
   quotaToCny,
 } from '@lynx/shared';
-import type { UsageLog, UsageSummary } from '@lynx/shared';
+import type { TrendPoint, UsageLog, UsageSummary } from '@lynx/shared';
 
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
+
+/** type → 展示文案与颜色。后端 5 种类型逐项映射，不再把 6/7/8 混作成功 */
+const TYPE_META: Record<number, { label: string; color: string }> = {
+  2: { label: '消费', color: 'success' },
+  5: { label: '错误', color: 'error' },
+  6: { label: '退款', color: 'purple' },
+  7: { label: '预扣', color: 'blue' },
+  8: { label: '补扣', color: 'orange' },
+};
 
 export default function Usage() {
   const [rows, setRows] = useState<UsageLog[]>([]);
   const [total, setTotal] = useState(0);
   const [summary, setSummary] = useState<UsageSummary | null>(null);
+  const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [page, setPage] = useState(1);
@@ -39,7 +48,14 @@ export default function Usage() {
 
   // 筛选
   const [modelFilter, setModelFilter] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<'' | 'success' | 'error'>('');
+  /*
+   * 按后端原生 type 筛选（2/5/6/7/8），不再用语义化的 success/error。
+   *
+   * 「成功」并不等于「type=2」—— 预扣(7)、补扣(8) 也是成功发生的，
+   * 只筛 type=2 会把它们漏掉；反之「失败」确实只有 type=5，但既然
+   * 后端给了 5 种类型，直接按 5 种筛更准确，也省掉一层有损映射。
+   */
+  const [typeFilter, setTypeFilter] = useState<number | undefined>(undefined);
   const [range, setRange] = useState<[Dayjs, Dayjs] | null>(null);
 
   const buildQuery = useCallback(
@@ -47,25 +63,42 @@ export default function Usage() {
       page,
       page_size: pageSize,
       model_name: modelFilter || undefined,
-      status: statusFilter || undefined,
+      type: typeFilter,
       start_time: range ? range[0].startOf('day').unix() : undefined,
       end_time: range ? range[1].endOf('day').unix() : undefined,
     }),
-    [page, pageSize, modelFilter, statusFilter, range],
+    [page, pageSize, modelFilter, typeFilter, range],
   );
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [list, sum] = await Promise.all([
+      /*
+       * 明细和汇总并发拉，但**不能**让汇总失败拖垮明细。
+       *
+       * 上一版这里用 Promise.all，而 fetchUsageSummary 打的是一个不存在的端点，
+       * 一抛错整个 Promise.all 就 reject —— 日志明明拉到了也不显示，
+       * 页面只剩「用量加载失败」。改成 allSettled：明细是主数据，汇总只是加分项。
+       */
+      const [listRes, sumRes] = await Promise.allSettled([
         dealerApi.fetchUsageLogs(buildQuery()),
         dealerApi.fetchUsageSummary(buildQuery()),
       ]);
-      setRows(list.items);
-      setTotal(list.total);
-      setSummary(sum);
-    } catch (err) {
-      notifyApiError(err, '用量加载失败');
+
+      if (listRes.status === 'fulfilled') {
+        setRows(listRes.value.items);
+        setTotal(listRes.value.total);
+      } else {
+        setRows([]);
+        setTotal(0);
+        notifyApiError(listRes.reason, '用量明细加载失败');
+      }
+
+      if (sumRes.status === 'fulfilled') {
+        setSummary(sumRes.value);
+      } else {
+        setSummary(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -74,6 +107,14 @@ export default function Usage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // 趋势图独立拉一次：它固定 14 天，不随筛选变化
+  useEffect(() => {
+    dealerApi
+      .fetchOverviewTrend()
+      .then(setTrend)
+      .catch(() => setTrend([]));
+  }, []);
 
   const handleExport = async () => {
     setExporting(true);
@@ -152,9 +193,25 @@ export default function Usage() {
       width: 110,
       align: 'right',
       sorter: (a, b) => a.quota - b.quota,
-      render: (q: number) => (
-        <span style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-          {formatMoneyAuto(quotaToCny(q))}
+      render: (q: number, row) => (
+        <span
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            fontVariantNumeric: 'tabular-nums',
+            /*
+             * 退款要标红并显示负号。
+             *
+             * 注意：库里的 logs.quota 对 type=6 是**正数**（实测确认，
+             * 770 条退款记录全部 quota > 0），是后端在 billing 里用
+             * `-logs.quota` 做冲销。所以这里不能靠 quota<0 判断，
+             * 必须看 type，显示时取负号才是用户理解的「退回」。
+             */
+            color: row.type === 6 ? '#f87171' : undefined,
+          }}
+        >
+          {row.type === 6 ? '−' : ''}
+          {formatMoneyAuto(Math.abs(row.amount_cny ?? quotaToCny(q)))}
         </span>
       ),
     },
@@ -178,13 +235,14 @@ export default function Usage() {
       ),
     },
     {
-      title: '状态',
-      dataIndex: 'status',
+      title: '类型',
+      dataIndex: 'type',
       width: 80,
       align: 'center',
-      render: (s: string) => (
-        <Tag color={s === 'success' ? 'success' : 'error'}>{s === 'success' ? '成功' : '失败'}</Tag>
-      ),
+      render: (t: number) => {
+        const meta = TYPE_META[t] ?? { label: `未知(${t})`, color: 'default' };
+        return <Tag color={meta.color}>{meta.label}</Tag>;
+      },
     },
   ];
 
@@ -205,42 +263,63 @@ export default function Usage() {
         }
       />
 
+      {/*
+       * 汇总口径必须说清：它来自 billing/summary（账期聚合），
+       * 不随「模型筛选」变化，也不等于当前页日志相加。
+       * 上一版让人以为四个卡片跟着筛选走，实际是另一套口径，对不上账。
+       */}
+      <Alert
+        type="info"
+        showIcon
+        style={{ fontSize: 12 }}
+        message={
+          summary
+            ? `汇总区间 ${summary.start_date} ~ ${summary.end_date}，账单口径（含退款冲销），不随下方模型/状态筛选变化`
+            : '汇总数据暂不可用'
+        }
+        description="下方表格是逐条调用明细，可以按模型、状态、时间筛选；顶部四个数字是账期汇总，两者口径不同。"
+      />
+
       {/* 汇总指标 */}
       <div className="lynx-stat-grid">
         <StatCard
-          label="筛选范围总消耗"
+          label="区间总消耗"
           value={formatQuotaAsMoney(summary?.total_quota ?? 0)}
           small
-          hint={`共 ${formatNumber(summary?.total_requests ?? 0)} 次调用`}
+          hint={`共 ${formatNumber(summary?.total_requests ?? 0)} 次请求`}
         />
-        <StatCard label="调用次数" value={formatNumber(summary?.total_requests ?? 0)} small hint="含成功与失败" />
-        <StatCard label="Token 总量" value={formatNumber(summary?.total_tokens ?? 0)} small hint="输入 + 输出" />
+        <StatCard
+          label="区间请求数"
+          value={formatNumber(summary?.total_requests ?? 0)}
+          small
+          hint="消费 + 预扣"
+        />
+        <StatCard
+          label="活跃客户"
+          value={formatNumber(summary?.total_users ?? 0)}
+          small
+          hint="区间内有消耗"
+        />
         <StatCard
           label="平均单次消耗"
           value={formatMoneyAuto(
-            summary && summary.total_requests > 0 ? quotaToCny(summary.total_quota) / summary.total_requests : 0,
+            summary && summary.total_requests > 0
+              ? summary.total_amount_cny / summary.total_requests
+              : 0,
           )}
           small
-          hint="总消耗 / 调用次数"
+          hint="总金额 / 请求数"
         />
       </div>
 
-      {/* 图表 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) minmax(0, 1fr)', gap: 16 }} className="lynx-usage-charts">
+      {/* 图表：趋势来自 daily-trend，模型分布后端没有接口，已移除 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 16 }}>
         <BarChart
-          title="消耗趋势"
-          subtitle="单位：元"
-          data={(summary?.daily ?? []).map((d) => ({
-            label: d.date.slice(5),
-            value: Math.round(quotaToCny(d.quota) * 100) / 100,
-          }))}
-          formatValue={(v) => formatMoney(v)}
-        />
-        <RankList
-          title="模型消耗占比"
-          data={(summary?.by_model ?? []).slice(0, 8).map((m) => ({
-            name: m.model_name,
-            value: Math.round(quotaToCny(m.quota) * 100) / 100,
+          title="近 14 天消耗趋势"
+          subtitle="单位：元 · 截止昨天"
+          data={trend.map((d) => ({
+            label: d.summary_date.slice(5),
+            value: Math.round((d.amount_cny ?? quotaToCny(d.quota)) * 100) / 100,
           }))}
           formatValue={(v) => formatMoney(v)}
         />
@@ -265,16 +344,19 @@ export default function Usage() {
             />
             <Select
               allowClear
-              placeholder="全部状态"
+              placeholder="全部类型"
               style={{ width: 130 }}
-              value={statusFilter || undefined}
+              value={typeFilter}
               onChange={(v) => {
-                setStatusFilter((v as '' | 'success' | 'error') || '');
+                setTypeFilter(v as number | undefined);
                 setPage(1);
               }}
               options={[
-                { label: '成功', value: 'success' },
-                { label: '失败', value: 'error' },
+                { label: '消费', value: 2 },
+                { label: '错误', value: 5 },
+                { label: '退款', value: 6 },
+                { label: '预扣', value: 7 },
+                { label: '补扣', value: 8 },
               ]}
             />
             <RangePicker
@@ -292,7 +374,7 @@ export default function Usage() {
               icon={<SearchOutlined />}
               onClick={() => {
                 setModelFilter('');
-                setStatusFilter('');
+                setTypeFilter(undefined);
                 setRange(null);
                 setPage(1);
               }}
@@ -311,7 +393,7 @@ export default function Usage() {
           dataSource: rows,
           loading,
           size: 'middle',
-          // 列宽合计 = 158+104+168+92+92+110+90+70+80 = 964 < 1102
+          // 列宽合计 = 158+104+168+92+92+110+90+70+80 = 964
           scroll: { x: 964 },
           locale: { emptyText: <AppEmpty icon="📈" message="当前筛选条件下没有调用记录" /> },
           pagination: {
@@ -328,12 +410,6 @@ export default function Usage() {
           },
         }}
       />
-
-      <style>{`
-        @media (max-width: 1023px) {
-          .lynx-usage-charts { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
     </PageStack>
   );
 }

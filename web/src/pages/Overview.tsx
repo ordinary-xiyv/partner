@@ -1,30 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Space, Tag, Typography } from 'antd';
+import { Alert, Button, Space, Typography } from 'antd';
 import {
   ArrowUpOutlined,
   ReloadOutlined,
   TeamOutlined,
   ThunderboltOutlined,
   WalletOutlined,
-  ClockCircleOutlined,
 } from '@ant-design/icons';
 import {
   AppPageHeader,
   BarChart,
   PagePanel,
   PageStack,
-  RankList,
   StatCard,
   dealerApi,
   formatCompact,
-  formatDiscount,
   formatMoney,
   formatQuotaAsMoney,
-  formatTime,
+  notifyApiError,
   quotaToCny,
-  useTheme,
 } from '@lynx/shared';
-import type { OverviewStats, UsageSummary, DealerProfile } from '@lynx/shared';
+import type { OverviewStats, TrendPoint, DealerProfile } from '@lynx/shared';
 import { useDealerAuth } from '../auth';
 
 const { Text } = Typography;
@@ -32,18 +28,20 @@ const { Text } = Typography;
 export default function Overview() {
   const { profile } = useDealerAuth();
   const [stats, setStats] = useState<OverviewStats | null>(null);
-  const [summary, setSummary] = useState<UsageSummary | null>(null);
+  const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     setLoading(true);
     try {
-      const [s, u] = await Promise.all([
+      const [s, t] = await Promise.all([
         dealerApi.fetchOverview(),
-        dealerApi.fetchUsageSummary(),
+        dealerApi.fetchOverviewTrend(),
       ]);
       setStats(s);
-      setSummary(u);
+      setTrend(t);
+    } catch (err) {
+      notifyApiError(err, '概览加载失败');
     } finally {
       setLoading(false);
     }
@@ -55,11 +53,22 @@ export default function Overview() {
 
   const p = profile as DealerProfile | null;
 
+  /*
+   * 数据区间文案。
+   * 后端 billing 默认「本月 1 号 ~ 今天」，所以「本月」这几个字是准确的；
+   * 把具体区间标出来，是为了让对账的人知道这数字截止到哪一天。
+   */
+  const rangeText = stats?.start_date ? `${stats.start_date} ~ ${stats.end_date}` : '本月';
+
   return (
     <PageStack gap={20}>
       <AppPageHeader
         title="数据概览"
-        subtitle="你的客户经营状况一览，数据每 5 分钟刷新一次"
+        subtitle={
+          stats?.start_date
+            ? `统计区间 ${rangeText}，点刷新可拉取最新数据`
+            : '你的客户经营状况一览'
+        }
         actions={
           <Button icon={<ReloadOutlined />} loading={loading} onClick={load}>
             刷新
@@ -67,7 +76,13 @@ export default function Overview() {
         }
       />
 
-      {/* 顶部：账户身份条 */}
+      {/*
+       * 身份条只显示后端真的有的字段：商户名 + 商户编码。
+       *
+       * 上一版这里有「钻石代理 / 累计佣金 ¥0.00 / 待结算 / 已结算」四个块，
+       * 全部来自前端硬编码（level 写死 'diamond'，佣金类字段后端一个都不返回），
+       * 看起来像真实经营数据。已经整体删掉 —— 想恢复必须先让后端返回这些数字。
+       */}
       <PagePanel padded style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 220 }}>
           <div
@@ -84,125 +99,100 @@ export default function Overview() {
               fontWeight: 800,
             }}
           >
-            {(p?.display_name || 'D').slice(0, 1)}
+            {(p?.display_name || 'P').slice(0, 1)}
           </div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>
               {p?.display_name || '-'}
             </div>
-            <Space size={6} style={{ marginTop: 4 }}>
-              <Tag color={p?.level === 'diamond' ? 'blue' : p?.level === 'gold' ? 'orange' : 'default'}>
-                {p?.level === 'diamond' ? '钻石代理' : p?.level === 'gold' ? '金牌代理' : '银牌代理'}
-              </Tag>
-              <Text style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-                客户折扣 {formatDiscount(p?.discount_rate ?? 1)}
-              </Text>
-            </Space>
+            <Text style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+              商户编码 {p?.merchant_code || '-'}
+            </Text>
           </div>
         </div>
 
         <div style={{ display: 'flex', gap: 36, flexWrap: 'wrap' }}>
-          <MiniStat label="累计佣金" value={formatMoney(p?.total_commission ?? 0)} />
-          <MiniStat label="待结算" value={formatMoney(p?.pending_payout ?? 0)} accent />
-          <MiniStat label="已结算" value={formatMoney(p?.settled_payout ?? 0)} />
-          <MiniStat label="开户时间" value={formatTime(p?.created_at, 'YYYY-MM-DD')} small />
+          <MiniStat label="名下客户" value={formatCompact(stats?.customer_count ?? 0)} />
+          <MiniStat label="本月活跃客户" value={formatCompact(stats?.month_active_users ?? 0)} accent />
+          <MiniStat label="统计区间" value={stats?.end_date ? rangeText : '—'} small />
         </div>
       </PagePanel>
 
-      {/* 四张核心指标卡 */}
+      {/* 四张核心指标卡 —— 每个数字都能在接口里指到出处 */}
       <div className="lynx-stat-grid">
         <StatCard
           label="我的客户"
           icon={<TeamOutlined />}
           value={formatCompact(stats?.customer_count ?? 0)}
-          hint={stats ? `本月新增 ${stats.new_customer_count} 个` : '—'}
+          hint="名下全部客户账号"
         />
         <StatCard
-          label="今日消耗"
+          label="本月消耗"
           icon={<ThunderboltOutlined />}
-          value={formatQuotaAsMoney(stats?.today_quota ?? 0)}
-          hint={stats ? `今日请求 ${formatCompact(stats.today_requests)} 次` : '—'}
-        />
-        <StatCard
-          label="本月佣金"
-          icon={<WalletOutlined />}
-          value={formatMoney(stats?.month_commission ?? 0)}
-          hint={stats ? `待结算 ${formatMoney(stats.pending_commission)}` : '—'}
-        />
-        <StatCard
-          label="本月客户消耗"
-          icon={<ArrowUpOutlined />}
           value={formatQuotaAsMoney(stats?.month_quota ?? 0)}
-          hint="按当前折扣价折算"
+          hint={stats ? `净消耗，${stats.start_date} 起` : '—'}
+        />
+        <StatCard
+          label="本月请求"
+          icon={<ArrowUpOutlined />}
+          value={formatCompact(stats?.month_requests ?? 0)}
+          hint={stats ? `${stats.month_active_users} 个客户有调用` : '—'}
+        />
+        <StatCard
+          label="本月消费金额"
+          icon={<WalletOutlined />}
+          value={formatMoney(stats?.month_amount_cny ?? 0)}
+          hint="账单口径，含退款冲销"
         />
       </div>
 
-      {/* 趋势 + 排行 */}
+      {/* 14 天趋势 */}
       <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1.55fr) minmax(0, 1fr)',
-          gap: 16,
-        }}
+        style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.55fr) minmax(0, 1fr)', gap: 16 }}
         className="lynx-overview-charts"
       >
         <BarChart
           title="近 14 天消耗趋势"
-          subtitle="单位：元"
-          data={(summary?.daily ?? []).map((d) => ({
-            label: d.date.slice(5),
-            value: Math.round(quotaToCny(d.quota) * 100) / 100,
-          }))}
-          formatValue={(v) => formatMoney(v)}
-        />
-        <RankList
-          title="客户消耗 TOP 8"
-          subtitle="本月累计"
-          data={(summary?.by_customer ?? []).map((c) => ({
-            name: c.customer_name,
-            value: Math.round(quotaToCny(c.quota) * 100) / 100,
-          }))}
-          formatValue={(v) => formatMoney(v)}
-        />
-      </div>
-
-      <div
-        style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}
-      >
-        <RankList
-          title="模型消耗分布"
-          subtitle="近 30 天"
-          data={(summary?.by_model ?? []).map((m) => ({
-            name: m.model_name,
-            value: Math.round(quotaToCny(m.quota) * 100) / 100,
+          subtitle="单位：元 · 截止昨天"
+          data={trend.map((d) => ({
+            label: d.summary_date.slice(5),
+            value: Math.round((d.amount_cny ?? quotaToCny(d.quota)) * 100) / 100,
           }))}
           formatValue={(v) => formatMoney(v)}
         />
         <PagePanel padded>
-          <div className="lynx-section-title">经营提示</div>
+          <div className="lynx-section-title">数据说明</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <TipRow
-              icon={<ClockCircleOutlined />}
-              title="待结算佣金"
-              desc={`${formatMoney(p?.pending_payout ?? 0)} 将在下个结算周期自动进入结算单`}
-            />
-            <TipRow
-              icon={<TeamOutlined />}
-              title="客户活跃度"
-              desc={
-                stats
-                  ? `${stats.customer_count} 个客户中，${Math.max(1, Math.round(stats.customer_count * 0.72))} 个近 7 天有调用`
-                  : '—'
-              }
-            />
-            <TipRow
               icon={<ThunderboltOutlined />}
-              title="额度提醒"
-              desc="有客户余额低于 10 元时会在「我的客户」列表中标记提醒"
+              title="消耗口径"
+              desc="按账单口径统计：消费 + 预扣 + 补扣 − 退款。与单条日志的 quota 直接相加不同。"
+            />
+            <TipRow
+              icon={<ArrowUpOutlined />}
+              title="趋势不含今天"
+              desc="趋势取近 14 个已完成的自然日，今天的消耗要到次日汇总后才会出现在这里。"
+            />
+            <TipRow
+              icon={<WalletOutlined />}
+              title="佣金结算"
+              desc="伙伴后台暂未接入佣金与结算数据，相关模块待后端提供接口后开放。"
             />
           </div>
         </PagePanel>
       </div>
+
+      {/*
+       * 明确告知能力边界。这一段比留几个「0」有用：
+       * 用户看到 0 会以为「今天真的没消耗」，看到这句话才知道是没这个数据。
+       */}
+      <Alert
+        type="info"
+        showIcon
+        style={{ fontSize: 12 }}
+        message="今日实时数据与佣金暂未开放"
+        description="当前仅展示账期汇总与近 14 天趋势。今日消耗、今日请求、佣金比例、结算与提现需要伙伴后端新增接口，接入后此处会自动开放。"
+      />
 
       <style>{`
         @media (max-width: 1023px) {

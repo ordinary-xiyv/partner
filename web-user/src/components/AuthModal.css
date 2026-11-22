@@ -5,10 +5,28 @@
  * ============================================================ */
 
 .auth-modal-overlay {
-  /* 品牌主色 */
+  /*
+   * ===== 登录页配色令牌 =====
+   *
+   * 下面这些值全部只是**兜底**（主站紫）。真正生效的值由
+   * AuthModal.tsx 的 buildAuthThemeVars() 以 inline style 注入，取值来自
+   * 伙伴后台下发的品牌主色。
+   *
+   * 为什么不在 CSS 里直接写 var(--theme-color-primary)：
+   *   1. hover / active / 各档透明度都得由 hex 算出来，CSS 算不了；
+   *   2. 深浅两套模式的派生规则相反（暗色往白提亮、浅色往黑压暗，
+   *      见 theme/brandTokens 的 deriveBrandPrimaryStates），CSS 里要写两遍；
+   *   3. 最关键的一条：--theme-color-primary 是 ThemeProvider 写在
+   *      document.body 上的，而子弹窗（忘记密码等）Portal 到 body 之下，
+   *      它拿不到 .auth-modal-overlay 作用域里的自定义属性。统一由 JS 算好、
+   *      同时注入 overlay 和子弹窗，比在两层选择器间倒腾变量可靠。
+   */
   --auth-primary: #6d51ff;
   --auth-primary-strong: #5c42e8;
   --auth-primary-light: #8b74ff;
+  /* 主色的两档强度：浅底（验证码按钮底、内嵌块底）与更浅（悬停高光） */
+  --auth-primary-tint: rgba(109, 81, 255, 0.14);
+  --auth-primary-tint-soft: rgba(109, 81, 255, 0.06);
 
   position: fixed;
   inset: 0;
@@ -29,7 +47,11 @@ html[theme-mode='dark'],
 body[theme-mode='dark'],
 html:not([theme-mode='light']) {
   --auth-page-bg: #09090b;
-  --auth-brand-panel: linear-gradient(180deg, #1f143d 0%, #12121c 55%, #1a0f33 100%);
+  /*
+   * 品牌面板底色不在这里写：它的色相要跟着品牌主色走，由 buildAuthThemeVars
+   * 算好注入。原值是固定深紫 (#1f143d→#12121c→#1a0f33)，换成青绿品牌时
+   * 左边一块紫、右边按钮青绿，两种色相打架。
+   */
   --auth-card-bg: #17171b;
   --auth-card-border: rgba(255, 255, 255, 0.08);
   --auth-card-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
@@ -38,26 +60,21 @@ html:not([theme-mode='light']) {
   --auth-text-3: #52525b;
   --auth-field-bg: rgba(255, 255, 255, 0.04);
   --auth-field-border: rgba(255, 255, 255, 0.10);
-  --auth-field-focus-ring: rgba(109, 81, 255, 0.18);
   --auth-tab-track: rgba(255, 255, 255, 0.04);
   --auth-tab-text: #a1a1aa;
   --auth-divider: rgba(255, 255, 255, 0.06);
   --auth-brand-title: #fafafa;
   --auth-brand-sub: #a1a1aa;
   --auth-brand-feat: #c9c9ce;
-  --auth-glow-purple: rgba(109, 81, 255, 0.5);
-  --auth-glow-blue: rgba(59, 130, 246, 0.4);
   --auth-grid-line: rgba(255, 255, 255, 0.05);
   --auth-soft-bg: rgba(255, 255, 255, 0.06);
-  --auth-notice-bg: rgba(109, 81, 255, 0.16);
-  --auth-notice-text: #b9a8ff;
 }
 
 /* 浅色主题 */
 html[theme-mode='light'],
 body[theme-mode='light'] {
   --auth-page-bg: #f4f4f5;
-  --auth-brand-panel: linear-gradient(180deg, #e6e0ff 0%, #f5f5fa 55%, #e0e6ff 100%);
+  /* 同上：浅色模式的面板底色也由 JS 按品牌主色算 */
   --auth-card-bg: #ffffff;
   --auth-card-border: rgba(0, 0, 0, 0.08);
   --auth-card-shadow: 0 24px 48px rgba(26, 20, 51, 0.12);
@@ -66,19 +83,14 @@ body[theme-mode='light'] {
   --auth-text-3: #a1a1aa;
   --auth-field-bg: #ffffff;
   --auth-field-border: rgba(0, 0, 0, 0.12);
-  --auth-field-focus-ring: rgba(109, 81, 255, 0.15);
   --auth-tab-track: rgba(17, 17, 20, 0.05);
   --auth-tab-text: #52525b;
   --auth-divider: rgba(0, 0, 0, 0.06);
   --auth-brand-title: #18181b;
   --auth-brand-sub: #52525b;
   --auth-brand-feat: #3f3f46;
-  --auth-glow-purple: rgba(109, 81, 255, 0.28);
-  --auth-glow-blue: rgba(59, 130, 246, 0.22);
   --auth-grid-line: rgba(17, 17, 20, 0.05);
   --auth-soft-bg: rgba(0, 0, 0, 0.04);
-  --auth-notice-bg: #f4f1ff;
-  --auth-notice-text: #6d51ff;
 }
 
 /* ===== 舞台：左右分栏 ===== */
@@ -103,7 +115,7 @@ body[theme-mode='light'] {
   width: min(46vw, 960px);
   border-radius: 24px;
   overflow: hidden;
-  background: var(--auth-brand-panel);
+  background: var(--auth-brand-panel, linear-gradient(180deg, #1f143d 0%, #12121c 55%, #1a0f33 100%));
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -158,7 +170,7 @@ body[theme-mode='light'] {
   height: min(46vw, 700px);
   left: -14%;
   top: -16%;
-  background: radial-gradient(circle, var(--auth-glow-purple) 0%, transparent 70%);
+  background: radial-gradient(circle, var(--auth-glow-brand, rgba(109, 81, 255, 0.4)) 0%, transparent 70%);
 }
 
 .auth-brand-glow--2 {
@@ -166,7 +178,7 @@ body[theme-mode='light'] {
   height: min(42vw, 640px);
   right: -8%;
   bottom: -14%;
-  background: radial-gradient(circle, var(--auth-glow-blue) 0%, transparent 70%);
+  background: radial-gradient(circle, var(--auth-glow-soft, rgba(109, 81, 255, 0.3)) 0%, transparent 70%);
 }
 
 .auth-brand-grid {
@@ -201,10 +213,8 @@ body[theme-mode='light'] {
   color: var(--auth-primary-light);
 }
 
-html[theme-mode='light'] .auth-modal-overlay .auth-brand-title .auth-brand-accent,
-body[theme-mode='light'] .auth-modal-overlay .auth-brand-title .auth-brand-accent {
-  color: #6d51ff;
-}
+/* 浅色模式下 --auth-primary-light 已经等于品牌主色本身（见 buildAuthThemeVars），
+   不需要再覆盖一次 —— 原来这里写死 #6d51ff，品牌色改了它不跟 */
 
 .auth-brand-subtitle {
   margin: 10px 0 0;
@@ -234,6 +244,21 @@ body[theme-mode='light'] .auth-modal-overlay .auth-brand-title .auth-brand-accen
 
 .auth-brand-features svg {
   flex-shrink: 0;
+}
+
+/*
+ * 特性图标：三个一律跟随品牌主色。
+ *
+ * 这里曾经分成三档：前两个跟品牌色、第三个写死成冷蓝 #5b8def，理由是
+ * 「三个图标同色会糊成一块」。这个理由站不住 —— 它们的形状本来就不同
+ * （盾牌 / 折线 / 时钟），区分靠的是图形而不是色相。代价却是：一换品牌色，
+ * 这一行里就剩第三个还挂着与品牌无关的蓝，比"同色"显眼得多。
+ *
+ * 现在统一走 --auth-primary，深浅模式的差异由 JS 派生的 --auth-primary-light
+ * 承担（暗色提亮、浅色即主色本身），不靠换色相来分层。
+ */
+.auth-brand-feature-icon {
+  color: var(--auth-primary-light, var(--auth-primary, #6d51ff));
 }
 
 /* ===== 右侧表单区 ===== */
@@ -327,7 +352,7 @@ body[theme-mode='light'] .auth-modal-overlay .auth-brand-title .auth-brand-accen
   background: var(--auth-primary);
   color: #fff;
   font-weight: 500;
-  box-shadow: 0 2px 10px rgba(109, 81, 255, 0.35);
+  box-shadow: var(--auth-shadow-tab, 0 2px 10px rgba(109, 81, 255, 0.35));
 }
 
 .auth-login-mode-tab-divider {
@@ -387,7 +412,7 @@ body[theme-mode='light'] .auth-modal-overlay .auth-brand-title .auth-brand-accen
 
 .auth-field--box:focus-within {
   border-color: var(--auth-primary);
-  box-shadow: 0 0 0 3px var(--auth-field-focus-ring);
+  box-shadow: 0 0 0 3px var(--auth-field-focus-ring, rgba(109, 81, 255, 0.16));
 }
 
 .auth-field__icon {
@@ -413,7 +438,7 @@ body[theme-mode='light'] .auth-modal-overlay .auth-brand-title .auth-brand-accen
 .auth-code-input-group:focus-within,
 .auth-graphic-captcha-group:focus-within {
   border-color: var(--auth-primary);
-  box-shadow: 0 0 0 3px var(--auth-field-focus-ring);
+  box-shadow: 0 0 0 3px var(--auth-field-focus-ring, rgba(109, 81, 255, 0.16));
 }
 
 .auth-code-input-group .auth-ant-input-wrap,
@@ -512,7 +537,7 @@ body[theme-mode='light'] .auth-modal-overlay .auth-brand-title .auth-brand-accen
   margin: 6px;
   border: none;
   border-radius: 8px;
-  background: rgba(109, 81, 255, 0.14);
+  background: var(--auth-primary-tint, rgba(109, 81, 255, 0.14));
   color: var(--auth-primary-light);
   font-size: 13px;
   font-weight: 500;
@@ -522,11 +547,6 @@ body[theme-mode='light'] .auth-modal-overlay .auth-brand-title .auth-brand-accen
   cursor: pointer;
   box-sizing: border-box;
   transition: filter 0.2s;
-}
-
-html[theme-mode='light'] .auth-modal-overlay .auth-code-input-group__btn,
-body[theme-mode='light'] .auth-modal-overlay .auth-code-input-group__btn {
-  color: #6d51ff;
 }
 
 .auth-code-input-group__btn:hover:not(:disabled) {
@@ -682,7 +702,7 @@ body[theme-mode='light'] .auth-modal-overlay .auth-code-input-group__btn {
 }
 
 .auth-remember-me input:focus-visible {
-  outline: 2px solid var(--auth-field-focus-ring);
+  outline: 2px solid var(--auth-field-focus-ring, rgba(109, 81, 255, 0.16));
   outline-offset: 1px;
 }
 
@@ -698,11 +718,6 @@ body[theme-mode='light'] .auth-modal-overlay .auth-code-input-group__btn {
   transition: color 0.15s;
 }
 
-html[theme-mode='light'] .auth-modal-overlay .auth-link-btn,
-body[theme-mode='light'] .auth-modal-overlay .auth-link-btn {
-  color: #6d51ff;
-}
-
 .auth-link-btn:hover {
   text-decoration: underline;
 }
@@ -714,7 +729,7 @@ body[theme-mode='light'] .auth-modal-overlay .auth-link-btn {
   margin-top: 24px;
   border: none;
   border-radius: 10px;
-  background: linear-gradient(90deg, #7a5eff, #6d51ff);
+  background: var(--auth-btn-gradient, linear-gradient(90deg, #7a5eff, #6d51ff));
   color: #fff;
   font-size: 15px;
   font-weight: 500;
@@ -723,13 +738,13 @@ body[theme-mode='light'] .auth-modal-overlay .auth-link-btn {
   letter-spacing: 1px;
   cursor: pointer;
   flex-shrink: 0;
-  box-shadow: 0 8px 24px rgba(109, 81, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  box-shadow: var(--auth-shadow-btn, 0 8px 24px rgba(109, 81, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18));
   transition: filter 0.2s, transform 0.15s, box-shadow 0.2s;
 }
 
 .auth-primary-btn:hover:not(:disabled) {
   filter: brightness(1.08);
-  box-shadow: 0 10px 28px rgba(109, 81, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  box-shadow: var(--auth-shadow-btn-hover, 0 10px 28px rgba(109, 81, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.22));
 }
 
 .auth-primary-btn:active:not(:disabled) {
@@ -795,11 +810,6 @@ body[theme-mode='light'] .auth-modal-overlay .auth-link-btn {
   line-height: 20px;
 }
 
-html[theme-mode='light'] .auth-modal-overlay .auth-footer-link--inline .auth-footer-link-action,
-body[theme-mode='light'] .auth-modal-overlay .auth-footer-link--inline .auth-footer-link-action {
-  color: #6d51ff;
-}
-
 .auth-footer-link--inline .auth-footer-link-action:hover {
   text-decoration: underline;
 }
@@ -821,11 +831,6 @@ body[theme-mode='light'] .auth-modal-overlay .auth-footer-link--inline .auth-foo
   text-decoration: none;
 }
 
-html[theme-mode='light'] .auth-modal-overlay .auth-footer-link-action,
-body[theme-mode='light'] .auth-modal-overlay .auth-footer-link-action {
-  color: #6d51ff;
-}
-
 .auth-footer-link-action:hover {
   color: var(--auth-primary-strong);
   text-decoration: underline;
@@ -838,7 +843,7 @@ body[theme-mode='light'] .auth-modal-overlay .auth-footer-link-action {
   gap: 8px;
   padding: 8px 12px;
   border-radius: 8px;
-  background: var(--auth-notice-bg);
+  background: var(--auth-notice-bg, rgba(109, 81, 255, 0.16));
   box-sizing: border-box;
   text-align: left;
 }
@@ -847,14 +852,14 @@ body[theme-mode='light'] .auth-modal-overlay .auth-footer-link-action {
   display: inline-flex;
   flex-shrink: 0;
   margin-top: 2px;
-  color: var(--auth-notice-text);
+  color: var(--auth-notice-text, #b9a8ff);
 }
 
 .auth-register-notice__text {
   margin: 0;
   font-size: 13px;
   line-height: 20px;
-  color: var(--auth-notice-text);
+  color: var(--auth-notice-text, #b9a8ff);
   word-break: break-word;
 }
 
@@ -1016,8 +1021,26 @@ body[theme-mode='light'] .auth-modal-overlay .auth-footer-link-action {
   pointer-events: auto;
 }
 
-.auth-submodal {
+/*
+ * 子弹窗（忘记密码 / 发送验证码 / 图形验证码）的配色令牌兜底。
+ *
+ * 真实值由 AuthSubModalPortal 以 inline style 注入到 .auth-submodal-layer 上
+ * —— 它 Portal 到 body，取不到 .auth-modal-overlay 作用域里的变量，所以
+ * 必须单独注入一次。
+ *
+ * 兜底值为什么写在这一层、而不是写在内层的 .auth-submodal 上：
+ *   自定义属性的规则是「元素自身声明的值 > 从父元素继承来的值」。
+ *   一度把 `--auth-primary: #6d51ff` 写在 .auth-submodal 上做兜底，结果是
+ *   无论 layer 注入什么品牌色，卡片自身那句声明都稳赢 —— 表现为登录页是
+ *   青绿、点进忘记密码，验证码按钮又是主站紫。改到 layer 这一层后，
+ *   inline style 与 CSS 规则落在同一个元素上，inline 优先，兜底才真的只是兜底。
+ *
+ * 其余派生变量（tint / 阴影 / 渐变）在注入缺失时会走各条规则自带的后备值，
+ * 不必在这里重复一遍。
+ */
+.auth-submodal-layer {
   --auth-primary: #6d51ff;
+  --auth-primary-light: #8b74ff;
 }
 
 .auth-forgot-modal {
@@ -1089,9 +1112,9 @@ body[theme-mode='light'] .auth-modal-overlay .auth-footer-link-action {
 /* 子弹窗内按钮（Portal 到 body，不在 overlay 作用域） */
 .auth-submodal .auth-primary-btn {
   margin-top: 0;
-  background: linear-gradient(90deg, #7a5eff, #6d51ff);
+  background: var(--auth-btn-gradient, linear-gradient(90deg, #7a5eff, #6d51ff));
   color: #fff;
-  box-shadow: 0 8px 24px rgba(109, 81, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  box-shadow: var(--auth-shadow-btn, 0 8px 24px rgba(109, 81, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18));
 }
 
 .auth-submodal .auth-primary-btn:hover:not(:disabled) {
@@ -1119,7 +1142,7 @@ body[theme-mode='light'] .auth-modal-overlay .auth-footer-link-action {
   padding: 16px;
   border: 1px solid var(--auth-field-border);
   border-radius: 12px;
-  background: rgba(109, 81, 255, 0.06);
+  background: var(--auth-primary-tint-soft, rgba(109, 81, 255, 0.06));
 }
 
 .auth-forgot-inset__desc {

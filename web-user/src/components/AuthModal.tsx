@@ -16,9 +16,10 @@ import { useTheme } from '../contexts/ThemeContext';
 import { usePostAuthNavigate } from '../hooks/usePostAuthNavigate';
 import { getAvailableOAuthProviders } from '../constants/oauth';
 import { getOAuthUrl } from '../utils/oauth';
-import { resolveFooterLegalLabel } from '../utils/footerColumnsFromConfig';
+import { resolveFooterLegalLabel } from '../utils/footerLegalLabel';
 import { useLocale } from '../i18n/hooks/useLocale';
 import { validatePasswordComplexity } from '../utils/passwordPolicy';
+import { deriveBrandPrimaryStates, mixToward, primaryRgba } from '../theme/brandTokens';
 import './AuthModal.css';
 import AuthLoginMedia from './auth/AuthLoginMedia';
 import type { AuthLoginMediaConfig } from './auth/AuthLoginMedia';
@@ -56,14 +57,22 @@ async function sendPhoneSmsForLoginOrRegister(
   return purpose;
 }
 
-/** antd 主题（登录弹层内 Input 等）：跟随站点深浅主题，避免暗底上出现深字/白底 */
-export function buildAuthModalAntdTheme(resolvedTheme: 'light' | 'dark') {
+/** antd 主题（登录弹层内 Input 等）：跟随站点深浅主题 + 品牌主色，避免暗底上出现深字/白底 */
+export function buildAuthModalAntdTheme(resolvedTheme: 'light' | 'dark', primaryHex?: string | null) {
   const isDark = resolvedTheme === 'dark';
+  /*
+   * 主色优先用传入的品牌色，没传才回落到原来的紫色。
+   *
+   * 原来这两个值是写死的 '#8b74ff' / '#6d51ff'，导致伙伴后台改了品牌色、
+   * 全站都跟着变，唯独登录页的输入框描边、链接、按钮还是紫的 ——
+   * 因为 antd 的 token 不读 CSS 变量，只能显式传进去。
+   */
+  const brand = (primaryHex || '').trim() || (isDark ? '#8b74ff' : '#6d51ff');
   return {
     algorithm: isDark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
     token: {
-      colorPrimary: isDark ? '#8b74ff' : '#6d51ff',
-      colorLink: isDark ? '#8b74ff' : '#6d51ff',
+      colorPrimary: brand,
+      colorLink: brand,
       colorText: isDark ? '#fafafa' : '#18181b',
       colorTextPlaceholder: isDark ? 'rgba(250, 250, 250, 0.35)' : 'rgba(0, 0, 0, 0.35)',
       colorBorder: isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(0, 0, 0, 0.12)',
@@ -74,16 +83,92 @@ export function buildAuthModalAntdTheme(resolvedTheme: 'light' | 'dark') {
     },
     components: {
       Input: {
-        activeBorderColor: isDark ? '#8b74ff' : '#6d51ff',
-        hoverBorderColor: isDark ? '#8b74ff' : '#6d51ff',
+        activeBorderColor: brand,
+        hoverBorderColor: brand,
         activeShadow: '0 0 0 0 transparent',
       },
     },
   };
 }
 
-/** 兼容旧引用（设置页预览等）：默认亮色 */
-export const AUTH_MODAL_ANTD_THEME = buildAuthModalAntdTheme('light');
+/**
+ * 登录页配色令牌：把品牌主色展开成 AuthModal.css 用的那一组 `--auth-*` 变量。
+ *
+ * 为什么单独一个函数而不是直接在内联 style 里写几行：
+ * 这些变量之间是有派生关系的（primary → light / strong / tint / 阴影 / 光晕），
+ * 派生规则又随深浅模式变化。散在 JSX 里会变成一大坨三元表达式，改一次要读三遍。
+ *
+ * 深浅差异的取舍：
+ *   · 浅色模式：主色本身够深，按钮/描边直接用主色；hover 压暗一档
+ *   · 深色模式：深底上主色会发闷，把 primary-light（用于文字/链接）
+ *     往白提亮 22%，保证在小字号下也读得清
+ *
+ * 这些比例不是随手取的：和 theme/brandTokens 里 deriveBrandPrimaryStates
+ * 的 0.18 / 0.12 是同一套思路（暗色往白、浅色往黑），只是幅度略调 ——
+ * 登录页字号小、留白多，提亮少了会糊。
+ */
+export function buildAuthThemeVars(
+  resolvedTheme: 'light' | 'dark',
+  primaryHex?: string | null,
+): Record<string, string> {
+  const isDark = resolvedTheme === 'dark';
+  const base = (primaryHex || '').trim() || (isDark ? '#8b74ff' : '#6d51ff');
+
+  const { hover, active } = deriveBrandPrimaryStates(base, resolvedTheme);
+  /** 「用于文字/链接的那一档」：暗色提亮、浅色就用主色本身 */
+  const light = isDark ? mixToward(base, 'white', 0.22) : base;
+
+  /*
+   * 品牌面板底色：主色的「极暗 / 极浅」版本，而不是固定的那块紫。
+   *
+   * 原来的值是 linear-gradient(180deg, #1f143d, #12121c, #1a0f33) ——
+   * 一道深紫的渐变。主站自己用紫，看着没问题；换成青绿或橙红品牌后，
+   * 左边是一整块紫、右边按钮是青绿，两种色相打架，比无色更难看得下去。
+   *
+   * 结构照抄原来的三段式（上带色相 → 中间沉下去 → 下方再回光），只换色相。
+   * 深浅两种模式的「沉」方向相反，这个不能搞错：
+   *   · 暗色：两端往黑压（带主色相的暗），中间压到接近中性黑
+   *   · 浅色：两端往白提（带主色相的浅），中间提到近白
+   * 都往黑压的话，浅色站点的左侧会变成一大块深色，与白色的登录卡对撞。
+   */
+  const panelTop = isDark ? mixToward(base, 'black', 0.84) : mixToward(base, 'white', 0.86);
+  const panelMid = isDark ? '#0c0d0f' : mixToward(base, 'white', 0.96);
+  const panelBottom = isDark ? mixToward(base, 'black', 0.88) : mixToward(base, 'white', 0.88);
+
+  return {
+    '--auth-primary': base,
+    '--auth-primary-strong': active,
+    '--auth-primary-light': light,
+    '--auth-primary-tint': primaryRgba(base, isDark ? 0.18 : 0.14),
+    '--auth-primary-tint-soft': primaryRgba(base, 0.06),
+    '--auth-field-focus-ring': primaryRgba(base, isDark ? 0.18 : 0.15),
+    '--auth-brand-panel': `linear-gradient(180deg, ${panelTop} 0%, ${panelMid} 55%, ${panelBottom} 100%)`,
+    /*
+     * 光晕：品牌区那两团模糊光斑。
+     *
+     * 两团都走品牌色，靠**透明度和位置**拉开层次，不靠换色相。
+     *
+     * 第二团曾经固定冷蓝 rgba(59,130,246,...)，理由是"两团同色会糊成一块"。
+     * 但这个理由不成立：两团一个在左上、一个在右下，尺寸也不同，本来就分得开；
+     * 而同色的后果很具体 —— 青绿品牌下面板右上青、右下蓝紫，整块底色被劈成
+     * 两个色相，比"糊成一块"难看得多。
+     */
+    '--auth-glow-brand': primaryRgba(base, isDark ? 0.5 : 0.3),
+    '--auth-glow-soft': primaryRgba(base, isDark ? 0.3 : 0.18),
+    '--auth-notice-bg': isDark ? primaryRgba(base, 0.16) : softTint(base),
+    '--auth-notice-text': isDark ? mixToward(base, 'white', 0.55) : base,
+    '--auth-shadow-tab': `0 2px 10px ${primaryRgba(base, 0.35)}`,
+    '--auth-shadow-btn': `0 8px 24px ${primaryRgba(base, 0.35)}, inset 0 1px 0 rgba(255, 255, 255, 0.18)`,
+    '--auth-shadow-btn-hover': `0 10px 28px ${primaryRgba(base, 0.35)}, inset 0 1px 0 rgba(255, 255, 255, 0.22)`,
+    /** 主按钮渐变：左端比主色亮一点，做出光从左上打过来的感觉 */
+    '--auth-btn-gradient': `linear-gradient(90deg, ${mixToward(base, 'white', 0.08)}, ${base})`,
+  };
+}
+
+/** 极浅的品牌色底（提示条底色）：往白混到几乎看不出色相，只剩一点温度 */
+function softTint(hex: string): string {
+  return mixToward(hex, 'white', 0.92);
+}
 
 interface AuthInputProps extends Omit<InputProps, 'onChange' | 'value' | 'variant'> {
   value: string;
@@ -268,10 +353,23 @@ function AuthGraphicCaptchaGroup({
 
 /** 子弹窗 Portal：全屏统一蒙层突出弹窗，仅通过关闭按钮收起（点击蒙层不关闭） */
 function AuthSubModalPortal({ children }: { children: React.ReactNode }) {
-  const { resolved } = useTheme();
+  const { resolved, primaryColor } = useTheme();
+  /*
+   * 配色令牌必须在这里也注入一次。
+   *
+   * 子弹窗 createPortal 到 document.body，不在 .auth-modal-overlay 子树里，
+   * 所以 overlay 上那组 --auth-* 变量它一个都取不到 —— 表现得就是
+   * 「登录卡是品牌色、点进忘记密码又变回紫色」。
+   * CSS 里 .auth-submodal 那行只写了 --auth-primary 一个兜底值，不够。
+   */
+  const themeVars = useMemo(
+    () => buildAuthThemeVars(resolved, primaryColor),
+    [resolved, primaryColor],
+  );
+
   return createPortal(
-    <ConfigProvider theme={buildAuthModalAntdTheme(resolved)}>
-      <div className="auth-submodal-layer">
+    <ConfigProvider theme={buildAuthModalAntdTheme(resolved, primaryColor)}>
+      <div className="auth-submodal-layer" style={themeVars as React.CSSProperties}>
         <div className="auth-submodal-backdrop" aria-hidden />
         <div className="auth-submodal-layer__content">{children}</div>
       </div>
@@ -1792,28 +1890,40 @@ function AuthIconLock() {
   );
 }
 
-/** 品牌区特性列表图标 */
+/**
+ * 品牌区特性列表图标。
+ *
+ * 颜色一律走 currentColor + CSS 变量，不写死 hex。
+ *
+ * 这里曾经按项分色：kind 0/2 用 #8B74FF（主站紫）、kind 1 用 #5B8DEF（冷蓝），
+ * 后来改成"前两个跟品牌色、第三个继续冷蓝"，理由是怕三个图标同色糊成一块。
+ * 两种做法都是错的：三个图标形状本来就不同（盾牌 / 折线 / 时钟），
+ * 区分靠图形不靠色相；而留下一个与品牌无关的蓝，在换了品牌色之后
+ * 反而是整行里最扎眼的东西。
+ *
+ * 现在三个统一跟随品牌主色，深浅差异由 --auth-primary-light 承担。
+ */
 function AuthBrandFeatureIcon({ kind }: { kind: 0 | 1 | 2 }) {
   if (kind === 0) {
     return (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <path d="M12 3l7 4v5c0 4.4-3 8.4-7 9-4-.6-7-4.6-7-9V7l7-4z" stroke="#8B74FF" strokeWidth="1.8" strokeLinejoin="round" />
-        <path d="M9 12l2 2 4-4" stroke="#8B74FF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden className="auth-brand-feature-icon">
+        <path d="M12 3l7 4v5c0 4.4-3 8.4-7 9-4-.6-7-4.6-7-9V7l7-4z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M9 12l2 2 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }
   if (kind === 1) {
     return (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <path d="M4 17l5-6 4 3 7-8" stroke="#5B8DEF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M4 21h16" stroke="#5B8DEF" strokeWidth="1.8" strokeLinecap="round" />
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden className="auth-brand-feature-icon">
+        <path d="M4 17l5-6 4 3 7-8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M4 21h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       </svg>
     );
   }
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="12" cy="12" r="8.5" stroke="#8B74FF" strokeWidth="1.8" />
-      <path d="M12 8v4l2.5 2.5" stroke="#8B74FF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden className="auth-brand-feature-icon">
+      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 8v4l2.5 2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -1857,36 +1967,79 @@ export function AuthPage({ tab }: { tab: 'login' | 'register' }) {
   const { t } = useTranslation();
   const { siteAppearance, loading: appearanceLoading } = useStatus();
   const { locale } = useLocale();
-  const { resolved: resolvedTheme } = useTheme();
+  const { resolved: resolvedTheme, primaryColor } = useTheme();
   // 媒体原始宽高比（就绪后由 AuthLoginMedia 上报）；null = 尚未测得
   const [mediaRatio, setMediaRatio] = useState<number | null>(null);
-  // 预加载的 video 元素（首帧已缓冲），就绪后直接复用为展示元素
-  const probeVideoRef = useRef<HTMLVideoElement | null>(null);
   // 上次的媒体决策快照：服务端外观尚未就绪时先用它决定首帧形态，
   // 避免「已配置媒体」的站点每次刷新都先闪一下品牌兜底区。
   // hit=false 表示从没访问过（新浏览器/清缓存），此时不知有无媒体
   const cachedMediaResult = useMemo(() => readCachedLoginMedia(), []);
   const cachedMedia = cachedMediaResult.snapshot;
 
-  // 登录页媒体配置来自站点外观（服务端已填充 URL）；未配置/未加载时 type='none'
-  const loginMediaConfig: AuthLoginMediaConfig = siteAppearance?.login_media_config
-    ? {
-        type: siteAppearance.login_media_config.type,
-        image_url: siteAppearance.login_media_config.image_url,
-        video_url: siteAppearance.login_media_config.video_url,
-        poster_url: siteAppearance.login_media_config.poster_url,
-      }
-    : { type: 'none' };
+  /** 登录页配色令牌（品牌主色 → --auth-* 那一组），随深浅模式重算 */
+  const themeVars = useMemo(
+    () => buildAuthThemeVars(resolvedTheme, primaryColor),
+    [resolvedTheme, primaryColor],
+  );
 
-  // 版权行：读站点「页脚设置」配置（版权 labels/legacy），与全站页脚同源
+  /*
+   * 登录页左栏媒体：**只用图片，视频一律当作没配**。
+   *
+   * 视频那条链路是历史遗留。它挂在平台侧的站点外观（login_media_config）上，
+   * 由平台运维在 lynxtonapi 后台上传，**伙伴后台（本仓库 web）没有对应的
+   * 配置入口** —— 商户在自己的后台翻遍所有页面也找不到那一格。结果就是
+   * 每个分销商站点都顶着同一段平台宣传片：换不掉，也关不掉。
+   *
+   * 所以这里做一次收口：服务端就算下发 type='video'，也按 none 处理，
+   * 左栏回落到纯 CSS 品牌区（AuthBrandPanel）。
+   *
+   * 为什么不直接把服务端那条记录改掉：login_media_config 落在 lynxtonapi
+   * 的库表里，本仓库只读；而且同一条记录可能还被主站自己的登录页用着。
+   * 收在渲染层，既立刻生效，又不影响别人。
+   *
+   * 图片保留：同样是平台侧配置，但它不会「动起来」，一张静态图即使商户
+   * 改不了也不构成干扰，日后给伙伴后台补上传入口时直接就能用。
+   */
+  const loginMediaConfig: AuthLoginMediaConfig = (() => {
+    const raw = siteAppearance?.login_media_config;
+    if (!raw || raw.type !== 'image') return { type: 'none' };
+    return {
+      type: 'image',
+      image_url: raw.image_url,
+    };
+  })();
+
+  /*
+   * 版权行：读站点「页脚设置」配置（版权 labels / legacy），与全站页脚同源。
+   *
+   * 三个开关都要尊重，缺一不可：
+   *   ① footer_copyright_config.enabled —— 伙伴后台「显示页脚」总开关
+   *   ② footer_hidden_items 含 copyright —— 商户明确清空了版权这一项
+   *   ③ 文字非空 —— 什么都没有就没必要渲染一行空白
+   *
+   * 这里曾经只判了 ③，所以伙伴后台把「显示页脚」关掉之后，全站页脚没了、
+   * 登录页底部那句「© 2026 联通云有限公司 版权所有」还在 —— 而且写的是
+   * 平台公司名，挂在分销商站上等于给平台打广告。
+   */
+  const copyrightEnabled = siteAppearance?.footer_copyright_config?.enabled !== false;
+  const copyrightHidden = (siteAppearance?.footer_hidden_items ?? []).includes('copyright');
   const copyrightText = useMemo(
-    () => resolveFooterLegalLabel(
+    () => (copyrightEnabled && !copyrightHidden
+      ? resolveFooterLegalLabel(
+        siteAppearance?.copyright_labels,
+        siteAppearance?.copyright_text,
+        locale,
+        `${new Date().getFullYear()} {{brandName}}`,
+      ).replace('{{brandName}}', t('header.systemName'))
+      : ''),
+    [
+      copyrightEnabled,
+      copyrightHidden,
       siteAppearance?.copyright_labels,
       siteAppearance?.copyright_text,
       locale,
-      `${new Date().getFullYear()} {{brandName}}`,
-    ).replace('{{brandName}}', t('header.systemName')),
-    [siteAppearance?.copyright_labels, siteAppearance?.copyright_text, locale, t],
+      t,
+    ],
   );
 
   const hasMedia = loginMediaConfig.type !== 'none';
@@ -1897,58 +2050,34 @@ export function AuthPage({ tab }: { tab: 'login' | 'register' }) {
   // 保证同一媒体在「接口返回前/后」算出同一个键，缓存才能命中
   const mediaKey = buildMediaCacheKey(
     loginMediaConfig.type,
-    loginMediaConfig.type === 'video'
-      ? siteAppearance?.login_media_config?.video_file_id
-      : siteAppearance?.login_media_config?.image_file_id,
-    loginMediaConfig.type === 'video'
-      ? loginMediaConfig.video_url
-      : loginMediaConfig.image_url,
+    siteAppearance?.login_media_config?.image_file_id,
+    loginMediaConfig.image_url,
   );
   // 缓存仅在标识一致时可用，避免换/删媒体后沿用旧比例
   const cachedRatio = cachedMedia.key && cachedMedia.key === mediaKey ? cachedMedia.ratio : 0;
 
-  // 媒体变化（换图/换视频/清空）时重置比例，避免沿用旧媒体的 aspect-ratio
+  // 媒体变化（换图/清空）时重置比例，避免沿用旧媒体的 aspect-ratio
   useEffect(() => {
     setMediaRatio(null);
-  }, [loginMediaConfig.type, loginMediaConfig.image_url, loginMediaConfig.video_url]);
+  }, [loginMediaConfig.type, loginMediaConfig.image_url]);
 
-  // 媒体元数据预加载：尽早拿到真实宽高比（图片解码 / 视频首帧）
+  // 图片元数据预加载：尽早拿到真实宽高比，首帧就按正确比例摆好面板
   useEffect(() => {
     if (!hasMedia) return undefined;
-    const url = (loginMediaConfig.type === 'video'
-      ? loginMediaConfig.video_url
-      : loginMediaConfig.image_url) || '';
+    const url = loginMediaConfig.image_url || '';
     if (!url) return undefined;
     let cancelled = false;
-    if (loginMediaConfig.type === 'image') {
-      const probe = new Image();
-      probe.onload = () => {
-        if (!cancelled && probe.naturalWidth > 0 && probe.naturalHeight > 0) {
-          setMediaRatio(probe.naturalWidth / probe.naturalHeight);
-        }
-      };
-      probe.src = url;
-    } else {
-      const probe = document.createElement('video');
-      // preload='auto'：探测视频顺带缓冲首帧，切换后直接复用该元素（浏览器缓存/数据复用）
-      probe.preload = 'auto';
-      probe.muted = true;
-      probe.loop = true;
-      probe.playsInline = true;
-      if (loginMediaConfig.poster_url) probe.poster = loginMediaConfig.poster_url;
-      const onReady = () => {
-        if (!cancelled && probe.videoWidth > 0 && probe.videoHeight > 0) {
-          setMediaRatio(probe.videoWidth / probe.videoHeight);
-        }
-      };
-      probe.addEventListener('loadeddata', onReady, { once: true });
-      probe.src = url;
-      probeVideoRef.current = probe;
-    }
+    const probe = new Image();
+    probe.onload = () => {
+      if (!cancelled && probe.naturalWidth > 0 && probe.naturalHeight > 0) {
+        setMediaRatio(probe.naturalWidth / probe.naturalHeight);
+      }
+    };
+    probe.src = url;
     return () => {
       cancelled = true;
     };
-  }, [hasMedia, loginMediaConfig.type, loginMediaConfig.image_url, loginMediaConfig.video_url]);
+  }, [hasMedia, loginMediaConfig.image_url]);
 
   // 配置已知后写回决策快照，供下次刷新首帧直接使用
   useEffect(() => {
@@ -1968,10 +2097,8 @@ export function AuthPage({ tab }: { tab: 'login' | 'register' }) {
     });
   }, [mediaConfigReady, hasMedia, mediaKey, mediaRatio, cachedRatio, loginMediaConfig.type]);
 
-  // 当前媒体是否已有可用直链（服务端拼好下发的 URL）；没有则渲染不出内容
-  const mediaUrl = (loginMediaConfig.type === 'video'
-    ? loginMediaConfig.video_url
-    : loginMediaConfig.image_url) || '';
+  // 当前媒是否有可用直链（服务端拼好下发的 URL）；没有则渲染不出内容
+  const mediaUrl = loginMediaConfig.image_url || '';
   const mediaUrlReady = mediaUrl.trim().length > 0;
 
   /**
@@ -2004,7 +2131,7 @@ export function AuthPage({ tab }: { tab: 'login' | 'register' }) {
       : MEDIA_RATIO_FALLBACK;
 
   return (
-    <ConfigProvider theme={buildAuthModalAntdTheme(resolvedTheme)}>
+    <ConfigProvider theme={buildAuthModalAntdTheme(resolvedTheme, primaryColor)}>
       <div
         className={[
           'auth-modal-overlay',
@@ -2012,6 +2139,7 @@ export function AuthPage({ tab }: { tab: 'login' | 'register' }) {
         ]
           .filter(Boolean)
           .join(' ')}
+        style={themeVars as React.CSSProperties}
       >
         <div className="auth-modal-stage">
           {/* 左侧三态：
@@ -2038,7 +2166,6 @@ export function AuthPage({ tab }: { tab: 'login' | 'register' }) {
                 <AuthLoginMedia
                   config={loginMediaConfig}
                   onMediaRatio={setMediaRatio}
-                  reusedVideo={loginMediaConfig.type === 'video' ? probeVideoRef.current : null}
                 />
               ) : null}
             </div>

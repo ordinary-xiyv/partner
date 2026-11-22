@@ -21,19 +21,15 @@ export interface AuthLoginMediaConfig {
 export default function AuthLoginMedia({
   config,
   onMediaRatio,
-  reusedVideo,
 }: {
   config: AuthLoginMediaConfig;
   /** 媒体原始宽高比（w/h）就绪后上报；无媒体时上报 null。父级据此设置面板 aspect-ratio —— 媒体完整显示且铺满，不裁剪不留白 */
   onMediaRatio?: (ratio: number | null) => void;
-  /** 父级已预加载好首帧的 video 元素（复用，避免二次下载造成的黑窗） */
-  reusedVideo?: HTMLVideoElement | null;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   /**
-   * 真正挂进 DOM 的 video 元素（可能是父级预加载后复用的，也可能是下面 JSX 渲染的）。
-   * 用 state 承接而不是只用 ref，是为了让「绑监听」的 effect 在元素变化时重新执行——
-   * 复用元素挂载时若还没缓冲好，之前没有任何监听，视频会一直停在 opacity:0。
+   * 真正挂进 DOM 的 video 元素，用 state 承接而不是只用 ref：
+   * 让「绑监听」的 effect 在元素变化时重新执行。
    */
   const [videoEl, setVideoEl] = useState<HTMLVideoElement | null>(null);
   const [isReducedMotion, setIsReducedMotion] = useState(false);
@@ -66,21 +62,6 @@ export default function AuthLoginMedia({
   const pauseVideo = useCallback(() => {
     videoRef.current?.pause();
   }, []);
-
-  // 复用预加载元素：挂载即显示首帧（readyState≥2），无需再下载。
-  // 注意：钩子必须在提前 return 之前声明（组件可能在 none/image/video 间切换）
-  const attachReusedVideo = useCallback(
-    (node: HTMLDivElement | null) => {
-      const el = reusedVideo;
-      if (!node || !el) return;
-      el.className = 'auth-login-media__video';
-      if (el.parentNode !== node) node.appendChild(el);
-      videoRef.current = el;
-      setVideoEl(el);
-      void el.play?.()?.catch(() => {});
-    },
-    [reusedVideo],
-  );
 
   // 自己渲染的 video 元素的 ref：用稳定回调，避免每次渲染都触发解绑/重绑监听
   const attachOwnVideo = useCallback((node: HTMLVideoElement | null) => {
@@ -178,7 +159,7 @@ export default function AuthLoginMedia({
   /** 视频未就绪期间显示项目通用 loading；失败则不再转，避免一直转圈 */
   const showLoading = !isReducedMotion && !videoError && !videoReady;
 
-  // 复用元素不受 React 管理，透明度在这里同步；自家 JSX 元素另外有内联 style（取值一致）
+  // 透明度统一在这里同步，与下方 JSX 的内联 style 取值一致
   useEffect(() => {
     if (videoEl) videoEl.style.opacity = showVideo ? '1' : '0';
   }, [videoEl, showVideo]);
@@ -211,9 +192,7 @@ export default function AuthLoginMedia({
       {posterUrl && (
         <img className="auth-login-media__poster" src={posterUrl} alt="" decoding="async" />
       )}
-      {!isReducedMotion && (reusedVideo ? (
-        <div ref={attachReusedVideo} />
-      ) : (
+      {!isReducedMotion && (
         <video
           ref={attachOwnVideo}
           className="auth-login-media__video"
@@ -233,7 +212,7 @@ export default function AuthLoginMedia({
         >
           <source src={videoUrl} />
         </video>
-      ))}
+      )}
       {/* 通用 loading：常驻挂载、靠透明度淡入淡出，避免与视频淡入抢同一帧 */}
       {!isReducedMotion && (
         <div

@@ -1,0 +1,707 @@
+/* ============================================================================
+ * 首页 · A 纸感编辑（Editorial）
+ *
+ * 设计原则：用排版本身制造秩序，不靠色块和装饰。
+ *   · 衬线大标题 + 无衬线正文，构成编辑物的阅读节奏
+ *   · 主色只落在「编号、下划线、一个数字」上，占比不到 3%
+ *   · 分割线是主角：1px 的线把内容切开，比任何卡片都干净
+ *
+ * 为什么这套对白标最安全：
+ * 伙伴只能配一个主色，而且可能配出明黄、荧光绿这类极浅的色。
+ * 这里主色从不大面积铺，也不直接当文字色（走 --ed-brand-on-surface
+ * 这个派生值），所以任何颜色都不会让页面崩掉。
+ *
+ * 明暗两版共用同一套排版语言，只换底色与文字色，
+ * 暗色是「深墨纸」而不是纯黑——保留纸的质感。
+ * ========================================================================== */
+
+.ed-page {
+  --ed-bg: #f7f5f0;
+  --ed-ink: #17150f;
+  --ed-ink-2: rgba(23, 21, 15, 0.72);
+  --ed-ink-3: rgba(23, 21, 15, 0.5);
+  --ed-ink-4: rgba(23, 21, 15, 0.38);
+  --ed-line: rgba(23, 21, 15, 0.1);
+  --ed-line-strong: rgba(23, 21, 15, 0.18);
+  --ed-card: #f7f5f0;
+  --ed-card-raised: #fffdf8;
+  --ed-rule: rgba(23, 21, 15, 0.14);
+  --ed-btn-ghost-border: rgba(23, 21, 15, 0.22);
+
+  background: var(--ed-bg);
+  color: var(--ed-ink);
+  font-family: "PingFang SC", -apple-system, "Segoe UI", system-ui, sans-serif;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* 暗色：深墨纸。不用纯黑 #000，那样和纸的质感完全断裂 */
+[theme-mode="dark"] .ed-page {
+  --ed-bg: #131211;
+  --ed-ink: #f2efe9;
+  --ed-ink-2: rgba(242, 239, 233, 0.72);
+  --ed-ink-3: rgba(242, 239, 233, 0.48);
+  --ed-ink-4: rgba(242, 239, 233, 0.34);
+  --ed-line: rgba(242, 239, 233, 0.1);
+  --ed-line-strong: rgba(242, 239, 233, 0.2);
+  --ed-card: #1a1816;
+  --ed-card-raised: #201e1b;
+  --ed-rule: rgba(242, 239, 233, 0.14);
+  --ed-btn-ghost-border: rgba(242, 239, 233, 0.24);
+}
+
+/* 衬线族：优先中文衬线（宋体系），回落到系统 Georgia。
+ * 不引入 web font —— 首页首屏对字体加载极敏感，
+ * 一个 2MB 的中文字体会让标题先空白一秒。 */
+.ed-serif {
+  font-family: "Songti SC", "Noto Serif SC", "Source Han Serif SC", Georgia, serif;
+}
+
+/* 等宽：用于编号、代码、细小的技术标签 */
+.ed-mono {
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+}
+
+.ed-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 40px;
+}
+
+/* ---------------------------------------------------------------- Hero --- */
+
+/*
+ * 顶部留白的原因见 terminal.css 里 .tm-hero 的注释（同一处坑）。
+ * 这套是纸感排版，留白可以比终端风格再紧一点，但同样必须跟着
+ * --app-site-top-chrome-h 走，不能写死。
+ */
+.ed-hero {
+  display: grid;
+  grid-template-columns: 1.35fr 0.9fr;
+  gap: 64px;
+  align-items: end;
+  padding-block: calc(var(--app-site-top-chrome-h, 64px) + var(--app-header-capsule-top, 0px) + 32px) 64px;
+}
+
+.ed-hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 11.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ed-ink-3);
+  margin-bottom: 30px;
+}
+
+.ed-hero__eyebrow-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ed-brand);
+  flex: none;
+}
+
+.ed-hero__title {
+  font-size: clamp(38px, 5vw, 62px);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  margin: 0;
+}
+
+.ed-hero__title-line {
+  display: block;
+}
+
+/* 强调词：用派生后的可读色，不是主色原值。
+ * 明黄直接写在米白底上对比度只有 1.76，完全看不清。 */
+.ed-hero__title em {
+  font-style: normal;
+  position: relative;
+  white-space: nowrap;
+  color: var(--ed-brand-on-surface);
+}
+
+/* 强调词下面的下划线，随入场动画从左展开。
+ * 用 transform:scaleX 而不是 width：不触发 layout。 */
+.ed-hero__title em::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 3px;
+  height: 2px;
+  background: var(--ed-brand);
+  transform-origin: left center;
+  transform: scaleX(1);
+}
+
+.ed-hero__lead {
+  margin: 30px 0 0;
+  font-size: 15px;
+  line-height: 1.9;
+  color: var(--ed-ink-2);
+  max-width: 440px;
+}
+
+/*
+ * 副标题两句各自成行。理由见 terminal.css 同名规则的注释：
+ * block 而非 <br>，窄屏时句内才折，语义仍是一句一段。
+ *
+ * 这一套的 max-width 只有 440px，比终端风格的 560px 更窄，
+ * 中文整句（609px）在这里会被切成三行 —— 拆句之后每句都远小于 440px，
+ * 折行位置变得可预期。
+ */
+.ed-hero__lead-line {
+  display: block;
+}
+
+.ed-hero__cta {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-top: 36px;
+  flex-wrap: wrap;
+}
+
+.ed-btn-solid {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--ed-brand);
+  color: var(--ed-brand-ink);
+  border: none;
+  padding: 13px 26px;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.ed-btn-solid:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px -8px rgba(var(--ed-brand-rgb), 0.55);
+}
+
+/*
+ * 次级动作：描边按钮。
+ *
+ * 原来是 `ed-btn-text` —— 纯文字加一个箭头，和左边的主按钮并排时
+ * 一重一轻，读者会下意识认为它不可点。首屏只放两个动作，第二个
+ * 不该长得像脚注。这里给它一个完整的按钮外形（描边 + 内边距 + 圆角），
+ * 视觉重量仍低于主按钮：主按钮是实心品牌色，这个是细描边。
+ *
+ * 描边颜色用主色而不是墨色：既能把品牌色延伸到「非填充」的元素上，
+ * 又不至于抢走主按钮的位置。透明度压在 0.35，保持克制。
+ */
+.ed-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: color-mix(in srgb, var(--ed-brand) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ed-brand) 35%, var(--ed-btn-ghost-border));
+  color: var(--ed-ink);
+  padding: 12px 22px;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: 450;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.ed-btn-ghost:hover {
+  background: color-mix(in srgb, var(--ed-brand) 10%, transparent);
+  border-color: color-mix(in srgb, var(--ed-brand) 60%, transparent);
+  color: var(--ed-brand-on-surface);
+}
+
+/* 右侧的数字图区。刻意不做卡片，让它像编辑页的插图而非 UI 组件 */
+.ed-hero__figure {
+  text-align: right;
+  padding-bottom: 10px;
+}
+
+/*
+ * 提要栏（当前形态）：三条文字声明 + 序号。
+ *
+ * 取代原来的「56–80px 巨型数字」。那个字号是为一个三位数准备的，
+ * 换成中文短句之后用同样大小会把右侧撑成主角，而首屏的主角应该是标题。
+ *
+ * 序号用衬线体、小字号、浅色，只做节奏标记 —— 不放大，不放主色。
+ * 一旦放大就变成了「三大优势」那种营销版式，和这套编辑语言的克制冲突。
+ */
+.ed-hero__figure--claims {
+  text-align: left;
+}
+
+.ed-hero__claims {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.ed-hero__claim {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.ed-hero__claim-no {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--ed-ink-4);
+  flex: none;
+  min-width: 20px;
+}
+
+.ed-hero__claim-text {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ed-ink-2);
+  letter-spacing: 0.01em;
+}
+
+.ed-hero__figure-rule {
+  height: 1px;
+  background: var(--ed-line);
+  margin: 28px 0 24px;
+  transform-origin: right center;
+}
+
+/* ------------------------------------------------------- 通用区块标题 --- */
+
+.ed-section {
+  /* padding-block 而非简写：与 .ed-shell 同元素，简写会清掉左右内边距 */
+  padding-block: 76px;
+}
+
+.ed-section-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+  gap: 48px;
+  align-items: end;
+  padding-bottom: 30px;
+  border-bottom: 1px solid var(--ed-line);
+  margin-bottom: 44px;
+}
+
+.ed-section-head__index {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ed-brand-on-surface);
+  margin-bottom: 14px;
+}
+
+.ed-section-head__title {
+  font-size: clamp(26px, 3vw, 36px);
+  line-height: 1.22;
+  letter-spacing: -0.015em;
+  font-weight: 500;
+  margin: 0;
+}
+
+.ed-section-head__desc {
+  font-size: 14px;
+  line-height: 1.85;
+  color: var(--ed-ink-2);
+  margin: 0;
+  padding-bottom: 4px;
+}
+
+/* ------------------------------------------------------ 特性带（三列） --- */
+
+/* 用伪元素画分隔线而不是 border-right：
+ * border 会一直顶到容器边缘，与上下圆角对不上，看起来断开。 */
+
+
+
+
+
+
+
+/* ------------------------------------------------------------- 模型区 --- */
+
+
+
+
+
+/* 选中态下划线用主色，但只有 2px —— 这就是主色在这套设计里的"面积预算" */
+
+
+
+/* 奇数列的右边线。用 padding 撑开间距，让分隔线连续不断 */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@keyframes ed-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+
+
+
+/* ------------------------------------------------------------ 管理区 --- */
+
+
+
+
+
+/* -------------------------------------------------------------- SDK --- */
+
+.ed-sdk {
+  display: grid;
+  grid-template-columns: 0.85fr 1.15fr;
+  gap: 56px;
+  /*
+   * 两栏等高（默认 stretch），而不是原来的 start。
+   *
+   * 原来 align-items: start 让两栏各按内容高度摆：右栏代码块 397px、
+   * 左栏特性列表只有 199px，于是代码块下方那 200px 里，左边是一整块空白。
+   * 视线顺着右栏落到下方时，左边是空的，整段的重心全歪在右边。
+   *
+   * 等高之后，左栏由 .ed-sdk__left 负责把内容垂直居中。
+   */
+  align-items: stretch;
+}
+
+/*
+ * 左栏容器：占满与代码块等高的那一列。
+ *
+ * 早先是 justify-content: center —— 三项 199px 居中在 397px 里，
+ * 上下各留约 99px。那样虽然对称，但两块之间的视觉关系是「左栏内容悬在中间」，
+ * 和右边那条从上到下的代码块对不上，页面重心偏右。
+ *
+ * 现在不居中，交给内部的 .ed-sdk__features 自己分成三等份，
+ * 每一份内部再居中 —— 三项各自占据一段等高区间，整体均匀铺满，
+ * 而不是靠把间隙拉大来"占位"。
+ */
+.ed-sdk__left {
+  display: flex;
+  flex-direction: column;
+}
+
+/*
+ * 三项在 397px 的高度里均匀分布。
+ *
+ * 这里有个绕不开的算术：三项内容合起来只有 210px 左右，容器却有 397px
+ * （由右栏 13 行代码决定）。多出来的近 190px 必须落在某处 —— 要么全堆在
+ * 项与项之间，要么均摊到四周。上一版选了前者（space-between），于是两项
+ * 之间空出 113px，比内容本身还高，三项看过去像三个互不相干的孤岛。
+ *
+ * 现在改成 space-evenly：空余按「上 / 项间 / 项间 / 下」四段均分。
+ * 同样的留白，切得更碎、落得更均匀，项间距降到 50px 上下，
+ * 既铺满了高度，三项又还在一组的阅读节奏里。
+ *
+ * gap 12px 是下限兜底：窄屏（<1080px）变单列后容器高度塌回内容高度，
+ * 富余空间归零，space-evenly 就不起作用了，只剩这个 gap 撑着 ——
+ * 否则三项会贴在一起。
+ */
+.ed-sdk__features {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  gap: 12px;
+  margin-top: 0;
+}
+
+.ed-sdk__feature {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 14px;
+}
+
+.ed-sdk__feature-mark {
+  font-size: 13px;
+  color: var(--ed-brand-on-surface);
+  letter-spacing: 0.04em;
+  padding-top: 6px;
+}
+
+.ed-sdk__feature-title {
+  font-size: 20px;
+  font-weight: 500;
+  margin: 0 0 12px;
+}
+
+.ed-sdk__feature-desc {
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--ed-ink-2);
+  margin: 0;
+}
+
+/* 代码块：编辑风格里它是"引文"，用浅底 + 左线，不做成深色终端 */
+.ed-sdk__code {
+  background: var(--ed-card-raised);
+  border: 1px solid var(--ed-line);
+  border-left: 2px solid var(--ed-brand);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.ed-sdk__code-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--ed-line);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ed-ink-4);
+}
+
+.ed-sdk__code pre {
+  margin: 0;
+  padding: 22px 18px;
+  font-size: 12.5px;
+  line-height: 1.9;
+  overflow-x: auto;
+  color: var(--ed-ink);
+  /*
+   * 三个语言片段统一高度。
+   *
+   * Python / JavaScript 是 13 行、cURL 是 8 行，按内容撑高的话分别是
+   * 397px 和 278px —— 切 tab 时右栏会往下缩 119px，下方的正文跟着上移，
+   * 整页跳一下。
+   *
+   * 这里锁死 13 行的高度，不足的片段留白。
+   *
+   * 算式要加上下 padding：全局是 border-box，min-height 含 padding，
+   * 只写 13 × 1.9em 会让内容区因 padding 挤掉 44px，13 行的片段照样撑破。
+   * 用 em 而不是 px：字号一变（窄屏调小）高度跟着走，不会露底。
+   *
+   * min-height 而不是 height：万一以后出现超过 13 行的片段，它能自己
+   * 撑开，不会被裁掉 —— 裁掉的代码比高度不齐严重得多。
+   */
+  min-height: calc(13 * 1.9em + 44px);
+  box-sizing: border-box;
+}
+
+/* 同一行数下，长行允许横向滚动，不折行（折行会破坏行数基准） */
+.ed-sdk__code pre code {
+  display: block;
+  white-space: pre;
+}
+
+.ed-sdk__code .tok-key { color: var(--ed-brand-on-surface); }
+.ed-sdk__code .tok-str { color: var(--ed-ink-2); }
+.ed-sdk__code .tok-com { color: var(--ed-ink-4); font-style: italic; }
+
+/* ------------------------------------------------------------- 场景 --- */
+
+.ed-scenes {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--ed-line);
+}
+
+.ed-scene {
+  padding: 30px 26px 32px 0;
+  border-bottom: 1px solid var(--ed-line);
+  position: relative;
+}
+
+/*
+ * 场景卡的主色落点：标题上方一条 2px 的品牌色短线。
+ *
+ * 这套风格的场景区是纯排版（没有卡片边框、没有底色），加填充色会
+ * 破坏纸感。所以品牌色只能落在「线条」这种既有的语言元素上：
+ * 默认是一条极淡的主色线，hover 时加深并延长一点 —— 既让四格之间
+ * 有了可分辨的层级，也和页面其他主色小元素（眉标点、序号）呼应。
+ *
+ * 用 transform: scaleX 过渡而不是改 width：宽度动画会触发重排，
+ * 这条线在四列网格里重排会带着相邻格子一起抖动。
+ */
+.ed-scene::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 28px;
+  height: 2px;
+  background: var(--ed-brand);
+  opacity: 0.32;
+  transform-origin: left center;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.ed-scene + .ed-scene::after {
+  left: 26px;
+}
+
+.ed-scene:hover::after {
+  opacity: 1;
+  transform: scaleX(1.9);
+}
+
+.ed-scene + .ed-scene {
+  padding-left: 26px;
+}
+
+.ed-scene + .ed-scene::before {
+  content: "";
+  position: absolute;
+  top: 30px;
+  bottom: 32px;
+  left: 0;
+  width: 1px;
+  background: var(--ed-line);
+}
+
+.ed-scene__tag {
+  display: inline-block;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ed-brand-on-surface);
+  margin-bottom: 14px;
+}
+
+.ed-scene__title {
+  font-size: 15.5px;
+  font-weight: 500;
+  margin: 0 0 10px;
+  line-height: 1.45;
+}
+
+.ed-scene__desc {
+  font-size: 12.5px;
+  line-height: 1.8;
+  color: var(--ed-ink-2);
+  margin: 0;
+}
+
+/* -------------------------------------------------------------- CTA --- */
+
+/* 整页唯一的深色块。前面全是纸白，这里压深形成收束 ——
+ * 不用主色铺满，因为主色不可控（明黄铺满会刺眼） */
+.ed-cta {
+  margin: 0 0 0;
+  padding-block: 68px;
+  background: var(--ed-ink);
+  color: var(--ed-bg);
+}
+
+[theme-mode="dark"] .ed-cta {
+  background: var(--ed-card-raised);
+  color: var(--ed-ink);
+  border-top: 1px solid var(--ed-line);
+  border-bottom: 1px solid var(--ed-line);
+}
+
+.ed-cta__inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 48px;
+  align-items: center;
+}
+
+.ed-cta__title {
+  font-size: clamp(26px, 3.2vw, 38px);
+  line-height: 1.24;
+  letter-spacing: -0.015em;
+  font-weight: 500;
+  margin: 0 0 16px;
+}
+
+.ed-cta__desc {
+  font-size: 14px;
+  line-height: 1.8;
+  opacity: 0.7;
+  margin: 0;
+  max-width: 520px;
+}
+
+.ed-cta__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+/* CTA 区在深底上，按钮要用底色反色（不是主色）——
+ * 主色在深底上多半对比不足，而这里是最重要的转化按钮 */
+.ed-cta .ed-btn-solid {
+  background: var(--ed-bg);
+  color: var(--ed-ink);
+  white-space: nowrap;
+}
+
+[theme-mode="dark"] .ed-cta .ed-btn-solid {
+  background: var(--ed-ink);
+  color: var(--ed-bg);
+}
+
+.ed-cta .ed-btn-solid:hover {
+  box-shadow: 0 10px 28px -10px rgba(0, 0, 0, 0.5);
+}
+
+.ed-cta__hint {
+  font-size: 11.5px;
+  opacity: 0.55;
+  letter-spacing: 0.04em;
+}
+
+/* --------------------------------------------------------- 合作伙伴 --- */
+
+
+
+
+/* ------------------------------------------------------------ 响应式 --- */
+
+@media (max-width: 1080px) {
+  .ed-shell { padding: 0 32px; }
+  .ed-hero { grid-template-columns: 1fr; gap: 44px; padding-block: calc(var(--app-site-top-chrome-h, 64px) + var(--app-header-capsule-top, 0px) + 24px) 48px; }
+  .ed-hero__figure { text-align: left; }
+  .ed-hero__figure-rule { transform-origin: left center; }
+  .ed-section { padding-block: 60px; }
+  .ed-section-head { grid-template-columns: 1fr; gap: 20px; }
+  .ed-scenes { grid-template-columns: repeat(2, 1fr); }
+  .ed-scene:nth-child(odd) { padding-left: 0; }
+  .ed-scene:nth-child(odd)::before { display: none; }
+  .ed-sdk { grid-template-columns: 1fr; gap: 36px; }
+  /*
+   * 单列时三项之间没有富余空间可分了（space-evenly 需要高度大于内容才起作用），
+   * 全靠 gap 撑着。12px 在那个位置太紧 —— 和项内「序号-标题」的 14px 几乎一样，
+   * 三项会读成一坨。抬到 32px，明显大于项内间距，层级才分得开。
+   */
+  .ed-sdk__features { gap: 32px; }
+}
+
+@media (max-width: 720px) {
+  .ed-shell { padding: 0 20px; }
+  .ed-hero { padding-block: 44px 40px; }
+  .ed-hero__title { font-size: clamp(32px, 9vw, 44px); }
+  .ed-scenes { grid-template-columns: 1fr; }
+  .ed-scene, .ed-scene + .ed-scene { padding: 24px 0; }
+  .ed-scene + .ed-scene::before {
+    top: 0;
+    bottom: auto;
+    left: 0;
+    right: 0;
+    width: auto;
+    height: 1px;
+  }
+  .ed-cta { padding-block: 48px; }
+  .ed-cta__inner { grid-template-columns: 1fr; gap: 28px; }
+  .ed-cta__actions { align-items: flex-start; }
+  .ed-section { padding-block: 48px; }
+  .ed-section-head { margin-bottom: 32px; padding-bottom: 22px; }
+}

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Button, Descriptions, Space, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import {
@@ -13,16 +13,25 @@ import {
   StatCard,
   dealerApi,
   formatDuration,
-  formatMoney,
+  formatMoneyAuto,
   formatNumber,
   formatQuotaAsMoney,
   formatTime,
-  quotaToCny,
   notifyApiError,
+  quotaToCny,
 } from '@lynx/shared';
 import type { Customer, UsageLog } from '@lynx/shared';
 
 const { Text } = Typography;
+
+/** type → 展示文案，与用量页保持一致 */
+const TYPE_META: Record<number, { label: string; color: string }> = {
+  2: { label: '消费', color: 'success' },
+  5: { label: '错误', color: 'error' },
+  6: { label: '退款', color: 'purple' },
+  7: { label: '预扣', color: 'blue' },
+  8: { label: '补扣', color: 'orange' },
+};
 
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>();
@@ -32,23 +41,44 @@ export default function CustomerDetail() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       if (!id) return;
       setLoading(true);
+      setNotFound(false);
       try {
-        // 用列表接口的 keyword 兜底取客户（真实接口应换成 customerDetail）
-        const res = await dealerApi.fetchCustomers({ page: 1, page_size: 200 });
+        /*
+         * 后端没有 GET /users/:id，只能从列表里找。
+         *
+         * 关键：page_size 上限是 100（见 partner_users.go：
+         * `if pageSize < 1 || pageSize > 100 { pageSize = 20 }`）。
+         * 上一版传 200，后端判定非法直接回退成 20 —— 客户只要不在前 20 个，
+         * 详情页就一律显示「没有找到该客户」。
+         *
+         * 现在用 keyword 按 ID 精确搜（后端支持 `id = ?`），拿到的就是这一条。
+         */
+        const res = await dealerApi.fetchCustomers({
+          page: 1,
+          page_size: 20,
+          keyword: id,
+          withUsage: true,
+        });
+        // keyword 是模糊匹配，可能带出别的行，这里再按 id 精确筛一次
         const found = res.items.find((c) => String(c.id) === id) || null;
         setCustomer(found);
-        const usage = await dealerApi.fetchUsageLogs({
-          page,
-          page_size: 10,
-          customer_id: Number(id),
-        });
-        setLogs(usage.items);
-        setTotal(usage.total);
+        setNotFound(!found);
+
+        if (found) {
+          const usage = await dealerApi.fetchUsageLogs({
+            page,
+            page_size: 10,
+            customer_id: Number(id),
+          });
+          setLogs(usage.items);
+          setTotal(usage.total);
+        }
       } catch (err) {
         notifyApiError(err, '加载失败');
       } finally {
@@ -58,11 +88,23 @@ export default function CustomerDetail() {
     void load();
   }, [id, page]);
 
+  // 翻页只重拉日志，不必再查一次客户
+  useEffect(() => {
+    if (!id || page === 1) return;
+    dealerApi
+      .fetchUsageLogs({ page, page_size: 10, customer_id: Number(id) })
+      .then((usage) => {
+        setLogs(usage.items);
+        setTotal(usage.total);
+      })
+      .catch(() => undefined);
+  }, [id, page]);
+
   const columns: TableColumnsType<UsageLog> = [
     {
       title: '时间',
       dataIndex: 'created_at',
-      width: 165,
+      width: 158,
       render: (ts: number) => (
         <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{formatTime(ts)}</span>
       ),
@@ -86,10 +128,20 @@ export default function CustomerDetail() {
     {
       title: '消耗',
       dataIndex: 'quota',
-      width: 100,
+      width: 104,
       align: 'right',
-      render: (q: number) => (
-        <span style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>{formatQuotaAsMoney(q)}</span>
+      render: (q: number, row) => (
+        <span
+          style={{
+            fontSize: 13,
+            fontVariantNumeric: 'tabular-nums',
+            // 退款：库里 quota 是正数，靠 type 判断并显示负号，见 Usage.tsx 的说明
+            color: row.type === 6 ? '#f87171' : undefined,
+          }}
+        >
+          {row.type === 6 ? '−' : ''}
+          {formatMoneyAuto(Math.abs(row.amount_cny ?? quotaToCny(q)))}
+        </span>
       ),
     },
     {
@@ -111,11 +163,14 @@ export default function CustomerDetail() {
       ),
     },
     {
-      title: '状态',
-      dataIndex: 'status',
+      title: '类型',
+      dataIndex: 'type',
       width: 80,
       align: 'center',
-      render: (s: string) => <Tag color={s === 'success' ? 'success' : 'error'}>{s === 'success' ? '成功' : '失败'}</Tag>,
+      render: (t: number) => {
+        const meta = TYPE_META[t] ?? { label: `未知(${t})`, color: 'default' };
+        return <Tag color={meta.color}>{meta.label}</Tag>;
+      },
     },
   ];
 
@@ -123,7 +178,11 @@ export default function CustomerDetail() {
     <PageStack gap={20}>
       <AppPageHeader
         title={customer?.display_name || '客户详情'}
-        subtitle={customer ? `@${customer.username} · 开户于 ${formatTime(customer.created_at, 'YYYY-MM-DD')}` : '加载中…'}
+        subtitle={
+          customer
+            ? `@${customer.username}${customer.created_at ? ` · 开户于 ${formatTime(customer.created_at, 'YYYY-MM-DD')}` : ''}`
+            : '加载中…'
+        }
         actions={
           <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/customers')}>
             返回列表
@@ -133,26 +192,39 @@ export default function CustomerDetail() {
 
       {customer ? (
         <>
+          {/*
+           * 三个统计卡改为「本月」口径，全部来自 billing/summary。
+           * 上一版这里显示「剩余额度」，而后端压根没有余额字段，
+           * 值永远是 0 —— 等于告诉伙伴「这个客户余额 0 元」。
+           */}
           <div className="lynx-stat-grid">
-            <StatCard label="剩余额度" value={formatQuotaAsMoney(customer.quota)} small hint={`${formatNumber(customer.quota)} 额度`} />
-            {/* 提示别再重复上面那个金额（formatQuotaAsMoney 与 formatMoney(quotaToCny()) 同源，必然一模一样）。
-                这里改成有信息量的「平均每次调用花费」。 */}
             <StatCard
-              label="累计消耗"
-              value={formatQuotaAsMoney(customer.used_quota)}
+              label="本月消耗"
+              value={formatQuotaAsMoney(customer.used_quota ?? 0)}
+              small
+              hint={`${formatNumber(customer.used_quota ?? 0)} 额度`}
+            />
+            <StatCard
+              label="本月消费金额"
+              value={formatMoneyAuto(customer.used_amount_cny ?? 0)}
               small
               hint={
-                customer.request_count > 0
-                  ? `平均每次 ${formatMoney(quotaToCny(customer.used_quota) / customer.request_count, 3)}`
+                customer.request_count
+                  ? `平均每次 ${formatMoneyAuto((customer.used_amount_cny ?? 0) / customer.request_count)}`
                   : '尚无调用'
               }
             />
-            <StatCard label="请求总数" value={formatNumber(customer.request_count)} small hint="历史累计" />
             <StatCard
-              label="专属折扣"
-              value={`${(customer.discount_rate * 10).toFixed(1)} 折`}
+              label="本月请求数"
+              value={formatNumber(customer.request_count ?? 0)}
               small
-              hint={customer.discount_rate < 1 ? '低于标价' : '按标价计费'}
+              hint="账单口径：消费 + 预扣"
+            />
+            <StatCard
+              label="账号状态"
+              value={customer.status === 1 ? '正常' : '已禁用'}
+              small
+              hint={customer.status === 1 ? '可正常调用' : '已停止访问'}
             />
           </div>
 
@@ -167,12 +239,27 @@ export default function CustomerDetail() {
                 { label: '手机号', value: customer.phone || '未绑定' },
                 {
                   label: '账号状态',
-                  value: <Tag color={customer.status === 1 ? 'success' : 'error'}>{customer.status === 1 ? '正常' : '已禁用'}</Tag>,
+                  value: (
+                    <Tag color={customer.status === 1 ? 'success' : 'error'}>
+                      {customer.status === 1 ? '正常' : '已禁用'}
+                    </Tag>
+                  ),
                 },
-                { label: '最近调用', value: customer.last_active_at ? formatTime(customer.last_active_at) : '从未调用' },
-                { label: '备注', value: customer.remark || '-' },
+                {
+                  label: '开户时间',
+                  value: customer.created_at ? formatTime(customer.created_at) : '-',
+                },
               ]}
             />
+            <div style={{ marginTop: 16 }}>
+              <Alert
+                type="info"
+                showIcon
+                style={{ fontSize: 12 }}
+                message="备注与最近调用时间暂未开放"
+                description="后端 users 表未返回 remark / last_active_at，需要先新增字段或接口。"
+              />
+            </div>
           </PagePanel>
 
           <AsyncTableCard<UsageLog>
@@ -189,7 +276,7 @@ export default function CustomerDetail() {
               dataSource: logs,
               loading,
               size: 'middle',
-              scroll: { x: 860 },
+              scroll: { x: 850 },
               locale: { emptyText: <AppEmpty icon="📊" message="该客户还没有调用记录" /> },
               pagination: {
                 current: page,
@@ -207,7 +294,10 @@ export default function CustomerDetail() {
         </PagePanel>
       ) : (
         <PagePanel padded>
-          <AppEmpty icon="🔍" message="没有找到该客户" />
+          <AppEmpty
+            icon="🔍"
+            message={notFound ? '没有找到该客户，可能不属于你名下' : '加载失败'}
+          />
         </PagePanel>
       )}
     </PageStack>

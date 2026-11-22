@@ -1,22 +1,37 @@
 /**
- * 经销商后台 API。
+ * 伙伴后台 API。
  *
  * 每个方法都写成「mock 分支 + 真实请求分支」：
  *  - `USE_MOCK=true` 时返回本地假数据，页面可直接开发调试；
  *  - 联调阶段把 .env 的 VITE_USE_MOCK 改成 false，请求就会打到 EP.dealer.* 定义的真实路径。
  *
  * 页面只依赖本文件导出的方法签名，不关心底层是 mock 还是真实接口。
+ *
+ * ---------------------------------------------------------------------------
+ * 对齐原则（改这个文件前必读）
+ *
+ * 这个文件是「后端能力」与「页面需求」之间唯一的翻译层。凡后端没有的能力，
+ * 必须在这里显式表现为「没有」，而不是用默认值糊过去：
+ *
+ *   · 端点为 null → request() 抛 ApiNotReadyError，用户看到「接口尚未实现」
+ *   · 字段缺失 → 类型上就是可选（undefined），页面渲染成「—」
+ *
+ * 反面教材（本文件已修掉的几处）：
+ *   · discount_rate 填 1、level 填 'diamond' → 页面显示「钻石代理」「无折扣」，
+ *     看着像真实配置，实际是编的
+ *   · fetchUsageSummary 走一个不存在的端点 → 用量页整页加载失败
+ *   · 状态筛选传 status:'error' → 后端只认 type，参数被丢弃，筛选器形同虚设
  */
 
 import { EP } from './endpoints';
 import { fillPath, request, USE_MOCK, type ListResult } from './http';
-import { QUOTA_PER_UNIT } from '../utils/format';
 import type { TenantBrand, TenantBrandUpdatePayload, TenantDomain } from '../types/tenant';
 import type {
   Customer,
   CustomerCreatePayload,
   DealerProfile,
   OverviewStats,
+  TrendPoint,
   UsageLog,
   UsageSummary,
 } from '../types/dealer';
@@ -25,10 +40,10 @@ import {
   mockCustomers,
   mockDealerProfile,
   mockOverview,
+  mockTrend,
   mockUsageLogs,
   mockUsageSummary,
 } from './mock/seed';
-import { mockTenants, persistMockTenant, updateMockTenant } from './mock/tenant';
 
 /** mock 延迟，模拟真实网络，便于验证 loading 态 */
 function delay<T>(data: T, ms = 260): Promise<T> {
@@ -37,20 +52,16 @@ function delay<T>(data: T, ms = 260): Promise<T> {
 
 /** 内存态：mock 模式下允许增删改，页面操作立刻生效 */
 const memCustomers: Customer[] = [...mockCustomers];
-/** 品牌配置的内存态：mock 下保存后立刻生效，刷新页面仍是新值（同一会话内） */
-let memBrand: TenantBrand = { ...mockTenants[0] };
 
 // ── 认证 ─────────────────────────────────────────────────────
 /**
  * 登录入参。
  *
- * 注意字段名和原来不一样：partner/backend 要的是 `merchant_code`（商户编码），
- * 不是 `username`。这不是随便改名——伙伴后台登录的是一张「商户」记录
- * （lc_distribution_merchants），不是 users 表里的某个账号。
+ * 伙伴后台登录的是一张「商户」记录（lc_distribution_merchants），
+ * 不是 users 表里的某个账号，所以后端要的是 `merchant_code`。
  *
- * 为了不让页面代码跟着改，这里同时接受两个名字：页面照旧传 username，
- * 由 login() 统一映射成 merchant_code。等页面迁到自己传 merchant_code 后
- * 可以把这个兼容去掉。
+ * 这里同时接受 `username` 是为了让页面代码不必跟着改；
+ * 新代码请直接用 merchant_code。
  */
 export interface LoginPayload {
   merchant_code?: string;
@@ -63,8 +74,9 @@ export interface LoginResult {
 }
 
 /**
- * 伙伴后端 GET /api/partner/me 的原始返回。
- * 字段比 DealerProfile 少得多——只有身份，没有佣金/折扣这些业务数据。
+ * 伙伴后端 partnerInfo() 的原始返回 —— 与 DealerProfile 字段一一对应，
+ * 所以不需要再做转换。之前多出来的那层 toDealerProfile() 就是为了把
+ * 4 个真实字段「补」成 15 个假字段，现在补丁和它修补的问题一起消失了。
  */
 interface PartnerMe {
   merchant_id: number;
@@ -73,62 +85,43 @@ interface PartnerMe {
   password_change_required: boolean;
 }
 
-/**
- * 把伙伴身份转成页面期望的 DealerProfile。
- *
- * 为什么必须转换而不是直接返回：页面里到处在用 profile.display_name、
- * profile.level、profile.discount_rate 这些字段，而伙伴后端一个都不返回。
- * 直接返回会让页面显示空白，甚至因为 undefined 参与计算出现 NaN。
- *
- * 缺失字段的处理原则：能给出「安全的默认值」就给，给不出就明确置 0，
- * 不要在类型上假装有数据。特别是佣金类字段全填 0 —— 这些数字后端确实没有，
- * 显示 0 比编一个数出来诚实。
- */
 function toDealerProfile(me: PartnerMe): DealerProfile {
   return {
     id: me.merchant_id,
-    user_id: me.merchant_id,
-    username: me.merchant_code,
+    merchant_code: me.merchant_code,
     display_name: me.merchant_name || me.merchant_code,
-    // 伙伴体系没有等级概念，按最高档展示避免界面出现「银牌」这种误导性标签
-    level: 'diamond',
-    // 1.0 = 无折扣。真实折扣在 lc_distribution_merchants 没有对应列，
-    // 不能凭空编一个比例出来，否则经销商看到的折扣价和实际计费不一致。
-    discount_rate: 1,
-    commission_rate: 0,
-    status: 1,
-    total_commission: 0,
-    pending_payout: 0,
-    settled_payout: 0,
-    balance: 0,
-    sub_user_count: 0,
-    created_at: 0,
+    /*
+     * 这个字段必须透传：为 true 时后端对 users/logs/daily-trend/billing
+     * 全部返回 403「请先修改初始密码」。前端要靠它把人拦到改密页，
+     * 否则商户首次登录后每个页面都是空的，还看不出原因。
+     */
+    password_change_required: Boolean(me.password_change_required),
   };
 }
 
 export async function login(payload: LoginPayload): Promise<LoginResult> {
   if (USE_MOCK) {
     await delay(null, 500);
-    if (!payload.username || !payload.password) {
-      throw new Error('请输入账号和密码');
+    if (!payload.username && !payload.merchant_code) {
+      throw new Error('请输入商户编码和密码');
     }
+    if (!payload.password) throw new Error('请输入商户编码和密码');
     return { token: 'mock-dealer-token', profile: mockDealerProfile };
   }
   const merchantCode = (payload.merchant_code ?? payload.username ?? '').trim();
   if (!merchantCode || !payload.password) {
     throw new Error('请输入商户编码和密码');
   }
-  const me = await request<PartnerMe>({
+  const res = await request<PartnerMe>({
     url: EP.dealer.login,
     method: 'POST',
     data: { merchant_code: merchantCode, password: payload.password },
   });
   /*
    * 登录接口本身就是「凭证已生效」的证据：后端在响应里种了 session cookie。
-   * 这里不需要再像以前那样存 Bearer token，只要留一个标记，
-   * 让 createAuthContext 知道「该去拉 profile 了」。
+   * 不需要再存 Bearer token，只留一个标记让 createAuthContext 知道要去拉 profile。
    */
-  return { token: 'cookie-session', profile: toDealerProfile(me) };
+  return { token: 'cookie-session', profile: toDealerProfile(res) };
 }
 
 export async function logout(): Promise<void> {
@@ -148,7 +141,7 @@ export async function changePassword(payload: {
 }): Promise<void> {
   if (USE_MOCK) return delay(undefined, 420);
   /*
-   * 字段名也要转：后端要 current_password，页面传的是 old_password。
+   * 字段名要转：后端要 current_password，页面传的是 old_password。
    * 方法也变了（PUT → POST）—— partner/backend 注册的是 POST /password。
    */
   return request<void>({
@@ -161,83 +154,173 @@ export async function changePassword(payload: {
   });
 }
 
+// ── 账单（后端唯一提供聚合数据的接口）──────────────────────────
+/** GET /api/partner/billing/summary 的原始返回 */
+interface PartnerBillingUser {
+  user_id: number;
+  username: string;
+  deleted: boolean;
+  request_count: number;
+  quota: number;
+  amount_usd: number;
+  amount_cny: number;
+}
+
+interface PartnerBillingSummary {
+  start_date: string;
+  end_date: string;
+  total_users: number;
+  total_requests: number;
+  total_quota: number;
+  total_amount_usd: number;
+  total_amount_cny: number;
+  quota_per_unit: number;
+  items: PartnerBillingUser[];
+  page: number;
+  page_size: number;
+}
+
+export interface BillingQuery {
+  /** YYYY-MM-DD。不传则后端默认「本月 1 号 ~ 今天」 */
+  start_date?: string;
+  end_date?: string;
+  page?: number;
+  page_size?: number;
+}
+
+/**
+ * 账单汇总。这是后端唯一能给出「汇总数字」的接口，三个页面都靠它。
+ *
+ * 计费口径与 logs 的裸 quota 求和不同：
+ *   消费(2) + 预扣(7) + 补扣(8) − 退款(6)
+ * 所以「本月消耗」必须用这个接口，不能拿日志页的 quota 相加。
+ */
+export async function fetchBilling(query: BillingQuery = {}): Promise<PartnerBillingSummary> {
+  if (USE_MOCK) {
+    const page = query.page ?? 1;
+    const pageSize = query.page_size ?? 20;
+    const start = (page - 1) * pageSize;
+    return delay({
+      start_date: query.start_date ?? mockUsageSummary.start_date,
+      end_date: query.end_date ?? mockUsageSummary.end_date,
+      total_users: mockUsageSummary.total_users,
+      total_requests: mockUsageSummary.total_requests,
+      total_quota: mockUsageSummary.total_quota,
+      total_amount_usd: Math.round((mockUsageSummary.total_amount_cny / 7.2) * 100) / 100,
+      total_amount_cny: mockUsageSummary.total_amount_cny,
+      quota_per_unit: mockUsageSummary.quota_per_unit,
+      items: mockCustomers
+        .slice()
+        .sort((a, b) => (b.used_quota ?? 0) - (a.used_quota ?? 0))
+        .slice(start, start + pageSize)
+        .map((c) => ({
+          user_id: c.id,
+          username: c.username,
+          deleted: c.status === 2,
+          request_count: c.request_count ?? 0,
+          quota: c.used_quota ?? 0,
+          amount_usd: Math.round(((c.used_amount_cny ?? 0) / 7.2) * 100) / 100,
+          amount_cny: c.used_amount_cny ?? 0,
+        })),
+      page,
+      page_size: pageSize,
+    });
+  }
+  return request<PartnerBillingSummary>({
+    url: EP.dealer.billingSummary,
+    params: {
+      ...(query.page ? { page: query.page } : {}),
+      ...(query.page_size ? { page_size: query.page_size } : {}),
+      ...(query.start_date ? { start_date: query.start_date } : {}),
+      ...(query.end_date ? { end_date: query.end_date } : {}),
+    },
+  });
+}
+
+/**
+ * 本月区间（YYYY-MM-DD）。
+ *
+ * 自己算而不是依赖后端默认值：后端默认区间是「本月 1 号 ~ 今天」，
+ * 让它自己算当然更省事，但页面要拿 start_date/end_date 在界面上标注
+ * 「这个数字是哪段日期的」，得知道区间才能说清楚。
+ */
+export function currentMonthRange(): { start_date: string; end_date: string } {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return { start_date: `${y}-${m}-01`, end_date: `${y}-${m}-${d}` };
+}
+
 // ── 概览 ─────────────────────────────────────────────────────
 /**
- * 概览汇总。
+ * 概览指标。
  *
- * 后端没有 /overview 这个接口，所以这里用三个真实接口自己拼：
- *   users        → 客户数
- *   daily-trend  → 今日/本月消耗与请求数
- *   billing      → 账单口径的消耗（备用）
+ * 后端没有 /overview 接口，这里用两个真接口拼：
+ *   GET /users            → 客户总数（取 total，page_size=1 最省）
+ *   GET /billing/summary  → 本月消耗、本月请求数、本月活跃客户数
  *
- * 佣金相关的两个字段后端没有来源，填 0。这不是偷懒：
- * lc_distribution_merchants 里没有佣金率字段，凭空算一个数字出来，
- * 经销商拿着它去对账只会更困惑。
+ * 为什么不再用 daily-trend 拼「本月消耗」：
+ *   趋势只给 14 个已完成日，跨月时会把上个月的尾巴算进「本月」，
+ *   而且不含今天。billing/summary 是账期口径，才和「本月」语义一致。
  */
 export async function fetchOverview(): Promise<OverviewStats> {
   if (USE_MOCK) return delay(mockOverview);
 
-  const [users, trend] = await Promise.all([
+  const range = currentMonthRange();
+  const [users, billing] = await Promise.all([
     request<{ items: unknown[]; total: number }>({
       url: EP.dealer.customers,
       params: { page: 1, page_size: 1 },
     }),
-    request<{ items: Array<{ summary_date: string; quota: number; request_count: number }> }>({
-      url: EP.dealer.overviewTrend,
-    }),
+    fetchBilling({ ...range, page: 1, page_size: 1 }),
   ]);
-
-  const days = trend?.items ?? [];
-  // 趋势是「14 个已完成日」，最后一个就是昨天；今日数字要从日汇总里没有，
-  // 所以今日口径留 0 并让页面显示为「—」，比显示一个假数字好。
-  const monthPrefix = new Date().toISOString().slice(0, 7);
-  const monthDays = days.filter((d) => d.summary_date?.startsWith(monthPrefix));
-  const monthQuota = monthDays.reduce((sum, d) => sum + (d.quota || 0), 0);
-  const monthRequests = monthDays.reduce((sum, d) => sum + (d.request_count || 0), 0);
 
   return {
     customer_count: users?.total ?? 0,
-    new_customer_count: 0,
-    today_quota: 0,
-    month_quota: monthQuota,
-    month_commission: 0,
-    pending_commission: 0,
-    today_requests: 0,
+    month_quota: billing?.total_quota ?? 0,
+    month_amount_cny: billing?.total_amount_cny ?? 0,
+    month_requests: billing?.total_requests ?? 0,
+    month_active_users: billing?.total_users ?? 0,
+    start_date: billing?.start_date ?? range.start_date,
+    end_date: billing?.end_date ?? range.end_date,
   };
 }
 
-export async function fetchOverviewTrend(): Promise<UsageSummary['daily']> {
-  if (USE_MOCK) return delay(mockUsageSummary.daily);
-  /*
-   * 后端返回 { items: [{ summary_date, quota, request_count, ... }] }，
-   * 页面要的是 [{ date, quota, requests }]。字段名必须转，否则图表全是 undefined。
-   */
-  const res = await request<{
-    items: Array<{ summary_date: string; quota: number; request_count: number }>;
-  }>({ url: EP.dealer.overviewTrend });
-  return (res?.items ?? []).map((d) => ({
-    date: d.summary_date,
-    quota: d.quota || 0,
-    requests: d.request_count || 0,
-  }));
+/**
+ * 14 天消耗趋势。后端固定返回 14 个「已完成日」（不含今天），缺数据补 0。
+ * 字段名要转：后端叫 request_count，图表要 requests。
+ */
+export async function fetchOverviewTrend(): Promise<TrendPoint[]> {
+  if (USE_MOCK) return delay(mockTrend);
+  const res = await request<{ items: TrendPoint[] }>({ url: EP.dealer.overviewTrend });
+  return res?.items ?? [];
 }
 
 // ── 客户管理 ─────────────────────────────────────────────────
 export interface CustomerQuery {
   page?: number;
   page_size?: number;
-  /** 搜索：用户名 / 显示名 / 邮箱 */
+  /** 搜索：用户名 / 显示名 / 邮箱 / 手机 / ID */
   keyword?: string;
+  /**
+   * 状态筛选。
+   *
+   * 后端 PartnerUserFilter 没有 status 参数 —— 传了会被忽略。
+   * 所以这个筛选在客户端做（见 fetchCustomers），不要发给后端假装它生效了。
+   */
   status?: 0 | 1 | 2;
+  /**
+   * 是否顺带合并用量数据。
+   *
+   * 后端 /users 不带额度，「剩余额度 / 累计消耗 / 请求数」三列只能从
+   * billing/summary 拿。合并要多发一个请求，列表页需要、详情页不需要，
+   * 所以做成开关而不是无条件执行。
+   */
+  withUsage?: boolean;
 }
 
-/**
- * 伙伴后端 GET /api/partner/users 的原始返回行。
- *
- * 与页面的 Customer 差异很大：没有 quota / used_quota / request_count /
- * discount_rate 这些业务字段——后端这个接口只做「商户名下的用户清单」，
- * 不带用量。所以下面的映射只填真有的，其余置 0。
- */
+/** GET /api/partner/users 的原始返回行 —— 只有这 7 个字段 */
 interface PartnerUserRow {
   id: number;
   username: string;
@@ -248,6 +331,12 @@ interface PartnerUserRow {
   created_time?: string;
 }
 
+/**
+ * 把后端用户行转成页面模型。
+ *
+ * 后端给的 created_time 是 RFC3339 字符串（time.Time 序列化结果），
+ * 页面要秒级时间戳；解析失败一律置 0，让界面显示「—」而不是 Invalid Date。
+ */
 function toCustomer(u: PartnerUserRow): Customer {
   return {
     id: u.id,
@@ -256,22 +345,24 @@ function toCustomer(u: PartnerUserRow): Customer {
     email: u.email || '',
     phone: u.phone,
     /*
-     * 状态语义不同：伙伴后端是 1 启用 / 2 禁用，页面 Customer 也是 1/2，
-     * 这一项刚好一致，但仍要兜底非法值——直接透传会让页面按「未知状态」渲染。
+     * 状态语义刚好一致（后端 1 启用 / 2 禁用，页面也是 1/2），
+     * 但仍要兜底非法值——直接透传会让页面按「未知状态」渲染。
      */
     status: u.status === 2 ? 2 : 1,
-    // 下面四项后端 users 接口不返回，置 0 而不是编造。
-    // 页面会显示「—」或 0，配合 UseMockNotice 外的空态提示可以解释清楚。
-    quota: 0,
-    used_quota: 0,
-    request_count: 0,
-    discount_rate: 1,
-    last_active_at: 0,
-    created_at: u.created_time ? Math.floor(new Date(u.created_time).getTime() / 1000) : 0,
+    created_at: u.created_time ? Math.floor(new Date(u.created_time).getTime() / 1000) || 0 : 0,
   };
 }
 
-export async function fetchCustomers(query: CustomerQuery = {}): Promise<ListResult<Customer>> {
+export async function fetchCustomers(
+  query: CustomerQuery = {},
+): Promise<
+  ListResult<Customer> & {
+    start_date?: string;
+    end_date?: string;
+    /** 账单只返回了前 100 名活跃客户，超出的部分无法匹配 */
+    usage_truncated?: boolean;
+  }
+> {
   if (USE_MOCK) {
     const { page = 1, page_size = 10, keyword = '', status = 0 } = query;
     const kw = keyword.trim().toLowerCase();
@@ -284,20 +375,13 @@ export async function fetchCustomers(query: CustomerQuery = {}): Promise<ListRes
           c.email.toLowerCase().includes(kw),
       );
     }
+    // 与真实分支保持同一套语义：状态筛选在本地做
     if (status) filtered = filtered.filter((c) => c.status === status);
     const start = (page - 1) * page_size;
     return delay({ items: filtered.slice(start, start + page_size), total: filtered.length });
   }
 
-  /*
-   * 参数名要对上后端：它认 page / page_size / keyword。
-   * 状态筛选后端不支持（PartnerUserFilter 没有 status 参数），
-   * 所以这里不发 status，避免发过去被忽略却让人以为生效了。
-   */
-  const res = await request<{
-    items: PartnerUserRow[];
-    total: number;
-  }>({
+  const res = await request<{ items: PartnerUserRow[]; total: number }>({
     url: EP.dealer.customers,
     params: {
       page: query.page ?? 1,
@@ -305,10 +389,67 @@ export async function fetchCustomers(query: CustomerQuery = {}): Promise<ListRes
       ...(query.keyword?.trim() ? { keyword: query.keyword.trim() } : {}),
     },
   });
-  return {
-    items: (res?.items ?? []).map(toCustomer),
-    total: res?.total ?? 0,
-  };
+
+  let items = (res?.items ?? []).map(toCustomer);
+  const total = res?.total ?? 0;
+
+  /*
+   * 状态筛选在客户端做：后端不支持，只能在当前页内过滤。
+   *
+   * 这会导致「已禁用」分页上的数字不对 —— 后端返回的 total 是未过滤的总数。
+   * 与其发一个后端会忽略的参数、让人以为服务端筛过了，不如诚实一点：
+   * 页面会说明这个筛选是「当前页内筛选」。等后端加了 status 参数再改回服务端。
+   */
+  if (query.status) {
+    items = items.filter((c) => c.status === query.status);
+  }
+
+  let startDate: string | undefined;
+  let endDate: string | undefined;
+  let usageTruncated = false;
+
+  if (query.withUsage && items.length > 0) {
+    /*
+     * 用量合并。拉一页尽可能大的账单行（后端 page_size 上限 100），按 user_id 建索引。
+     *
+     * 为什么用 billing 而不是 logs 逐人查：
+     *   logs 是明细，要给每人求和得翻完所有页；billing 本身就是按人聚合的。
+     *
+     * 注意两个真实约束（实测确认）：
+     * 1. billing 只返回**区间内有消耗**的客户。实测某商户 107 个客户里只有 5 个
+     *    本月有消耗，其余 102 人压根不在 items 里 —— 它们必须显示「—」，
+     *    而不是 0（0 会被读成"这个月没花钱"，而真相是"这个月没有数据"）。
+     * 2. 后端按 quota DESC 排序且只给前 100 条。活跃客户超过 100 个时，
+     *    靠后的客户无法匹配，此时 usageTruncated 置 true，页面要说明这一点，
+     *    否则用户会以为那些客户的消耗真的查不到。
+     */
+    const range = currentMonthRange();
+    try {
+      const billing = await fetchBilling({ ...range, page: 1, page_size: 100 });
+      startDate = billing.start_date;
+      endDate = billing.end_date;
+      usageTruncated = billing.total_users > billing.items.length;
+      const byUser = new Map(billing.items.map((b) => [b.user_id, b]));
+      items = items.map((c) => {
+        const b = byUser.get(c.id);
+        return b
+          ? {
+              ...c,
+              used_quota: b.quota,
+              used_amount_cny: b.amount_cny,
+              request_count: b.request_count,
+            }
+          : c;
+      });
+    } catch {
+      /*
+       * 账单拉不到不影响主列表：消耗列显示「—」即可。
+       * 这里吞掉错误是刻意的 —— 不能因为一个附加数据源挂了就让「我的客户」整页空白。
+       */
+    }
+  }
+
+  return { items, total, start_date: startDate, end_date: endDate, usage_truncated: usageTruncated };
 }
 
 export async function createCustomer(payload: CustomerCreatePayload): Promise<Customer> {
@@ -317,12 +458,17 @@ export async function createCustomer(payload: CustomerCreatePayload): Promise<Cu
     memCustomers.unshift(created);
     return delay(created, 480);
   }
-  return request<Customer>({ url: EP.dealer.customers, method: 'POST', data: payload });
+  /*
+   * 后端只有 GET /users，没有 POST。customerCreate 在 endpoints 里是 null，
+   * request() 会抛 ApiNotReadyError（提示「接口尚未实现」），
+   * 而不是打到一个不存在的 URL 上拿 404。
+   */
+  return request<Customer>({ url: EP.dealer.customerCreate, method: 'POST', data: payload });
 }
 
 export async function updateCustomer(
   id: number,
-  payload: Partial<Pick<Customer, 'display_name' | 'email' | 'phone' | 'remark' | 'discount_rate'>>,
+  payload: Partial<Pick<Customer, 'display_name' | 'email' | 'phone'>>,
 ): Promise<void> {
   if (USE_MOCK) {
     const idx = memCustomers.findIndex((c) => c.id === id);
@@ -345,9 +491,9 @@ export async function adjustCustomerQuota(
     const idx = memCustomers.findIndex((c) => c.id === id);
     if (idx < 0) throw new Error('客户不存在');
     const cur = memCustomers[idx];
-    const next = payload.set ?? cur.quota + (payload.delta || 0);
-    memCustomers[idx] = { ...cur, quota: Math.max(0, next) };
-    return delay({ quota: memCustomers[idx].quota }, 420);
+    const next = payload.set ?? (cur.used_quota ?? 0) + (payload.delta || 0);
+    memCustomers[idx] = { ...cur, used_quota: Math.max(0, next) };
+    return delay({ quota: memCustomers[idx].used_quota ?? 0 }, 420);
   }
   return request<{ quota: number }>({
     url: fillPath(EP.dealer.customerQuota, { id }),
@@ -390,13 +536,48 @@ export interface UsageQuery {
   /** 起止时间（秒级时间戳） */
   start_time?: number;
   end_time?: number;
-  status?: '' | 'success' | 'error';
+  /**
+   * 类型筛选。
+   *
+   * 后端没有 status，只有 type（2消费 5错误 6退款 7预扣 8补扣）。
+   * 上一版把 'success'/'error' 当 status 传给后端，后端不认识直接丢掉，
+   * 筛选器点了没反应。现在直接按后端的 5 种 type 筛，不做有损映射 ——
+   * 「成功」并不等于「type=2」，预扣(7)也是成功调用，映射过去反而漏数据。
+   */
+  type?: number;
 }
 
+/** 后端 type 常量，与 internal/model/model.go 一致 */
+const LOG_TYPE = {
+  consume: 2,
+  error: 5,
+  refund: 6,
+  pre: 7,
+  adjust: 8,
+} as const;
+
 /**
- * 伙伴后端 GET /api/partner/logs 的原始返回行。
- * 注意它给的客户字段叫 user_id / username，页面 UsageLog 叫 customer_id / customer_name。
+ * type → 语义化状态。
+ *
+ * 上一版把「非 5」全当成功，于是退款(6)/预扣(7)/补扣(8) 也被算成成功调用，
+ * 成功次数虚高。现在逐项映射，页面按 status 上色。
  */
+function typeToStatus(t: number): UsageLog['status'] {
+  switch (t) {
+    case LOG_TYPE.error:
+      return 'error';
+    case LOG_TYPE.refund:
+      return 'refund';
+    case LOG_TYPE.pre:
+      return 'pre';
+    case LOG_TYPE.adjust:
+      return 'adjust';
+    default:
+      return 'success';
+  }
+}
+
+/** GET /api/partner/logs 的原始返回行 */
 interface PartnerLogRow {
   id: number;
   created_at: number;
@@ -411,6 +592,7 @@ interface PartnerLogRow {
   is_stream: boolean;
   quota: number;
   amount_cny: number;
+  request_id: string;
 }
 
 function toUsageLog(r: PartnerLogRow): UsageLog {
@@ -421,16 +603,14 @@ function toUsageLog(r: PartnerLogRow): UsageLog {
     model_name: r.model_name,
     prompt_tokens: r.prompt_tokens || 0,
     completion_tokens: r.completion_tokens || 0,
+    cache_read: r.cache_read || 0,
     quota: r.quota || 0,
+    // 后端已经按 quota/500000 算好，直接用，避免两处各算一遍出现尾差
+    amount_cny: r.amount_cny ?? 0,
     use_time: r.use_time || 0,
     stream: Boolean(r.is_stream),
-    /*
-     * 后端没有独立的 status 字段，但 type 隐含成败：
-     * 在 one-api 系的数据模型里 type=2 表示消费成功，type=5 是错误。
-     * 这里只把 5 判成 error，其余都按 success —— 宁可把失败记成成功
-     * 也不要把成功记成失败，后者会让经销商以为自己客户全在用不起来。
-     */
-    status: r.type === 5 ? 'error' : 'success',
+    status: typeToStatus(r.type),
+    type: r.type,
     created_at: r.created_at,
   };
 }
@@ -444,12 +624,12 @@ export async function fetchUsageLogs(query: UsageQuery = {}): Promise<ListResult
       model_name,
       start_time,
       end_time,
-      status,
+      type,
     } = query;
     let filtered = mockUsageLogs;
     if (customer_id) filtered = filtered.filter((l) => l.customer_id === customer_id);
     if (model_name) filtered = filtered.filter((l) => l.model_name === model_name);
-    if (status) filtered = filtered.filter((l) => l.status === status);
+    if (type) filtered = filtered.filter((l) => l.type === type);
     if (start_time) filtered = filtered.filter((l) => l.created_at >= start_time);
     if (end_time) filtered = filtered.filter((l) => l.created_at <= end_time);
     const start = (page - 1) * page_size;
@@ -461,23 +641,22 @@ export async function fetchUsageLogs(query: UsageQuery = {}): Promise<ListResult
    *   customer_id → user_id
    *   start_time  → start_timestamp
    *   end_time    → end_timestamp
+   *   type        → type（后端原生就有，直接透传）
    *
    * 特别注意：后端在「既没给时间范围、也没给 all_history=1」时会**默认只看今天**。
-   * 而页面的 Usage 页原本的语义是「不带时间条件 = 看全部」。
-   * 不加 all_history=1 的话，用户清空时间筛选后会以为数据丢了。
-   * 所以这里在没传时间时显式带 all_history=1。
+   * 页面的语义是「不带时间条件 = 看全部」，所以不传时间时显式带 all_history=1。
+   * all_history 只接受空或 "1"，传 "0" 会 400（已实测确认）。
    */
   const hasTimeRange = Boolean(query.start_time || query.end_time);
-  const res = await request<{
-    items: PartnerLogRow[];
-    total: number;
-  }>({
+
+  const res = await request<{ items: PartnerLogRow[]; total: number }>({
     url: EP.dealer.usage,
     params: {
       page: query.page ?? 1,
       page_size: query.page_size ?? 10,
       ...(query.customer_id ? { user_id: query.customer_id } : {}),
       ...(query.model_name ? { model_name: query.model_name } : {}),
+      ...(query.type ? { type: query.type } : {}),
       ...(query.start_time ? { start_timestamp: query.start_time } : {}),
       ...(query.end_time ? { end_timestamp: query.end_time } : {}),
       ...(hasTimeRange ? {} : { all_history: 1 }),
@@ -490,92 +669,53 @@ export async function fetchUsageLogs(query: UsageQuery = {}): Promise<ListResult
 }
 
 /**
- * 汇总必须跟着筛选条件走。
- * 之前这里直接 `return delay(mockUsageSummary)`，无论怎么筛都返回全量汇总，
- * 于是页面上会出现「筛选范围总消耗 ¥29」，而表格里只有 180 条抽样、
- * 图表却是整月数据 —— 三个数字三套口径，用户无法核对。
+ * 筛选范围的汇总。
  *
- * 现在唯一数据源是 mockUsageLogs：明细先过滤，再据过滤后的明细聚合汇总。
+ * 数据源是 billing/summary（账期口径），不是把当前页日志加起来 ——
+ * 后者会得出「这一页花了多少钱」，而用户要的是「这个筛选范围总共花了多少」。
+ *
+ * 局限（必须让页面知道，别让它看起来像全量）：
+ *   billing 只按 user_id 聚合，不支持 model_name / 按天拆分，
+ *   所以「模型分布」和「每日趋势」这两块它给不出来。需要的话得后端加接口。
  */
 export async function fetchUsageSummary(query: UsageQuery = {}): Promise<UsageSummary> {
-  if (USE_MOCK) {
-    const { customer_id, model_name, start_time, end_time, status } = query;
-    let filtered = mockUsageLogs;
-    if (customer_id) filtered = filtered.filter((l) => l.customer_id === customer_id);
-    if (model_name) filtered = filtered.filter((l) => l.model_name === model_name);
-    if (status) filtered = filtered.filter((l) => l.status === status);
-    if (start_time) filtered = filtered.filter((l) => l.created_at >= start_time);
-    if (end_time) filtered = filtered.filter((l) => l.created_at <= end_time);
+  if (USE_MOCK) return delay(mockUsageSummary);
 
-    const sumQuota = filtered.reduce((s, l) => s + l.quota, 0);
+  /*
+   * billing 只认 start_date/end_date（YYYY-MM-DD），不认时间戳也不认分页外的筛选。
+   * 有模型筛选时账期汇总无法随之收窄 —— 这时仍然返回账期数字，
+   * 由页面标注「汇总为账期口径，不随模型筛选变化」，而不是悄悄返回一个错数。
+   */
+  const range = query.start_time && query.end_time
+    ? { start_date: toDateStr(query.start_time), end_date: toDateStr(query.end_time) }
+    : currentMonthRange();
 
-    // 按天聚合（图表）：从明细真实汇总，不另算魔数
-    const byDay = new Map<string, { quota: number; requests: number }>();
-    for (const l of filtered) {
-      const key = new Date(l.created_at * 1000).toISOString().slice(0, 10);
-      const cur = byDay.get(key) ?? { quota: 0, requests: 0 };
-      cur.quota += l.quota;
-      cur.requests += 1;
-      byDay.set(key, cur);
-    }
-    const daily = [...byDay.entries()]
-      .sort((a, b) => (a[0] < b[0] ? -1 : 1))
-      .map(([date, v]) => ({ date, quota: v.quota, requests: v.requests }));
+  const billing = await fetchBilling({ ...range, page: 1, page_size: 1 });
+  return {
+    start_date: billing.start_date,
+    end_date: billing.end_date,
+    total_users: billing.total_users,
+    total_requests: billing.total_requests,
+    total_quota: billing.total_quota,
+    total_amount_cny: billing.total_amount_cny,
+    quota_per_unit: billing.quota_per_unit,
+  };
+}
 
-    // 按模型聚合（占比图）
-    const byModel = new Map<string, { quota: number; requests: number }>();
-    for (const l of filtered) {
-      const cur = byModel.get(l.model_name) ?? { quota: 0, requests: 0 };
-      cur.quota += l.quota;
-      cur.requests += 1;
-      byModel.set(l.model_name, cur);
-    }
-    const by_model = [...byModel.entries()]
-      .map(([model_name, v]) => ({ model_name, quota: v.quota, requests: v.requests }))
-      .sort((a, b) => b.quota - a.quota);
-
-    // 按客户聚合（TOP8）
-    const byCust = new Map<number, { name: string; quota: number; requests: number }>();
-    for (const l of filtered) {
-      const cur = byCust.get(l.customer_id) ?? { name: l.customer_name, quota: 0, requests: 0 };
-      cur.quota += l.quota;
-      cur.requests += 1;
-      byCust.set(l.customer_id, cur);
-    }
-    const by_customer = [...byCust.entries()]
-      .map(([customer_id, v]) => ({
-        customer_id,
-        customer_name: v.name,
-        quota: v.quota,
-        requests: v.requests,
-      }))
-      .sort((a, b) => b.quota - a.quota)
-      .slice(0, 8);
-
-    return delay(
-      {
-        total_quota: sumQuota,
-        total_requests: filtered.length,
-        total_tokens: filtered.reduce((s, l) => s + l.prompt_tokens + l.completion_tokens, 0),
-        daily,
-        by_model,
-        by_customer,
-      },
-      220,
-    );
-  }
-  return request<UsageSummary>({ url: EP.dealer.usageSummary, params: query });
+/** 秒级时间戳 → YYYY-MM-DD（本地时区，与后端 Asia/Shanghai 一致） */
+function toDateStr(ts: number): string {
+  const d = new Date(ts * 1000);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 /**
  * 筛选器用的模型名列表（去重）。
  *
- * 原本取自定价接口，但定价页已下线、后端也没有独立的模型目录接口。
- * 现在改为从日志里取最近一批出现过的模型名——筛选器要的是
- * 「这个经销商实际用过哪些模型」，日志本来就是唯一权威来源。
- *
- * 只取一页（后端 page_size 上限 100）：足够覆盖常用模型，
- * 且不会为了填一个下拉框去翻几十页日志。
+ * 后端没有独立的模型目录接口，只能从日志里取。取一页（上限 100）足够覆盖
+ * 常用模型，且不必为了填一个下拉框去翻几十页。
  */
 export async function fetchModelNames(): Promise<string[]> {
   if (USE_MOCK) return delay([...new Set(mockUsageLogs.map((l) => l.model_name))].sort(), 180);
@@ -586,10 +726,16 @@ export async function fetchModelNames(): Promise<string[]> {
   return [...new Set((res?.items ?? []).map((r) => r.model_name).filter(Boolean))].sort();
 }
 
-/** 导出用量（返回 CSV 文本；真实接口改为拿文件流） */
+/**
+ * 导出用量。
+ *
+ * 后端没有导出接口。这里不再返回一个假 CSV —— 假导出比没有导出更糟：
+ * 用户会拿着这份「看起来对」的文件去对账。
+ * 抛 ApiNotReadyError 让界面明确说「尚未实现」。
+ */
 export async function exportUsage(query: UsageQuery = {}): Promise<Blob> {
   if (USE_MOCK) {
-    const header = '时间,客户,模型,输入tokens,输出tokens,消耗额度,耗时(ms),状态\n';
+    const header = '时间,客户,模型,输入tokens,输出tokens,消耗额度,耗时(ms),类型\n';
     const rows = mockUsageLogs
       .slice(0, 300)
       .map((l) =>
@@ -607,29 +753,25 @@ export async function exportUsage(query: UsageQuery = {}): Promise<Blob> {
       .join('\n');
     return delay(new Blob([`\uFEFF${header}${rows}`], { type: 'text/csv;charset=utf-8' }), 300);
   }
-  const res = await request<Blob>({
+  return request<Blob>({
     url: EP.dealer.usageExport,
     params: query,
     responseType: 'blob',
   });
-  return res;
 }
 
 // ── 品牌白标 ─────────────────────────────────────────────────
 /**
- * 经销商自己的品牌配置（logo / 品牌名 / 主色 / 页面标题 / favicon / 客服）。
+ * 伙伴后端 GET/PUT /api/partner/brand 的返回（见 backend/internal/partner/
+ * partner_brand.go 的 MerchantBrand）。
  *
- * 注意域名不在可写范围内：域名绑定在主平台配置，这里只读。
- * 这里改的是「他的客户看到什么样」，改不了「谁能看到谁的数据」。
- */
-/**
- * 伙伴后端 GET/PUT /api/partner/brand 的原始返回（见 internal-admin/
- * distributormerchant/partner_brand.go 的 PartnerBrand）。
+ * 数据落在 lc_distribution_merchants 的 10 个 brand_* 列上 —— 这张表同时被
+ * lynxtonapi 的站点身份体系（siteauth，按 X-Site-ID/Host/Credential 校验）使用，
+ * 所以这里写进去的值，就是客户站按站点身份读出来的那一份。两个平台共用一份
+ * 数据，不各存一套。
  *
- * 与前端 TenantBrand 的差异：
- *  - 它没有 dealer_id / slug / domains 数组，而是给 site_id + site_domain 两个标量
- *  - 客服配置在 support 里，landing 是原样透传的 map
- * 所以下面必须做一次转换，否则页面读 brand.domains.length 会直接报错。
+ * 空值兜底（品牌名回落商户名、首字标记取首字、主色给默认值）由后端统一做，
+ * 前端不再兜一遍 —— 否则两边规则一旦分叉，会出现「后台显示 A、客户站显示 B」。
  */
 interface PartnerBrandRes {
   name: string;
@@ -663,12 +805,12 @@ function toTenantBrand(b: PartnerBrandRes): TenantBrand {
     favicon_url: b.favicon_url || undefined,
     tagline: b.tagline || undefined,
     api_base_url: b.api_base_url || undefined,
-    support: (b.support as TenantBrand['support']) || undefined,
-    landing: (b.landing as TenantBrand['landing']) || undefined,
+    // 后端未配置时给的是空对象，转成 undefined 让页面显示「未填写」而不是空对象
+    support: hasKeys(b.support) ? (b.support as TenantBrand['support']) : undefined,
+    landing: hasKeys(b.landing) ? (b.landing as TenantBrand['landing']) : undefined,
     /*
-     * 域名：后端只给一个 site_domain（表上唯一约束，一商户一域名）。
+     * 域名：表上 site_domain 是唯一约束，一商户一域名。
      * 包装成一元数组，让页面的「域名列表」照旧能渲染。
-     * 没绑域名时给空数组，页面会显示「未绑定」而不是崩掉。
      */
     domains: b.site_domain
       ? [{ host: b.site_domain, kind: 'primary' as const, status: 'active' as const }]
@@ -676,54 +818,50 @@ function toTenantBrand(b: PartnerBrandRes): TenantBrand {
   };
 }
 
+function hasKeys(v: Record<string, unknown> | null | undefined): boolean {
+  return !!v && typeof v === 'object' && Object.keys(v).length > 0;
+}
+
 export async function fetchDealerBrand(): Promise<TenantBrand> {
-  if (USE_MOCK) return delay(memBrand, 200);
+  if (USE_MOCK) return delay({ ...mockBrand }, 200);
   const res = await request<PartnerBrandRes>({ url: EP.dealer.brand });
   return toTenantBrand(res);
 }
 
+/** mock 模式下的品牌内存态（真实模式下不用） */
+let mockBrand: TenantBrand = {
+  dealer_id: mockDealerProfile.id,
+  slug: mockDealerProfile.merchant_code,
+  name: mockDealerProfile.display_name,
+  primary_color: '#6d51fe',
+  page_title: mockDealerProfile.display_name,
+  domains: [],
+};
+
+/**
+ * 保存品牌配置。
+ *
+ * 只提交用户真正改过的字段：后端是「传了才写」的语义，把整份配置无脑回传
+ * 会把这次请求没涉及的列也覆盖一遍，将来多人协作时容易出现「我只是改了标题，
+ * logo 怎么被回滚成旧值」。
+ */
 export async function updateDealerBrand(payload: TenantBrandUpdatePayload): Promise<TenantBrand> {
   if (USE_MOCK) {
     /*
-     * 顶层浅合并 + support / landing 显式覆盖。
-     *
-     * 为什么 support 和 landing 不跟着浅合并走：
-     * 这两个是嵌套对象，浅合并的语义是「你传的整个对象替换掉旧的」，
-     * 但调用方可能只传了 support.email（想只改邮箱），
-     * 直接替换会把 phone / wechat 全抹掉。
-     * 经销商在「品牌设置」里保存时是把整个 support 一起提交的，
-     * 所以这里先展开旧的再叠新的，两种情况都不会丢字段。
-     *
-     * landing 则相反：卖点列表是整体编辑的，必须整体替换，
-     * 否则「删掉第 4 条卖点」会在下次保存时复活。
+     * support / landing 单独处理：前者是嵌套对象，只传部分字段时不能把其余抹掉；
+     * 后者是整体编辑的列表，必须整体替换（否则删掉的卖点会复活）。
      */
-    memBrand = {
-      ...memBrand,
+    mockBrand = {
+      ...mockBrand,
       ...payload,
-      support: payload.support ? { ...memBrand.support, ...payload.support } : memBrand.support,
-      landing: payload.landing !== undefined ? payload.landing : memBrand.landing,
+      support: payload.support ? { ...mockBrand.support, ...payload.support } : mockBrand.support,
+      landing: payload.landing !== undefined ? payload.landing : mockBrand.landing,
     };
-    // 品牌名改了但没单独设 short_name，首字要跟着变，否则 logo 还留着旧首字
     if (payload.name && !payload.short_name) {
-      memBrand.short_name = payload.name.trim().slice(0, 1);
+      mockBrand.short_name = payload.name.trim().slice(0, 1);
     }
-    /*
-     * 写回 user 端解析用的那份数据，并持久化到 localStorage。
-     *
-     * 不做这一步的话，admin 保存成功、前台纹丝不动 ——
-     * 两份内存（dealer.ts 的 memBrand / mock/tenant.ts 的 mockTenants）互不相干。
-     * 真实环境两端打同一个后端，不存在这问题；
-     * 这里只是让本地联调也能看到"改完就生效"。
-     */
-    updateMockTenant(memBrand);
-    persistMockTenant();
-    return delay(memBrand, 420);
+    return delay(mockBrand, 420);
   }
-  /*
-   * 后端 PUT 返回的是更新后的完整品牌对象，直接复用同一套转换。
-   * 注意不能像以前那样把返回值直接赋给 memBrand —— memBrand 是 mock 内存态，
-   * 真实模式下写它是无意义的，反而会让下次 mock 分支读到脏数据。
-   */
   const res = await request<PartnerBrandRes>({
     url: EP.dealer.brand,
     method: 'PUT',
@@ -733,38 +871,160 @@ export async function updateDealerBrand(payload: TenantBrandUpdatePayload): Prom
 }
 
 /**
- * 我的域名（只读）。域名解析状态由主平台检测，经销商端只展示。
- *
- * 伙伴后端没有独立的 /brand/domains 接口，域名信息在 /brand 的
- * site_domain 字段里。所以这里复用 fetchDealerBrand 再取 domains，
- * 避免为了一个域名多起一个前端请求。
+ * 我的域名（只读）。域名由平台绑定，伙伴端不提供增删。
  */
 export async function fetchDealerDomains(): Promise<TenantDomain[]> {
-  if (USE_MOCK) return delay(memBrand.domains, 180);
-  const brand = await fetchDealerBrand();
-  return brand.domains;
+  if (USE_MOCK) return delay(mockBrand.domains, 180);
+  const res = await request<PartnerDomainRow[]>({ url: EP.dealer.brandDomains });
+  return (res ?? []).map(toTenantDomain);
+}
+
+/** 后端 PartnerDomain 的原始返回 */
+interface PartnerDomainRow {
+  host: string;
+  kind: string;
+  status: string;
+  verified_at?: number;
+}
+
+function toTenantDomain(d: PartnerDomainRow): TenantDomain {
+  const kind: TenantDomain['kind'] = d.kind === 'alias' ? 'alias' : 'primary';
+  const status: TenantDomain['status'] =
+    d.status === 'active' ? 'active' : d.status === 'pending' ? 'pending' : 'error';
+  return { host: d.host, kind, status, verified_at: d.verified_at };
 }
 
 /**
  * 重新检测某个域名的解析状态。
+ *
  * 只在「域名已在主平台绑定」的前提下有意义——这里不能新增或删除域名。
+ * 后端不做 DNS 解析：伙伴后端多半跑在内网，它解析出来的结果不代表用户
+ * 浏览器的真实访问路径，拿它下结论反而会误报。这里校验的是「这个域名是不是
+ * 当前商户绑定的那个」，生效与否看平台侧的站点访问记录。
  */
 export async function recheckDealerDomain(host: string): Promise<TenantDomain> {
   if (USE_MOCK) {
     await delay(null, 900);
-    const idx = memBrand.domains.findIndex((d) => d.host === host);
+    const idx = mockBrand.domains.findIndex((d) => d.host === host);
     if (idx < 0) throw new Error('域名未绑定，请联系平台');
-    // 演示：待解析的域名检测一次就变成已生效
     const next: TenantDomain = {
-      ...memBrand.domains[idx],
+      ...mockBrand.domains[idx],
       status: 'active',
       verified_at: Math.floor(Date.now() / 1000),
     };
-    memBrand.domains[idx] = next;
+    mockBrand.domains[idx] = next;
     return next;
   }
-  return request<TenantDomain>({
+  const res = await request<PartnerDomainRow>({
     url: fillPath(EP.dealer.brandDomainCheck, { host }),
     method: 'POST',
   });
+  return toTenantDomain(res);
+}
+
+// ── 品牌图片上传 ─────────────────────────────────────────────
+/** 品牌图允许的类型与大小，必须与后端 partner_brand_upload.go 的规则一致 */
+export const BRAND_IMAGE_MAX_BYTES = 512 * 1024;
+export const BRAND_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'] as const;
+
+export type BrandImageTarget = 'logo_url' | 'favicon_url';
+
+export interface BrandImageUploadOptions {
+  /** 上传进度回调（0-100） */
+  onProgress?: (percent: number) => void;
+  signal?: AbortSignal;
+}
+
+/**
+ * 上传品牌图片并写回配置。
+ *
+ * 只有一次请求：把文件 multipart 提交给伙伴后端，后端写进对象存储后
+ * 直接把地址落到 logo_url / favicon_url 并返回最新品牌。
+ *
+ * 为什么不是浏览器直传对象存储：那个 bucket 没开 CORS，跨域 PUT 会在预检
+ * 阶段被拦（AccessDenied: CORS is not enabled for this bucket），
+ * 前端没有任何办法绕过 —— 这是 bucket 侧配置，不是代码能解决的。
+ * 中转的代价是图片流量过一遍后端，但品牌图上限 512KB、只在改 logo 时传一次，
+ * 这个量级不构成压力。
+ *
+ * 上传进度走 axios 的 onUploadProgress（底层仍是 XHR 的 progress 事件）。
+ * 不用 fetch 的原因就是它拿不到请求体上传进度，用户传图时看不到动静会反复点。
+ */
+export async function uploadBrandImage(
+  file: File,
+  target: BrandImageTarget,
+  options: BrandImageUploadOptions = {},
+): Promise<TenantBrand> {
+  const contentType = normalizeBrandImageType(file);
+  if (!contentType) {
+    throw new Error('只支持 PNG、JPEG、WEBP 或 SVG 图片');
+  }
+  if (file.size > BRAND_IMAGE_MAX_BYTES) {
+    throw new Error('图片超过 512KB，建议压缩后再上传');
+  }
+
+  if (USE_MOCK) {
+    // mock 模式不真的上传，只更新内存态，让界面流程可以走通
+    await delay(null, 600);
+    const objectUrl = URL.createObjectURL(file);
+    mockBrand = { ...mockBrand, [target]: objectUrl };
+    return mockBrand;
+  }
+
+  const form = new FormData();
+  form.append('target', target);
+  form.append('file', file, file.name || 'logo.' + (contentType.split('/')[1] || 'png'));
+
+  const res = await request<PartnerBrandRes>({
+    url: EP.dealer.brandUpload,
+    method: 'POST',
+    data: form,
+    /*
+     * 必须显式删掉全局默认的 application/json。
+     *
+     * http 实例上设了 'Content-Type': 'application/json'，如果原样带上去，
+     * 浏览器不会自动补 multipart 的 boundary，后端 FormFile 会解析失败并
+     * 返回一个看不出原因的 400。设为 undefined 让 XHR 自己带 boundary。
+     */
+    headers: { 'Content-Type': undefined },
+    ...(options.onProgress || options.signal
+      ? {
+          onUploadProgress: (event: { loaded: number; total?: number }) => {
+            if (!options.onProgress) return;
+            if (!event.total) return;
+            options.onProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+          },
+          signal: options.signal,
+        }
+      : {}),
+  });
+  return toTenantBrand(res);
+}
+
+/**
+ * 定出文件的实际类型。
+ *
+ * 不能只看 file.type：部分系统（尤其是从压缩包解出来、或用脚本构造的 File）
+ * 拿到的 type 是空串。这时按扩展名兜底，好过把一个合法 logo 直接判成非法。
+ * 后端也做同样的兜底，两处判断保持一致，避免前后端各拒一半。
+ */
+function normalizeBrandImageType(file: File): string | null {
+  const declared = (file.type || '').toLowerCase().split(';')[0].trim();
+  if ((BRAND_IMAGE_TYPES as readonly string[]).includes(declared)) return declared;
+  if (declared) return null;
+
+  const ext = (file.name || '').toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] ?? '';
+  switch (ext) {
+    case 'png':
+      return 'image/png';
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'webp':
+      return 'image/webp';
+    case 'svg':
+      return 'image/svg+xml';
+    default:
+      return null;
+  }
 }

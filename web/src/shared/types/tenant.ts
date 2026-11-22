@@ -81,15 +81,19 @@ export interface TenantBrand {
 /**
  * 首页（落地页）的版式风格。
  *
- * 两种风格共用同一份内容（标语 / 卖点 / CTA），只换排版骨架：
- *  - editorial：克制、居中式，适合面向企业客户的正统商务观感（默认）
- *  - brutal：新粗野主义，超大字 + 硬边框 + 高对比，适合想强调个性的服务商
+ * 两套风格共用同一份业务内容（模型清单、能力、CTA），只换视觉骨架：
+ *  - editorial：纸感编辑。米白纸面 + 衬线大标题 + 细分割线，主色占比极低（默认）
+ *  - terminal：终端网格。细网格 + 等宽标签 + 光标，主色作辉光
  *
  * 之所以做成「内容与版式分离」，而不是让经销商各写一套 HTML：
  * 经销商不该有能力改页面结构——那等于把 XSS 和样式失控一起交出去。
  * 他们只能选「用哪个骨架」+ 填「骨架里的字」。
+ *
+ * 'brutal' 是早期版本留下的取值，当前已无对应实现。保留它只是为了
+ * 让历史数据仍能通过类型检查；解析时会被归一到 editorial（见
+ * parseHomeStyle 的注释）。
  */
-export type TenantLandingLayout = 'editorial' | 'brutal';
+export type TenantLandingLayout = 'editorial' | 'terminal' | 'brutal';
 
 /**
  * 首页（落地页）的可配置内容。
@@ -130,6 +134,37 @@ export interface TenantLanding {
   signup_cta?: string;
   /** 已有账号时的登录引导文案 */
   login_hint?: string;
+  /**
+   * 页脚版权行。
+   *
+   * 存进 brand_landing.footer，不新增数据库列 —— lc_distribution_merchants
+   * 是主平台表，伙伴后端只读不建，加列要动主平台的迁移。
+   *
+   * 为什么挂在 landing 下而不是独立一列：landing 本来就是「这个商户
+   * 想让站点长什么样」的容器，页脚版权属于同一类诉求。语义上有点偏
+   * （landing 原意是首页），但换一张新表或新列的代价明显更大。
+   */
+  footer?: TenantLandingFooter;
+}
+
+/**
+ * 页脚版权行的可配内容。
+ *
+ * 全部字段可选，null / 缺省 = 没配过，客户站回落平台值；
+ * 空串 = 商户明确清空，客户站不显示这一项。
+ * 这个三态区别必须保留到协议层，否则「商户主动隐藏备案号」就无法表达。
+ */
+export interface TenantLandingFooter {
+  /** 版权整句，如「© 2026 某某公司 版权所有」 */
+  copyright_text?: string | null;
+  /** 「网站条款」这几个字 */
+  terms_label?: string | null;
+  /** 「隐私政策声明」这几个字 */
+  privacy_label?: string | null;
+  /** ICP 备案号 */
+  beian_label?: string | null;
+  /** 页脚整块显隐。null / 缺省 = 沿用平台侧开关 */
+  enabled?: boolean | null;
 }
 
 /** 卖点的结构化写法：标题 + 说明 */

@@ -5,6 +5,7 @@ go 1.25.1
 require (
 	github.com/gin-contrib/sessions v0.0.5
 	github.com/gin-gonic/gin v1.9.1
+	github.com/volcengine/ve-tos-golang-sdk/v2 v2.9.5
 	golang.org/x/crypto v0.48.0
 	gorm.io/driver/mysql v1.4.3
 	gorm.io/driver/postgres v1.5.2

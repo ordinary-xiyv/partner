@@ -8,9 +8,6 @@ import {
   PageStack,
   UseMockNotice,
   dealerApi,
-  formatDiscount,
-  formatPercent,
-  formatTime,
   notifyApiError,
   notifyApiSuccess,
 } from '@lynx/shared';
@@ -22,7 +19,12 @@ type Tab = 'profile' | 'password';
 
 export default function Settings() {
   const { profile, refresh } = useDealerAuth();
-  const [tab, setTab] = useState<Tab>('profile');
+  /*
+   * 初始密码未改时默认落在密码页 —— 用户是被 RequireAuth 强制送到这里的，
+   * 停在「商户信息」Tab 上会让人以为没什么要做的。
+   */
+  const mustChangePassword = Boolean(profile?.password_change_required);
+  const [tab, setTab] = useState<Tab>(mustChangePassword ? 'password' : 'profile');
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm();
 
@@ -40,6 +42,12 @@ export default function Settings() {
       });
       notifyApiSuccess('密码修改成功');
       form.resetFields();
+      /*
+       * 改密成功后后端会把 partner_password_change_required 置 false，
+       * 但本地 profile 还是旧值，RequireAuth 会继续把人锁在 /settings。
+       * refresh() 重新拉一次 /me 才能解开。
+       */
+      await refresh();
     } catch (err) {
       if ((err as { errorFields?: unknown }).errorFields) return;
       notifyApiError(err, '修改失败');
@@ -54,29 +62,42 @@ export default function Settings() {
 
       <UseMockNotice />
 
+      {mustChangePassword && (
+        <Alert
+          type="warning"
+          showIcon
+          message="请先修改初始密码"
+          description="你正在使用平台分配的初始密码。修改后才能查看客户、用量与账单数据。"
+        />
+      )}
+
       <PagePanel padded>
         <div className="lynx-section-title">商户信息</div>
+        {/*
+         * 只列后端 /me 真的返回的 4 个字段。
+         *
+         * 上一版这里有「代理等级 / 客户折扣 / 佣金比例 / 客户数量 / 开户时间」五项，
+         * 后端一个都不返回，前端靠硬编码填了「钻石代理」「8.2 折」「12%」，
+         * 而下方还写着「由平台运营配置」—— 等于把编造的数字说成平台配置。
+         * 这些字段要恢复，前提是后端先返回它们。
+         */}
         <DescGrid
           items={[
             { label: '商户 ID', value: profile?.id ?? '-' },
-            { label: '商户编码', value: profile?.username ?? '-' },
-            { label: '名称', value: profile?.display_name ?? '-' },
+            { label: '商户编码', value: profile?.merchant_code ?? '-' },
+            { label: '商户名称', value: profile?.display_name ?? '-' },
             {
-              label: '代理等级',
-              value: (
-                <Tag color={profile?.level === 'diamond' ? 'blue' : profile?.level === 'gold' ? 'orange' : 'default'}>
-                  {profile?.level === 'diamond' ? '钻石代理' : profile?.level === 'gold' ? '金牌代理' : '银牌代理'}
-                </Tag>
+              label: '初始密码',
+              value: profile?.password_change_required ? (
+                <Tag color="warning">待修改</Tag>
+              ) : (
+                <Tag color="success">已修改</Tag>
               ),
             },
-            { label: '客户折扣', value: formatDiscount(profile?.discount_rate ?? 1) },
-            { label: '佣金比例', value: formatPercent(profile?.commission_rate ?? 0) },
-            { label: '客户数量', value: profile?.sub_user_count ?? 0 },
-            { label: '开户时间', value: formatTime(profile?.created_at) },
           ]}
         />
         <div style={{ marginTop: 18, fontSize: 12, color: 'var(--text-tertiary)' }}>
-          代理等级、折扣与佣金比例由平台运营配置，如需调整请联系平台。
+          代理等级、折扣与佣金比例需要平台运营在后台配置并提供查询接口，伙伴端暂不展示。
         </div>
       </PagePanel>
 

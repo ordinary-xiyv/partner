@@ -5,11 +5,15 @@
   --app-header-nav-link-padding-inline: 12px;
   --app-header-height-expanded: 64px;
   --app-header-height: var(--app-header-height-expanded);
-  --app-header-capsule-max-width: 1200px;
-  --app-header-capsule-edge-gap: 16px;
   --app-header-capsule-top: 0px;
-  --app-marketing-banner-height: 0px;
-  --app-site-top-chrome-h: calc(var(--app-header-height-expanded) + var(--app-marketing-banner-height, 0px));
+  /*
+   * --app-marketing-banner-height 已随营销栏一起删除（分销商客户站不投放平台广告）。
+   * --app-site-top-chrome-h 保留：它被首页首屏 padding、聊天页与视频页的
+   * 100dvh 计算、移动端抽屉定位等 8 处消费，删掉会连锁塌陷。
+   * 现在就等于页头高度，只是多包了一层 calc —— 留着这层是因为后续如果
+   * 再出现「页头之外还有一条固定高度的东西」，改这一行即可。
+   */
+  --app-site-top-chrome-h: var(--app-header-height-expanded);
   --app-header-nav-text-offset: calc(
     var(--app-header-padding-inline) + var(--app-header-logo-slot-width) +
       var(--app-header-nav-margin-left) + var(--app-header-nav-link-padding-inline)
@@ -28,7 +32,14 @@
   box-sizing: border-box;
 }
 
-/* 后台配置了 logo 时固定占位；远程失败回退本地图，仍失败则透明空槽防顶栏横跳 */
+/*
+ * Logo 槽位。
+ *
+ * 固定宽度、始终挂载 —— 有没有配 logo 都占这 148px。
+ * 这不只是视觉上的「留个位置」：导航文字的起始位置
+ * （--app-header-nav-text-offset）就是按这个宽度推出来的，槽位一旦
+ * 不渲染，导航会整体左移，看起来像左侧少了一块。
+ */
 .app-header-logo {
   display: flex;
   align-items: center;
@@ -635,24 +646,28 @@
   padding-inline: var(--app-header-padding-inline);
 }
 
-@media (max-width: 1023px) {
-  .app-header-capsule {
-    --app-header-capsule-edge-gap: 12px;
-  }
-}
-
 @media (max-width: 768px) {
   .app-header-capsule {
     --app-header-height-expanded: 56px;
-    --app-header-capsule-edge-gap: 12px;
   }
 }
 
-/* 首页滚动驱动：流式宽度 + 毛玻璃 + 轻微圆角（全端一致，与导航汉堡断点无关） */
+/*
+ * 首页滚动驱动：透明 → 常驻品牌色毛玻璃。
+ *
+ * 这里曾经是「滚动 120px 后收成居中胶囊」的形变，位置、宽度、圆角、
+ * 背景、模糊、阴影七项全乘 --header-progress，滚动时整条导航一边缩一边
+ * 往下漂，视觉上很吵，也和「导航应该待着不动」的直觉相悖。
+ *
+ * 现在 --header-progress 只负责一件事：毛玻璃从无到有。
+ * 位置 0、宽度 100%、圆角 0 —— 全程静止，滚动只让背景逐渐显色。
+ * 品牌色仍然通过 --theme-color-primary 混进来（见下面的 glass-surface），
+ * 所以换了伙伴主色，这层毛玻璃跟着变。
+ */
 .app-header--scroll-driven {
   --header-progress: 0;
-  --app-header-capsule-top: calc(var(--header-progress) * 12px);
-  --app-header-capsule-radius: calc(var(--header-progress) * 16px);
+  /* 形变已删，保留为 0 是因为首页 hero 的顶部留白还在消费它（见 terminal/editorial 的 .tm-hero） */
+  --app-header-capsule-top: 0px;
   --app-header-glass-surface: color-mix(in srgb, var(--theme-color-primary) 16%, var(--bg-base));
   --app-header-glass-shadow: rgb(from var(--theme-color-primary) r g b / 0.14);
   --app-header-glass-highlight: rgb(from var(--theme-color-primary) r g b / 0.2);
@@ -660,6 +675,7 @@
   background: transparent;
   border-bottom: none;
   box-shadow: none;
+  /* 页头本身铺满整行但不吃点击，点击交给内部 .app-header-capsule */
   pointer-events: none;
 }
 
@@ -677,15 +693,13 @@ body:not([theme-mode='light']) .app-header--scroll-driven {
 }
 
 .app-header--scroll-driven .app-header-capsule {
-  /* progress 0：全宽；progress 1：流式居中胶囊 */
-  margin-top: var(--app-header-capsule-top);
-  width: calc(100% - var(--header-progress) * 2 * var(--app-header-capsule-edge-gap));
-  max-width: min(
-    calc((1 - var(--header-progress)) * 100% + var(--header-progress) * var(--app-header-capsule-max-width)),
-    calc(100% - var(--header-progress) * 2 * var(--app-header-capsule-edge-gap))
-  );
-  margin-inline: auto;
-  border-radius: var(--app-header-capsule-radius);
+  /* 几何量全部固定：不位移、不缩放、不圆角 */
+  margin-top: 0;
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+  border-radius: 0;
+  /* 只有这三项随滚动变化：底色浓度、模糊强度、投影强度 */
   background: color-mix(
     in srgb,
     var(--app-header-glass-surface) calc(var(--header-progress) * 78%),
@@ -708,18 +722,10 @@ body:not([theme-mode='light']) .app-header--scroll-driven {
       transparent
     );
   overflow: visible;
+  /* 只做颜色渐入。过渡宽度/圆角会让静止的导航看起来仍在动 */
   transition:
-    width 0.22s ease,
-    max-width 0.22s ease,
-    border-radius 0.22s ease,
     background 0.22s ease,
     box-shadow 0.22s ease;
-}
-
-@media (max-width: 1023px) {
-  .app-header--scroll-driven {
-    --app-header-capsule-top: calc(var(--header-progress) * 8px);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

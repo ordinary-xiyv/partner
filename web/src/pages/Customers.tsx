@@ -8,7 +8,6 @@ import {
   InputNumber,
   Modal,
   Segmented,
-  Select,
   Space,
   Switch,
   Table,
@@ -22,7 +21,6 @@ import {
   PlusOutlined,
   ReloadOutlined,
   SearchOutlined,
-  DeleteOutlined,
   KeyOutlined,
 } from '@ant-design/icons';
 import {
@@ -31,20 +29,16 @@ import {
   AsyncTableCard,
   PageStack,
   dealerApi,
+  formatMoneyAuto,
   formatNumber,
   formatQuotaAsMoney,
-  formatRelative,
   formatTime,
   notifyApiError,
   notifyApiSuccess,
-  quotaToCny,
 } from '@lynx/shared';
 import type { Customer, CustomerCreatePayload } from '@lynx/shared';
 
 const { Text } = Typography;
-
-/** 额度低于此值（元）时提示 */
-const LOW_BALANCE_CNY = 10;
 
 export default function Customers() {
   const navigate = useNavigate();
@@ -55,6 +49,10 @@ export default function Customers() {
   const [pageSize, setPageSize] = useState(10);
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<0 | 1 | 2>(0);
+  /** 用量区间（后端 billing 返回的实际区间，用于表头说明） */
+  const [usageRange, setUsageRange] = useState<{ start?: string; end?: string }>({});
+  /** 账单只返回了前 100 名活跃客户，超出部分无法匹配 */
+  const [usageTruncated, setUsageTruncated] = useState(false);
 
   // 新建客户
   const [createOpen, setCreateOpen] = useState(false);
@@ -75,9 +73,21 @@ export default function Customers() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await dealerApi.fetchCustomers({ page, page_size: pageSize, keyword, status });
+      /*
+       * withUsage: true —— 顺带拉 billing/summary 把「本月消耗/请求数」补上。
+       * 后端 /users 本身不带这些字段，不合并的话这几列只能显示「—」。
+       */
+      const res = await dealerApi.fetchCustomers({
+        page,
+        page_size: pageSize,
+        keyword,
+        status,
+        withUsage: true,
+      });
       setRows(res.items);
       setTotal(res.total);
+      setUsageRange({ start: res.start_date, end: res.end_date });
+      setUsageTruncated(Boolean(res.usage_truncated));
     } catch (err) {
       notifyApiError(err, '客户列表加载失败');
     } finally {
@@ -115,12 +125,11 @@ export default function Customers() {
         quotaMode === 'set'
           ? { set: Math.round(quotaAmount * 500000) }
           : {
-              delta:
-                (quotaMode === 'add' ? 1 : -1) * Math.round(quotaAmount * 500000),
+              delta: (quotaMode === 'add' ? 1 : -1) * Math.round(quotaAmount * 500000),
             };
       const res = await dealerApi.adjustCustomerQuota(quotaTarget.id, payload);
       setRows((prev) =>
-        prev.map((c) => (c.id === quotaTarget.id ? { ...c, quota: res.quota } : c)),
+        prev.map((c) => (c.id === quotaTarget.id ? { ...c, used_quota: res.quota } : c)),
       );
       notifyApiSuccess('额度已更新');
       setQuotaTarget(null);
@@ -191,77 +200,69 @@ export default function Customers() {
         ),
       },
       {
-        title: '剩余额度',
-        dataIndex: 'quota',
-        width: 108,
-        align: 'right',
-        sorter: (a, b) => a.quota - b.quota,
-        render: (q: number) => {
-          const cny = quotaToCny(q);
-          const low = cny < LOW_BALANCE_CNY;
-          return (
-            <Tooltip title={`${formatNumber(q)} 额度`}>
-              <span
-                style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  fontVariantNumeric: 'tabular-nums',
-                  color: low ? '#f87171' : 'var(--text-primary)',
-                }}
-              >
-                {formatQuotaAsMoney(q)}
-              </span>
-              {low ? (
-                <Tag color="error" style={{ marginLeft: 6, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>
-                  低
-                </Tag>
-              ) : null}
-            </Tooltip>
-          );
-        },
-      },
-      {
-        title: '累计消耗',
+        /*
+         * 「本月消耗」取代了原来的「剩余额度」。
+         *
+         * 后端 users 表没有余额列，额度靠 billing 聚合出的是「消耗」不是「余额」。
+         * 上一版把 quota 硬编码 0，于是每个客户都显示 ¥0.00 并被打上红色「低」标签——
+         * 那是在指责客户欠费，而真相是我们不知道余额。
+         * 现在展示真的有的数字：区间内净消耗。拿不到就显示「—」。
+         */
+        title: '本月消耗',
         dataIndex: 'used_quota',
-        width: 106,
+        width: 116,
         align: 'right',
-        sorter: (a, b) => a.used_quota - b.used_quota,
-        render: (q: number) => (
-          <span style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums', color: 'var(--text-secondary)' }}>
-            {formatQuotaAsMoney(q)}
-          </span>
-        ),
+        sorter: (a, b) => (a.used_quota ?? 0) - (b.used_quota ?? 0),
+        render: (q: number | undefined) =>
+          q === undefined ? (
+            <Tooltip title="账单接口未返回该客户数据">
+              <span style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>—</span>
+            </Tooltip>
+          ) : (
+            <span style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+              {formatQuotaAsMoney(q)}
+            </span>
+          ),
       },
       {
         title: '请求数',
         dataIndex: 'request_count',
-        width: 80,
+        width: 92,
         align: 'right',
-        sorter: (a, b) => a.request_count - b.request_count,
-        render: (n: number) => (
-          <span style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums', color: 'var(--text-secondary)' }}>
-            {formatNumber(n)}
-          </span>
-        ),
+        sorter: (a, b) => (a.request_count ?? 0) - (b.request_count ?? 0),
+        render: (n: number | undefined) =>
+          n === undefined ? (
+            <span style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>—</span>
+          ) : (
+            <span style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums', color: 'var(--text-secondary)' }}>
+              {formatNumber(n)}
+            </span>
+          ),
       },
       {
-        title: '专属折扣',
-        dataIndex: 'discount_rate',
-        width: 88,
-        align: 'center',
-        render: (r: number) => (
-          <Tag color={r < 1 ? 'purple' : 'default'}>{(r * 10).toFixed(1)} 折</Tag>
-        ),
+        title: '本月金额',
+        dataIndex: 'used_amount_cny',
+        width: 104,
+        align: 'right',
+        render: (v: number | undefined) =>
+          v === undefined ? (
+            <span style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>—</span>
+          ) : (
+            <span style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums', color: 'var(--text-secondary)' }}>
+              {formatMoneyAuto(v)}
+            </span>
+          ),
       },
       {
-        title: '最近调用',
-        dataIndex: 'last_active_at',
-        width: 102,
-        render: (ts: number) => (
-          <Tooltip title={ts ? formatTime(ts) : '从未调用'}>
-            <Text style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{formatRelative(ts)}</Text>
-          </Tooltip>
-        ),
+        title: '开户时间',
+        dataIndex: 'created_at',
+        width: 108,
+        render: (ts: number) =>
+          ts ? (
+            <Text style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{formatTime(ts, 'YYYY-MM-DD')}</Text>
+          ) : (
+            <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>—</span>
+          ),
       },
       {
         title: '状态',
@@ -310,7 +311,7 @@ export default function Customers() {
     <PageStack gap={20}>
       <AppPageHeader
         title="我的客户"
-        subtitle="管理你名下的终端客户账号、额度与访问权限"
+        subtitle="管理你名下的终端客户账号与访问权限"
         actions={
           <>
             <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>
@@ -323,13 +324,37 @@ export default function Customers() {
         }
       />
 
+      {/*
+       * 说明「本月消耗」这一列的区间，避免被误读成余额。
+       * 同时说清两件容易引起误会的事：
+       *   1. 显示「—」不是 bug —— 该客户本月没有消耗，账单接口不返回他
+       *   2. 状态筛选是本地筛选，分页总数不会跟着变
+       */}
+      <Alert
+        type="info"
+        showIcon
+        style={{ fontSize: 12 }}
+        message={
+          usageRange.start
+            ? `消耗数据区间 ${usageRange.start} ~ ${usageRange.end}，为净消耗（含退款冲销）`
+            : '消耗数据来自账单接口，暂未取到'
+        }
+        description={
+          <>
+            「—」表示该客户在此区间内没有消耗记录，账单接口只返回有消耗的客户。
+            「剩余额度」需要后端提供余额接口，当前未开放。
+            {usageTruncated && ' 活跃客户超过 100 名，仅前 100 名能匹配到消耗数据。'}
+          </>
+        }
+      />
+
       <AsyncTableCard<Customer>
         toolbar={
           <div className="lynx-toolbar">
             <Input
               allowClear
               prefix={<SearchOutlined style={{ color: 'var(--text-tertiary)' }} />}
-              placeholder="搜索用户名 / 姓名 / 邮箱"
+              placeholder="搜索用户名 / 姓名 / 邮箱 / 手机"
               style={{ width: 260 }}
               value={keyword}
               onChange={(e) => {
@@ -361,11 +386,9 @@ export default function Customers() {
           dataSource: rows,
           loading,
           size: 'middle',
-          // 列宽合计 = 168+172+108+106+80+88+102+78+200 = 1102，
-          // 恰好等于 1440 屏下的容器宽度 → 不需要横向滚动，
-          // 操作列不会压住「状态」列，也就不会露出半截字。
-          scroll: { x: 1102 },
-          locale: { emptyText: <AppEmpty icon="👥" message="还没有客户，点击右上角「新建客户」开始" /> },
+          // 列宽合计 = 168+172+116+92+104+108+78+200 = 1038
+          scroll: { x: 1038 },
+          locale: { emptyText: <AppEmpty icon="👥" message="还没有客户" /> },
           pagination: {
             current: page,
             pageSize,
@@ -398,11 +421,11 @@ export default function Customers() {
         }
       >
         <Alert
-          type="info"
+          type="warning"
           showIcon
           style={{ marginBottom: 20, fontSize: 12 }}
-          message="创建后请把账号密码告知客户"
-          description="客户首次登录后可自行修改密码。用户名创建后不可更改。"
+          message="该功能待后端支持"
+          description="伙伴后端目前只有查询接口，新建客户需要 POST /api/partner/users。表单可正常填写，提交时会提示接口尚未实现。"
         />
         <Form form={form} layout="vertical" requiredMark="optional">
           <Form.Item
@@ -445,11 +468,7 @@ export default function Customers() {
           >
             <InputNumber min={0} step={10} style={{ width: '100%' }} placeholder="0" />
           </Form.Item>
-          <Form.Item
-            name="remark"
-            label="备注"
-            tooltip="仅你自己可见"
-          >
+          <Form.Item name="remark" label="备注" tooltip="仅你自己可见">
             <Input.TextArea rows={2} placeholder="如：某某项目对接人，需月度对账" />
           </Form.Item>
         </Form>
@@ -465,14 +484,13 @@ export default function Customers() {
         okText="确认调整"
         destroyOnHidden
       >
-        <div style={{ marginBottom: 18 }}>
-          <Text style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-            当前剩余额度：
-            <strong style={{ color: 'var(--text-primary)', fontSize: 14 }}>
-              {formatQuotaAsMoney(quotaTarget?.quota ?? 0)}
-            </strong>
-          </Text>
-        </div>
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16, fontSize: 12 }}
+          message="该功能待后端支持"
+          description="额度调整需要后端提供写接口，当前提交会提示接口尚未实现。"
+        />
         <Space direction="vertical" size={14} style={{ width: '100%' }}>
           <Segmented
             block
@@ -497,18 +515,6 @@ export default function Customers() {
               addonAfter="元"
             />
           </div>
-          <Alert
-            type="warning"
-            showIcon
-            style={{ fontSize: 12 }}
-            message={
-              quotaMode === 'set'
-                ? `调整后客户余额将变为 ${quotaAmount} 元`
-                : quotaMode === 'add'
-                  ? `客户余额将增加 ${quotaAmount} 元`
-                  : `客户余额将扣减 ${quotaAmount} 元`
-            }
-          />
         </Space>
       </Modal>
 
@@ -525,6 +531,13 @@ export default function Customers() {
         okText="重置"
         destroyOnHidden
       >
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16, fontSize: 12 }}
+          message="该功能待后端支持"
+          description="重置客户密码需要后端提供写接口，当前提交会提示接口尚未实现。"
+        />
         <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
           新密码（至少 8 位）
         </div>
@@ -534,9 +547,6 @@ export default function Customers() {
           placeholder="请输入新密码"
           autoComplete="new-password"
         />
-        <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 10 }}>
-          重置后该客户当前登录会话将失效，需要重新登录。
-        </div>
       </Modal>
     </PageStack>
   );

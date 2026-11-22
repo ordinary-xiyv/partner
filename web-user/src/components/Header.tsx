@@ -15,6 +15,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { canAccessLogSummaries } from '../utils/permission';
 import { getSiteLogoResolve, setSiteLogoResolve } from '../utils/siteLogoResolveCache';
 import { resolveThemedHeaderLogoUrl } from '../types';
+import { resolvePartnerLogo } from '../utils/partnerBrand';
 import { useTheme } from '../contexts/ThemeContext';
 import { selectableClass, isHeaderNavItemActive } from '../ui/selectableNav';
 import { getDocsAppHref, getDocsHomeUrl, resolveDocLang } from '../config/docs';
@@ -24,7 +25,6 @@ import { useAppSidebar } from '../contexts/AppSidebarContext';
 import { useHeaderScrollState } from '../hooks/useHeaderScrollState';
 import { useBreakpoint } from '../hooks/useBreakpoint';
 import { clearModelsConsoleEmbed } from '../utils/modelsConsoleEmbed';
-import MarketingTopBanner from './MarketingTopBanner';
 import './header.css';
 
 type NavLinkItem = { kind: 'link'; to?: string; href?: string; label: string; external?: boolean };
@@ -34,7 +34,14 @@ type NavItem = NavLinkItem | NavDropdownItem;
 interface HeaderProps {
   /** 首页 Hero 顶栏：透明无底边 */
   variant?: 'default' | 'hero';
-  /** 首页滚动：透明 → 流式毛玻璃 + 轻微圆角（与导航折叠断点无关） */
+  /**
+   * 首页滚动：透明 → 常驻品牌色毛玻璃（与导航折叠断点无关）。
+   *
+   * 早期这里是「滚动到 120px 后收成居中胶囊」的形变，位移 + 缩放 +
+   * 圆角变化一起动，页面向下滚一点导航就漂一下，很吵。现在只做一件事：
+   * 滚动后让整条导航背景从透明渐变成品牌色毛玻璃，位置、宽度、圆角
+   * 全程不变。滚动进度仍然由 useHeaderScrollState 提供（见 glassOpacity）。
+   */
   scrollBehavior?: 'static' | 'shrink-glass';
   /** 控制台壳层：移动端汉堡打开应用侧栏，而非官网导航抽屉 */
   layoutMode?: 'marketing' | 'console';
@@ -49,7 +56,7 @@ export default function Header({
   const { locale } = useLocale();
   const { user, isEnterprise, isOrgOwner, isPlatformWorker } = useUser();
   const { has } = usePermissions();
-  const { status, siteLogosThemed, siteAppearance, loading: statusLoading } = useStatus();
+  const { status, siteLogosThemed, siteAppearance, partnerBrand, loading: statusLoading } = useStatus();
   const { resolved: themeResolved } = useTheme();
   const { openLogin } = useAuthModal();
   const location = useLocation();
@@ -58,7 +65,7 @@ export default function Header({
   const isConsoleLayout = layoutMode === 'console';
   const isHeaderNavCollapsed = !isDesktop;
   const isScrollDriven = scrollBehavior === 'shrink-glass';
-  const { progress, isCompact } = useHeaderScrollState(isScrollDriven);
+  const progress = useHeaderScrollState(isScrollDriven);
 
   React.useEffect(() => {
     if (!isConsoleLayout) clearModelsConsoleEmbed();
@@ -94,9 +101,27 @@ export default function Header({
       }));
   }, [siteAppearance.header_config.enabled, siteAppearance.header_config.items, locale]);
 
+  /*
+   * Logo 取值：白标站只认伙伴那一张，非白标站才走平台亮/暗双版。
+   *
+   * 这里曾经写成 `partnerLogoSrc ?? 平台双版`，结果是「伙伴删掉 logo 后
+   * 仍然显示平台 logo」—— 因为 ?? 把「伙伴明确没配」和「伙伴不参与」
+   * 当成了同一件事。对分销商的客户站，回退到平台 logo 等于白标漏底，
+   * 所以必须分开：
+   *   · partnerBrand 非 null → 这是白标站，只认伙伴的；没配就是不显示
+   *   · partnerBrand 为 null → 没绑站点身份 / 伙伴后端没部署，走平台双版
+   *
+   * 双版按主题选一张这个信息不能合并进 siteAppearance：合并成一格就
+   * 分不出「有没有配亮/暗」，切主题时不知道该不该换图。
+   */
+  const isWhiteLabelSite = partnerBrand !== null;
+
   const remoteLogoSrc = React.useMemo(
-    () => resolveThemedHeaderLogoUrl(themeResolved, siteLogosThemed),
-    [themeResolved, siteLogosThemed],
+    () =>
+      isWhiteLabelSite
+        ? resolvePartnerLogo(partnerBrand) ?? undefined
+        : resolveThemedHeaderLogoUrl(themeResolved, siteLogosThemed),
+    [isWhiteLabelSite, partnerBrand, themeResolved, siteLogosThemed],
   );
 
   const cachedResolve = remoteLogoSrc ? getSiteLogoResolve(remoteLogoSrc) : undefined;
@@ -259,10 +284,14 @@ export default function Header({
   const headerClassName = [
     variant === 'hero' ? 'app-header--hero' : '',
     isScrollDriven ? 'app-header--scroll-driven' : '',
-    isScrollDriven && isCompact ? 'app-header--compact' : '',
     isConsoleLayout ? 'app-header--console' : '',
   ].filter(Boolean).join(' ') || undefined;
 
+  /*
+   * 滚动只驱动「毛玻璃出现多少」，不再驱动任何几何量。
+   * progress 写进 --header-progress，CSS 里只拿它算背景透明度和模糊强度，
+   * 位置 / 宽度 / 圆角全是固定值 —— 所以页头在滚动时完全静止。
+   */
   const headerStyle: React.CSSProperties = isScrollDriven
     ? {
         position: 'fixed',
@@ -290,7 +319,7 @@ export default function Header({
         };
 
   const mobileNavOverlayTop =
-    'calc(var(--app-marketing-banner-height, 0px) + var(--app-header-capsule-top, 0px) + var(--app-header-height-expanded, 64px))';
+    'calc(var(--app-header-capsule-top, 0px) + var(--app-header-height-expanded, 64px))';
 
   return (
     <>
@@ -298,13 +327,16 @@ export default function Header({
       className={headerClassName}
       style={headerStyle}
     >
-      <MarketingTopBanner />
       <div className="app-header-capsule">
       <div className="header-bar app-header-bar">
-        {/* ── 左侧：Logo ── */}
+        {/* ── 左侧：Logo ──
+            slot 无论有没有 logo 都必须挂载：它承载 --app-header-logo-slot-width
+            这个固定宽度，导航文字的起始位置（--app-header-nav-text-offset）
+            也按它推算。以前是整块条件渲染，没配 logo 时 Link 塌成 0 宽，
+            导航整体向左跳，视觉上像是「左侧缺了一块」。 */}
         <Link to="/" className="app-header-logo" aria-label={t('header.systemName')}>
-          {showLogoImage ? (
-            <span className="app-header-logo__slot">
+          <span className="app-header-logo__slot">
+            {showLogoImage ? (
               <img
                 src={remoteLogoSrc}
                 alt=""
@@ -313,8 +345,8 @@ export default function Header({
                 onLoad={handleLogoLoad}
                 onError={handleLogoError}
               />
-            </span>
-          ) : null}
+            ) : null}
+          </span>
         </Link>
         <button
             type="button"

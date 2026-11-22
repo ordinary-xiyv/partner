@@ -6,23 +6,18 @@
  * 2. 所有金额先以「元」为口径设计，再按 QUOTA_PER_UNIT 折算成「额度」写入
  *    quota 类字段，避免单位混用导致的自相矛盾。
  * 3. 派生指标（概览、汇总）一律从明细数据 reduce 出来，不单独 hardcode 魔数。
- *
- * 规模设定（对齐一个运营约 9 个月的经销商）：
- *   累计客户消费 ≈ 155 万元 → 佣金率 12% → 累计佣金 ≈ 18.6 万元
- *   37 个客户，人均累计消费 ≈ 4.2 万元；月消耗 ≈ 15.3 万元
+ * 4. 只造后端真的会给的字段 —— mock 比真接口多出来的字段，
+ *    会让人误以为联调通了，实际上一接线就整块空白。
  */
 
 import { QUOTA_PER_UNIT } from '../../utils/format';
 
-/*
- * 类型来自 types/dealer —— 这份 seed 只服务伙伴后台保留下来的页面：
- * 概览、我的客户、用量明细、品牌设置、账号设置。
- */
 import type {
   Customer,
   CustomerCreatePayload,
   DealerProfile,
   OverviewStats,
+  TrendPoint,
   UsageLog,
   UsageSummary,
 } from '../../types/dealer';
@@ -53,8 +48,6 @@ function pick<T>(arr: T[], r: number): T {
 }
 
 // ── 模型目录（元 / 1M tokens，平台成本价）───────────────────────
-// 日志消耗与模型分布共用这份单价，
-// 保证「某次调用花多少钱」能按 token 数复算出来。
 const MODEL_META: Record<
   string,
   { name: string; vendor: string; tags: string[]; in: number; out: number; ctx: number }
@@ -77,22 +70,17 @@ function costOf(model: string, promptTokens: number, completionTokens: number): 
   return (promptTokens / 1_000_000) * meta.in + (completionTokens / 1_000_000) * meta.out;
 }
 
-// ── 经销商自身 ────────────────────────────────────────────────
+// ── 伙伴自身 ──────────────────────────────────────────────────
+/**
+ * 严格对齐后端 partnerInfo() 的 4 个字段。
+ * 这里不再有 level / commission_rate / total_commission ——
+ * 后端不返回这些，mock 里写出来只会掩盖「接上真接口就空白」的问题。
+ */
 export const mockDealerProfile: DealerProfile = {
   id: 1024,
-  user_id: 8801,
-  username: 'dealer_demo',
-  display_name: '示例经销商',
-  level: 'gold',
-  discount_rate: 0.82,
-  commission_rate: 0.12,
-  status: 1,
-  total_commission: 186420.5,
-  pending_payout: 0, // 占位，文件末尾按月消耗回填
-  settled_payout: 0,
-  balance: 52000,
-  sub_user_count: 37,
-  created_at: NOW - DAY * 286,
+  merchant_code: 'demo_partner',
+  display_name: '示例伙伴商户',
+  password_change_required: false,
 };
 
 // ── 客户列表 ──────────────────────────────────────────────────
@@ -104,183 +92,147 @@ const CUSTOMER_NAMES = [
   '蒋雯', '蔡明', '余乐', '杜鹏', '叶青',
 ];
 
-/**
- * 每客户累计消费（元）：4000 + rnd*76000 → 37 人合计约 155 万元，
- * 与「累计佣金 18.6 万 ÷ 12%」对得上。
- */
+/** 每客户本月净消耗（元），4000 ~ 80000 */
 const CUSTOMER_SPEND_CNY: number[] = CUSTOMER_NAMES.map((_, i) => {
   const rnd = seeded(i * 977 + 13);
   return 4000 + rnd() * 76000;
 });
 
-// ── 时间与口径基准 ────────────────────────────────────────────
-/**
- * 全站只保留一个时间维度：自然月。
- * 月消耗、月佣金都挂在同一个「当月订单额」上，
- * 否则会出现「月消耗 14 万、月佣金 1.98 万」（反算佣金率 14% 而非 12%）这类矛盾。
- */
-const TOTAL_CUSTOMER_SPEND_CNY = CUSTOMER_SPEND_CNY.reduce((s, v) => s + v, 0);
-const COMMISSION_MONTHS = 9; // 覆盖最近 9 个自然月
-const COMMISSION_RATE = 0.12;
+const TOTAL_SPEND_CNY = CUSTOMER_SPEND_CNY.reduce((s, v) => s + v, 0);
 
 /**
- * 当月订单额要按「已过天数」折算 —— 月还没走完，不可能已经发生整月的消费。
+ * 客户行。
  *
- * 各月权重归一化后分摊累计消费，当月权重按已过天数同比例缩小。
- * 只取当月那一份：历史月份的账单口径已经不在保留的页面里了。
+ * 后端 /users 只给 7 个基础字段，额度与用量要靠 billing/summary 合并。
+ * 这里两者都给，模拟「合并成功」的正常情况；
+ * 页面必须能处理 used_quota 为 undefined 的分支（真实环境里停用客户就会缺）。
  */
-const MONTH_ELAPSED_RATIO = (() => {
-  const now = new Date(NOW * 1000);
-  const daysInMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
-  return now.getUTCDate() / daysInMonth;
-})();
-
-const monthWeights = Array.from({ length: COMMISSION_MONTHS }, (_, m) => {
-  const rnd = seeded(m * 1471 + 53);
-  const base = 0.85 + rnd() * 0.3;
-  return m === 0 ? base * MONTH_ELAPSED_RATIO : base;
-});
-const monthWeightSum = monthWeights.reduce((a, b) => a + b, 0);
-
-/** 当月（未走完）已发生的客户订单额，全站「本月消费」口径即此值 */
-const MONTH_ORDER_CNY =
-  Math.round((monthWeights[0] / monthWeightSum) * TOTAL_CUSTOMER_SPEND_CNY * 100) / 100;
-
 export const mockCustomers: Customer[] = CUSTOMER_NAMES.map((name, i) => {
   const rnd = seeded(i * 977 + 13);
   const spentCny = CUSTOMER_SPEND_CNY[i];
   const status: 1 | 2 = i % 11 === 7 ? 2 : 1;
   const daysAgo = Math.floor(rnd() * 260) + 1;
-  const balanceCny = 200 + rnd() * 5800; // 当前余额 200~6000 元
   return {
     id: 20001 + i,
     username: `cust_${String(i + 1).padStart(3, '0')}`,
     display_name: name,
     email: `customer${i + 1}@example.com`,
-    phone: i % 3 === 0 ? undefined : `138${String(10000000 + i * 137).slice(0, 8)}`,
+    phone: i % 3 === 0 ? undefined : `138****${String(1000 + i * 7).slice(-4)}`,
     status,
-    quota: q(balanceCny),
-    used_quota: q(spentCny),
-    // 平均每次调用约 0.28 元
-    request_count: Math.round(spentCny / 0.28),
-    discount_rate: i % 5 === 0 ? 0.8 : 0.82,
-    last_active_at: i % 9 === 3 ? 0 : NOW - Math.floor(rnd() * 6) * DAY - 3600,
     created_at: NOW - daysAgo * DAY,
-    remark: i % 7 === 0 ? '重点客户，需要月度对账' : undefined,
+    used_quota: q(spentCny),
+    used_amount_cny: Math.round(spentCny * 100) / 100,
+    request_count: Math.round(spentCny / 0.28),
   };
 });
 
-// ── 客户用量日志（最近 30 天的抽样，非全量）────────────────────
+// ── 客户用量日志 ──────────────────────────────────────────────
+/**
+ * 最近 30 天的抽样。
+ *
+ * type 分布对齐后端语义：2=消费 5=错误 6=退款 7=预扣 8=补扣。
+ * 真实库里 99% 是 2 和 5，少量退款/补扣用来验证前端不会把它们算成「成功调用」。
+ */
 export const mockUsageLogs: UsageLog[] = Array.from({ length: 180 }, (_, i) => {
   const rnd = seeded(i * 3121 + 7);
   const cust = mockCustomers[Math.floor(rnd() * mockCustomers.length)];
   const model = pick(MODEL_POOL, rnd());
   const prompt = Math.floor(rnd() * 4200) + 60;
   const completion = Math.floor(rnd() * 2600) + 20;
-  const failed = rnd() < 0.035;
+  const roll = rnd();
+  const type = roll < 0.035 ? 5 : roll < 0.05 ? 6 : roll < 0.06 ? 8 : 2;
+  const rawCny = costOf(model, prompt, completion);
+  /*
+   * 退款(6) 的 quota 在真实库里是**正数**（实测 770 条全部 > 0），
+   * 冲销发生在后端 billing 的 `-logs.quota`。mock 必须照这个符号写，
+   * 否则本地看到「退款是负的」、线上是正的，两种行为对不上。
+   */
+  const cny = type === 8 ? rawCny * 0.15 : rawCny;
+  /* 显式收窄成 UsageLog['status']，否则 TS 会把字面量推断成 string 而报错 */
+  const status: UsageLog['status'] =
+    type === 5 ? 'error' : type === 6 ? 'refund' : type === 8 ? 'adjust' : 'success';
   return {
     id: 900000 + i,
     customer_id: cust.id,
     customer_name: cust.display_name,
     model_name: model,
-    prompt_tokens: prompt,
-    completion_tokens: completion,
-    // 按模型真实单价算，单次调用 ¥0.001~¥3 之间，符合实际体感
-    quota: q(costOf(model, prompt, completion)),
+    prompt_tokens: type === 2 || type === 5 ? prompt : 0,
+    completion_tokens: type === 2 || type === 5 ? completion : 0,
+    cache_read: type === 2 ? Math.floor(prompt * 0.25) : 0,
+    quota: q(cny),
+    amount_cny: Math.round(cny * 100000) / 100000,
     use_time: Math.floor(rnd() * 9000) + 240,
     stream: rnd() > 0.35,
-    status: (failed ? 'error' : 'success') as 'error' | 'success',
+    status,
+    type,
     created_at: NOW - Math.floor(rnd() * 30) * DAY - Math.floor(rnd() * 86000),
   };
 }).sort((a, b) => b.created_at - a.created_at);
 
-// ── 用量汇总 ──────────────────────────────────────────────────
+/** 当前自然月 1 号（与后端 billing 默认区间一致） */
+function monthStart(nowSec: number): Date {
+  const d = new Date(nowSec * 1000);
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+const MONTH_START = monthStart(NOW);
+const MONTH_START_STR = `${MONTH_START.getFullYear()}-${String(MONTH_START.getMonth() + 1).padStart(2, '0')}-01`;
+const TODAY_STR = new Date(NOW * 1000).toISOString().slice(0, 10);
+
 /**
- * 最近 14 天的每日客户消费，合计严格等于「当月订单额」口径下的 14 天份额。
- * 月消耗不另算 —— 直接取 MONTH_ORDER_CNY（当月订单额），
- * 这样「本月消耗 × 佣金率 = 本月佣金」在页面上能反算得回去。
+ * 汇总 = billing/summary 的形态。
+ *
+ * 上一版这里有 by_model / by_customer / daily 三个拆分，
+ * 但后端从来没有这些接口 —— 已删，避免页面画一张后端喂不出数据的图。
  */
-const DAILY_CNY = (() => {
-  const weights = Array.from({ length: 14 }, (_, i) => {
-    const rnd = seeded(i * 613 + 3);
-    return 0.55 + rnd() * 1.0; // 区间拉开，柱子高低差才看得出来
-  });
-  const wsum = weights.reduce((a, b) => a + b, 0);
-  const total = MONTH_ORDER_CNY * (14 / 30); // 14 天应占当月的一部分
-  return weights.map((w) => Math.round((w / wsum) * total * 100) / 100);
-})();
-
-const MONTH_SPEND_CNY = MONTH_ORDER_CNY;
-
 export const mockUsageSummary: UsageSummary = {
-  // 筛选范围总量 = 表格里这 180 条明细的真实合计
-  total_quota: mockUsageLogs.reduce((s, l) => s + l.quota, 0),
-  total_requests: mockUsageLogs.length,
-  total_tokens: mockUsageLogs.reduce((s, l) => s + l.prompt_tokens + l.completion_tokens, 0),
-  daily: DAILY_CNY.map((cny, i) => {
-    const rnd = seeded(i * 613 + 31);
-    return {
-      date: new Date((NOW - (13 - i) * DAY) * 1000).toISOString().slice(0, 10),
-      quota: q(cny),
-      requests: Math.round(cny / 0.28),
-    };
-  }),
-  // 月消耗按模型拆分：旗舰模型单价高、调用少，轻量模型相反
-  by_model: MODEL_POOL.map((m, i) => {
-    const share = [0.06, 0.09, 0.21, 0.26, 0.15, 0.04, 0.11, 0.08][i] ?? 0.1;
-    const rnd = seeded(i * 431 + 11);
-    const cny = MONTH_SPEND_CNY * share * (0.9 + rnd() * 0.2);
-    const avgCost = (MODEL_META[m].in * 3 + MODEL_META[m].out * 1.5) / 1000;
-    return {
-      model_name: m,
-      quota: q(cny),
-      requests: Math.round(cny / Math.max(0.01, avgCost)),
-    };
-  }).sort((a, b) => b.quota - a.quota),
-  // 客户 TOP8：按各自累计消费占比分摊月消耗
-  by_customer: mockCustomers
-    .map((c, i) => ({ c, spend: CUSTOMER_SPEND_CNY[i] }))
-    .sort((a, b) => b.spend - a.spend)
-    .slice(0, 8)
-    .map(({ c, spend }) => {
-      const cny = MONTH_SPEND_CNY * (spend / TOTAL_CUSTOMER_SPEND_CNY);
-      return {
-        customer_id: c.id,
-        customer_name: c.display_name,
-        quota: q(cny),
-        requests: Math.round(cny / 0.28),
-      };
-    })
-    .sort((a, b) => b.quota - a.quota),
+  start_date: MONTH_START_STR,
+  end_date: TODAY_STR,
+  total_users: mockCustomers.filter((c) => (c.used_quota ?? 0) > 0).length,
+  total_requests: mockUsageLogs.filter((l) => l.type === 2 || l.type === 7).length,
+  total_quota: q(TOTAL_SPEND_CNY),
+  total_amount_cny: Math.round(TOTAL_SPEND_CNY * 100) / 100,
+  quota_per_unit: QUOTA_PER_UNIT,
 };
 
 // ── 概览 ──────────────────────────────────────────────────────
-/**
- * 本月佣金由「当月订单额 × 佣金率」得出，不是再估一个数。
- * 待结算/已结算在保留的页面里只出现在概览的身份条上，
- * 按一个持续经营 9 个月、当月账期未结束的经销商配置：
- * 历史 8 个月已结算，当月计提中算待结算。
- */
-const MONTH_COMMISSION_CNY = Math.round(MONTH_SPEND_CNY * COMMISSION_RATE * 100) / 100;
-{
-  const total = MONTH_ORDER_CNY * COMMISSION_MONTHS * COMMISSION_RATE;
-  mockDealerProfile.total_commission = Math.round(total * 100) / 100;
-  mockDealerProfile.pending_payout = MONTH_COMMISSION_CNY;
-  mockDealerProfile.settled_payout = Math.round((total - MONTH_COMMISSION_CNY) * 100) / 100;
-  mockDealerProfile.commission_rate = COMMISSION_RATE;
-}
-
 export const mockOverview: OverviewStats = {
   customer_count: mockCustomers.length,
-  new_customer_count: mockCustomers.filter((c) => c.created_at > NOW - 30 * DAY).length,
-  today_quota: mockUsageSummary.daily[mockUsageSummary.daily.length - 1].quota,
-  month_quota: q(MONTH_SPEND_CNY),
-  month_commission: MONTH_COMMISSION_CNY,
-  pending_commission: mockDealerProfile.pending_payout,
-  today_requests: mockUsageSummary.daily[mockUsageSummary.daily.length - 1].requests,
+  month_quota: mockUsageSummary.total_quota,
+  month_amount_cny: mockUsageSummary.total_amount_cny,
+  month_requests: mockUsageSummary.total_requests,
+  month_active_users: mockUsageSummary.total_users,
+  start_date: mockUsageSummary.start_date,
+  end_date: mockUsageSummary.end_date,
 };
 
-/** 客户创建的模拟返回 */
+/**
+ * 14 天趋势 = daily-trend 的形态：固定 14 个「已完成日」（不含今天），
+ * 缺数据的日子补 0，日期连续 —— 后端的实现就是这样。
+ */
+export const mockTrend: TrendPoint[] = (() => {
+  const weights = Array.from({ length: 14 }, (_, i) => {
+    const rnd = seeded(i * 613 + 3);
+    return 0.55 + rnd() * 1.0;
+  });
+  const wsum = weights.reduce((a, b) => a + b, 0);
+  const totalCny = TOTAL_SPEND_CNY * 0.45;
+  return weights.map((w, i) => {
+    const cny = Math.round((w / wsum) * totalCny * 100) / 100;
+    const prompt = Math.round(cny * 120000);
+    const completion = Math.round(cny * 40000);
+    return {
+      summary_date: new Date((NOW - (14 - i) * DAY) * 1000).toISOString().slice(0, 10),
+      prompt_tokens: prompt,
+      completion_tokens: completion,
+      request_count: Math.round(cny / 0.28),
+      quota: q(cny),
+      amount_cny: cny,
+    };
+  });
+})();
+
+/** 客户创建的模拟返回（后端目前没有 POST /users，仅供 mock 界面演示） */
 export function mockCreateCustomer(payload: CustomerCreatePayload): Customer {
   return {
     id: 20001 + mockCustomers.length + Math.floor(Math.random() * 1000),
@@ -289,12 +241,9 @@ export function mockCreateCustomer(payload: CustomerCreatePayload): Customer {
     email: payload.email || '',
     phone: payload.phone,
     status: 1,
-    quota: payload.init_quota || 0,
-    used_quota: 0,
-    request_count: 0,
-    discount_rate: payload.discount_rate ?? mockDealerProfile.discount_rate,
-    last_active_at: 0,
     created_at: Math.floor(Date.now() / 1000),
-    remark: payload.remark,
+    used_quota: 0,
+    used_amount_cny: 0,
+    request_count: 0,
   };
 }

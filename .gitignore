@@ -16,3 +16,18 @@ __debug_bin*
 Thumbs.db
 *.swp
 *.tmp
+
+# AI 助手的工作日志与本地会话记忆（属于个人工作区状态，不是项目代码）
+.workbuddy/
+.claude/
+.cursor/
+
+# 本地截图 / 临时验证产物
+*-screenshot*.png
+shot-*.png
+
+# 构建/测试临时产物
+tmp/
+*.test
+*.out
+coverage/

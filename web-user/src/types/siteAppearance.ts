@@ -60,16 +60,6 @@ export interface FooterColumnConfig {
   links: FooterColumnLinkConfig[];
 }
 
-export interface MarketingBannerConfig {
-  enabled: boolean;
-  static_ad: boolean;
-  background_image_file_id: string;
-  background_image_url?: string;
-  link_url: string;
-  start_at: number;
-  end_at: number;
-}
-
 /** 登录页媒体类型：none 不展示（左面板纯白） */
 export type LoginMediaType = 'none' | 'image' | 'video';
 
@@ -138,12 +128,22 @@ export interface SiteAppearance {
   privacy_label?: string;
   privacy_labels?: LocaleLabels;
   beian_label?: string;
+  /**
+   * 伙伴后台「明确清空」的页脚项，渲染层据此隐藏而不是回落默认文案。
+   *
+   * 为什么需要这个字段：上面那几个都是 string，空串在渲染层的含义是
+   * 「没配，用兜底文案」。但商户在伙伴后台把版权文字整个删掉，
+   * 意思是「不显示这句话」，不是「请帮我显示平台默认的那句」——
+   * 平台默认文案里写的是平台的公司名，挂在分销商站上等于给平台打广告。
+   *
+   * 所以把「清空」这个意图单独记下来。缺省 / 空数组 = 没人清空任何一项。
+   */
+  footer_hidden_items?: Array<'copyright' | 'terms' | 'privacy' | 'beian'>;
   header_config: { enabled: boolean; items: HeaderNavItemConfig[] };
   footer_columns_config: { enabled: boolean; columns: FooterColumnConfig[] };
   footer_copyright_config: { enabled: boolean };
   footer_brand_config: FooterBrandConfig;
   layout_config: SiteLayoutConfig;
-  marketing_banner_config: MarketingBannerConfig;
   customer_service_config: CustomerServiceConfig;
   login_media_config: LoginMediaConfig;
 }

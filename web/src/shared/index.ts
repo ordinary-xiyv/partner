@@ -21,6 +21,7 @@ export {
 // 白标（品牌展示组件）
 export { BrandLogo } from './ui/BrandLogo';
 export { BrandPreview } from './ui/BrandPreview';
+export { HomeStylePicker } from './ui/HomeStylePicker';
 
 // 请求层
 export {
@@ -41,6 +42,12 @@ export { EP } from './api/endpoints';
 // API 命名空间：页面统一用 dealerApi.xxx()
 export * as dealerApi from './api/dealer';
 
+/*
+ * 少数几个类型要单独具名导出：它们既被 dealerApi 里的函数用到，又要被页面
+ * 当成类型标注直接写（dealerApi.BrandImageTarget 在类型位置上不可读）。
+ */
+export type { BrandImageTarget } from './api/dealer';
+
 // 认证
 export { createAuthContext, FullPageLoading } from './auth/createAuthContext';
 
@@ -60,6 +67,15 @@ export * from './utils/format';
 
 // 通知
 export { notify, notifyApiSuccess, notifyApiError, extractErrorMessage } from './lib/notify';
+
+// 首页风格（伙伴后台选择，客户站渲染）
+export {
+  HOME_STYLE_EDITORIAL,
+  HOME_STYLE_TERMINAL,
+  DEFAULT_HOME_STYLE,
+  parseHomeStyle,
+  type HomeStyle,
+} from './lib/homeStyle';
 
 // 类型
 export type * from './types/dealer';

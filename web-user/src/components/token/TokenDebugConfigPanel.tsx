@@ -5,7 +5,7 @@ import { notifyApiSuccess } from '../../lib/notifyApi';
 import { copyToClipboard } from '../../utils';
 import type { Token } from '../../types';
 import { DOCS_NEW_TAB_ANCHOR_PROPS, getDocsAppHref, getDocsHomeUrl } from '../../config/docs';
-import { useStatus } from '../../contexts/StatusContext';
+import { usePartnerSiteBrand } from '../../hooks/usePartnerSiteBrand';
 import {
   TOKEN_STATUS_ENABLED,
   maskTokenKey,
@@ -14,24 +14,38 @@ import {
 
 const { Text } = Typography;
 
-const FALLBACK_SITE_BASE_URL = 'https://tokens.lynxtoncloud.com';
-
 export interface TokenDebugConfigPanelProps {
   tokens: Token[];
   onCopyKey: (tokenId: number) => void;
 }
 
-/** 与文档 / 模型广场一致：优先站点维护的 ServerAddress，其次 VITE_API_URL */
-function resolveSiteBaseUrl(serverAddress?: string): string {
-  const fromStatus = (serverAddress || '').trim();
-  if (fromStatus) return fromStatus.replace(/\/+$/, '');
+/**
+ * 决定「调试身份」里 Base URL 显示什么。
+ *
+ * 优先级与首页代码示例保持一致（见 home-style/shared/sdkSnippets.ts）：
+ * 伙伴配的 api_base_url > VITE_API_URL > 当前域名。
+ *
+ * 这里原来是「主站 server_address 优先 + 硬编码 tokens.lynxtoncloud.com 兜底」，
+ * 和首页那处是同一个毛病：分销商的客户在调试面板里复制 Base URL，
+ * 复制到的是主站地址。两处必须一起改，否则只改首页会变成两套地址。
+ *
+ * 最后返回空串而不是编一个域名：调用方会拼成 `/v1`，空串时至少看起来
+ * 是个没配全的状态，比指向别人的服务器安全。
+ */
+function resolveDebugBaseUrl(partnerApiBaseUrl?: string): string {
+  const fromPartner = (partnerApiBaseUrl || '').trim();
+  if (fromPartner) return fromPartner.replace(/\/+$/, '');
 
   const fromEnv = import.meta.env.VITE_API_URL;
   if (typeof fromEnv === 'string' && fromEnv.trim()) {
     return fromEnv.trim().replace(/\/+$/, '');
   }
 
-  return FALLBACK_SITE_BASE_URL;
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin.replace(/\/+$/, '');
+  }
+
+  return '';
 }
 
 /** 调试身份：只读展示默认 API Key + Base URL */
@@ -40,7 +54,7 @@ export function TokenDebugConfigPanel({
   onCopyKey,
 }: TokenDebugConfigPanelProps) {
   const { t } = useTranslation();
-  const { status } = useStatus();
+  const { brand } = usePartnerSiteBrand();
 
   const enabledTokens = useMemo(
     () => tokens.filter((item) => item.status === TOKEN_STATUS_ENABLED),
@@ -53,8 +67,8 @@ export function TokenDebugConfigPanel({
   );
   const copyTargetId = defaultToken?.id;
   const apiBaseUrl = useMemo(
-    () => `${resolveSiteBaseUrl(status?.server_address)}/v1`,
-    [status?.server_address],
+    () => `${resolveDebugBaseUrl(brand?.api_base_url)}/v1`,
+    [brand?.api_base_url],
   );
   const docsUrl = getDocsHomeUrl();
 

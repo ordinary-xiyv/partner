@@ -5,7 +5,7 @@ import App from './App';
 import { UserProvider } from './contexts/UserContext';
 import { StatusProvider } from './contexts/StatusContext';
 import { AuthModalProvider } from './contexts/AuthModalContext';
-import { HomePageModeProvider } from './contexts/HomePageModeContext';
+import { HomeStyleProvider } from './contexts/HomeStyleContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AntdAppProvider } from './antdAppProvider';
 import './index.css';
@@ -28,13 +28,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <AntdAppProvider>
       <BrowserRouter>
         <StatusProvider>
-          <HomePageModeProvider>
+          <HomeStyleProvider>
             <UserProvider>
               <AuthModalProvider>
                 <App />
               </AuthModalProvider>
             </UserProvider>
-          </HomePageModeProvider>
+          </HomeStyleProvider>
         </StatusProvider>
       </BrowserRouter>
     </AntdAppProvider>

@@ -10,6 +10,7 @@ import {
   TeamOutlined,
   BarChartOutlined,
   BgColorsOutlined,
+  FileTextOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
 import { useDealerAuth } from '../auth';
@@ -29,7 +30,10 @@ const navGroups: NavGroup[] = [
   },
   {
     title: '运营',
-    items: [{ path: '/brand', label: '品牌设置', icon: <BgColorsOutlined /> }],
+    items: [
+      { path: '/brand', label: '品牌设置', icon: <BgColorsOutlined /> },
+      { path: '/docs', label: '文档设置', icon: <FileTextOutlined /> },
+    ],
   },
   {
     title: '账户',
@@ -65,7 +69,7 @@ export default function AppLayout() {
       brandMark="P"
       navGroups={navGroups}
       account={{
-        displayName: profile?.display_name || profile?.username || '伙伴',
+        displayName: profile?.display_name || profile?.merchant_code || '伙伴',
         menuItems,
         onMenuClick: ({ key }) => {
           if (key === 'logout') void handleLogout();

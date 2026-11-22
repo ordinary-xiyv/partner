@@ -27,15 +27,39 @@
   .mobile-center-slot { display: flex !important; }
   :root {
     --app-header-padding-inline: 12px;
-    --app-header-logo-slot-width: auto;
+    --app-header-logo-slot-width: 120px;
     --app-header-height-expanded: 56px;
   }
 
-  /* Logo 仅占实际宽度，避免 148px 固定槽在移动端把汉堡菜单顶远 */
+  /*
+   * 窄屏的 logo 槽：不再是固定 148px（那会把汉堡顶到中间去），
+   * 但仍然保留一块确定的宽度，让「有没有 logo」这件事不影响布局。
+   * 之前这里是 auto + 内容撑开，没 logo 时收缩成 0 —— 左侧就只剩
+   * 一个汉堡贴着边缘，看起来像导航缺了一块。
+   *
+   * 用 order 把汉堡提到 logo 前面：桌面端是「logo 在左、导航在右」，
+   * 窄屏下导航折进抽屉，最左的位置留给菜单按钮更符合手机的使用习惯
+   * （拇指容易够到），logo 排在它右边当站点标识。
+   * DOM 顺序不动，只用视觉顺序换位 —— 结构和读写顺序保持一致。
+   *
+   * 三个都显式给 order：flex 容器的默认 order 是 0，只给其中两个
+   * 设值时，剩下的那个（这里是右侧的 header-actions）会排到最前面去，
+   * 于是按钮组跑到了 logo 左边。
+   */
+  .mobile-menu-btn.mobile-page-trigger {
+    order: 1;
+    margin-left: 0;
+    margin-right: 4px;
+  }
+
+  .app-header-logo { order: 2; }
+
+  .header-actions { order: 3; margin-left: auto; }
+
   .app-header-logo__slot {
-    flex: 0 1 auto;
-    width: auto;
-    max-width: 120px;
+    flex: 0 0 var(--app-header-logo-slot-width);
+    width: var(--app-header-logo-slot-width);
+    max-width: var(--app-header-logo-slot-width);
   }
 
   .header-bar { padding: 0 12px !important; height: 56px !important; }

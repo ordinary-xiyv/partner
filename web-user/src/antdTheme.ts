@@ -1,15 +1,31 @@
 import type { ThemeConfig } from 'antd/es/config-provider/context';
-import { BRAND_PRIMARY_HEX, BRAND_PRIMARY_STATES, primaryRgba, type ThemeModeResolved } from './theme/brandTokens';
+import {
+  primaryRgba,
+  readableTextOn,
+  resolveBrandPrimaryHex,
+  resolveBrandPrimaryStates,
+  type ThemeModeResolved,
+} from './theme/brandTokens';
 
-/** 与 `theme/brandTokens` + `applyBrandCSSVariables` 对齐，供 Ant 区域主题 */
-export function buildAntdTheme(resolved: ThemeModeResolved): Pick<ThemeConfig, 'token' | 'components'> {
+/**
+ * 与 `theme/brandTokens` + `applyBrandCSSVariables` 对齐，供 Ant 区域主题。
+ *
+ * `overridePrimaryHex` 是伙伴后台配的主色。传了就整套跟着它派生：
+ * hover / active 由它算，主色上的文字色也由它算（浅色主色配白字会糊）。
+ */
+export function buildAntdTheme(
+  resolved: ThemeModeResolved,
+  overridePrimaryHex?: string | null,
+): Pick<ThemeConfig, 'token' | 'components'> {
   const isDark = resolved === 'dark';
-  const primaryHex = BRAND_PRIMARY_HEX[resolved];
-  const primaryStates = BRAND_PRIMARY_STATES[resolved];
+  const primaryHex = resolveBrandPrimaryHex(resolved, overridePrimaryHex);
+  const primaryStates = resolveBrandPrimaryStates(resolved, overridePrimaryHex);
 
   const token: NonNullable<ThemeConfig['token']> = isDark
     ? {
         colorPrimary: primaryHex,
+        /** 主色实心按钮上的文字色。浅色主色配白字会糊，交给主色亮度决定 */
+        colorTextLightSolid: readableTextOn(primaryHex),
         /** 表格行内链接操作、Collapse `type="ghost"` 等走 `colorLink`，与主色统一避免偏蓝 */
         colorLink: primaryHex,
         colorLinkHover: primaryStates.hover,
@@ -29,6 +45,7 @@ export function buildAntdTheme(resolved: ThemeModeResolved): Pick<ThemeConfig, '
       }
     : {
         colorPrimary: primaryHex,
+        colorTextLightSolid: readableTextOn(primaryHex),
         colorLink: primaryHex,
         colorLinkHover: primaryStates.hover,
         colorLinkActive: primaryStates.active,

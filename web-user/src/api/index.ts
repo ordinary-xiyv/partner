@@ -710,35 +710,6 @@ export const proxySiteFaviconUpload = (fileId: string, file: File) => {
   );
 };
 
-/** 管理员：初始化营销条背景图上传 */
-export const initSiteMarketingBannerUpload = (data: {
-  original_name: string;
-  content_type: string;
-  size_bytes: number;
-}) =>
-  API.post<{ success: boolean; data?: LynxStorageUploadInitData; message?: string }>(
-    '/api/lynx/admin/site/marketing-banner/upload-init',
-    data,
-  );
-
-/** 服务端代传营销条背景图 */
-export const proxySiteMarketingBannerUpload = (fileId: string, file: File) => {
-  const form = new FormData();
-  form.append('file', file);
-  return API.post<{ success: boolean; message?: string }>(
-    `/api/lynx/admin/site/marketing-banner/${encodeURIComponent(fileId)}/upload`,
-    form,
-    { headers: { 'Content-Type': 'multipart/form-data' } },
-  );
-};
-
-/** 最近营销条背景图（公开） */
-export const getPublicMarketingBannerImages = (params?: { limit?: number }) =>
-  API.get<{ success: boolean; data?: LynxSiteLogoPublic[]; message?: string }>(
-    '/api/lynx/branding/marketing-banner',
-    { params },
-  );
-
 /** 管理员：初始化客服二维码上传 */
 export const initSiteCustomerServiceQrUpload = (data: {
   original_name: string;
