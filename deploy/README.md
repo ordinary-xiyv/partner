@@ -4,7 +4,28 @@
 
 ## 准备
 
-1. 确认原平台已手工执行商户表和伙伴登录迁移：`202611180001_distribution_merchants.up.sql`、`202611190001_distribution_merchant_partner_login.up.sql`。伙伴登录仍需在原 admin 后台为商户开通。
+1. **先跑数据库脚本。** 本目录的 `sql/001_partner_platform_schema.sql` 汇总了上线所需的全部 DDL，按顺序执行即可，重复执行安全（全段幂等）：
+
+   ```bash
+   psql "$SQL_DSN" -v ON_ERROR_STOP=1 -f sql/001_partner_platform_schema.sql
+   ```
+
+   它覆盖 6 类东西，缺任何一段都会以「500 / 列不存在」的形式暴露在业务接口里：
+
+   | 段 | 内容 | 缺了会怎样 |
+   |---|---|---|
+   | 1 | `lc_distribution_merchants` 表 + `users.merchant_id` | 伙伴后台登不进去 |
+   | 2 | `partner_password_hash` 等 5 列 | 伙伴登录失败；`has_own_web` 缺失 → **客户站所有登录全挂** |
+   | 3 | 10 个 `brand_*` 列 | 品牌设置页 500（`column "brand_name" does not exist`）|
+   | 4 | 3 条 CHECK 约束 | 非法主色 / 非对象 JSON 能被写进库 |
+   | 5 | `lc_partner_doc_*` 两张表 | 文档中心全部接口报「文档功能未初始化」|
+   | 6 | 只读依赖清单（`users` / `logs` / `options`）| —— 由 lynxtonapi 维护，本仓库不建 |
+
+   ★ **第 3 段要特别注意**：这 10 个 `brand_*` 列在 `lynxtonapi` 的 migrations 目录里**没有对应的版本化迁移**，现有环境是开发过程中手工加到库上的。上线到新库时必须执行，不能指望原平台迁移脚本带到。
+
+   跑完脚本后，`sql/001_partner_platform_schema.sql` 第 7 段是只读自检，用同一份文件再执行一次就能看到每一项是否就位。
+
+2. 伙伴登录仍需在原 admin 后台为商户开通（`partner_login_enabled`），并设置初始密码。首次登录会强制改密。
 2. 在 `~/partner/deploy` 目录复制配置并填入实际数据库连接和会话密钥：
 
    ```bash
@@ -16,6 +37,19 @@
    `SQL_DSN` 必须指向原平台的数据库，且 `users`、`logs`、`lc_log_daily_summaries` 在同一库。如果 PostgreSQL 在宿主机，容器中的 `127.0.0.1` 指向容器自身，请使用 `host.docker.internal`，并确保数据库监听 Docker 网关地址且允许该来源访问。若数据库在另一个 Compose 网络，需按实际网络接入并使用其容器 DNS 名称。
 
 3. 确保本机已安装 Docker Engine 和 Docker Compose 插件。部署机可以从 `~/partner` 仓库直接构建，不依赖原 `lynxtonapi` 的部署目录。
+
+### 两个后端、一张表
+
+上线时容易搞混的一点：**伙伴平台和客户站用的不是同一个后端，但读的是同一张商户表。**
+
+| 服务 | 端口 | 数据库 | 谁在访问 |
+|---|---|---|---|
+| 伙伴后端（`backend/`）| 3004 | 与 lynxtonapi 共用 | 伙伴后台 `web/`（5176）+ 客户站 `web-user/`（5177）读 `/api/partner/public/*` |
+| lynxtonapi user-api（`cmd/lynxtonapi-user`）| 3002 | 同上 | 客户站全部业务接口 `/api/*`、`/v1/*` |
+
+`web-user` 是双后端分流：`/api/partner/*` → 3004，其余 `/api/*` → 3002。这个顺序在 `web-user/vite.config.js` 里是**强制的** —— `/api/partner` 必须声明在 `/api` 前面，否则会被前缀通配吞掉。生产环境在 nginx 里做等价分流。
+
+`lc_distribution_merchants` 是两边共用的唯一数据源：伙伴后台写 `brand_*`，客户站按站点身份（`X-Site-ID` / `X-Site-Host` / `X-Site-Credential` 三个头）读回同一份。不各存一套，也不做同步。
 
 ## 启动
 
