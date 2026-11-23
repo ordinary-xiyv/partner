@@ -11,6 +11,8 @@ services:
       PARTNER_SESSION_SECRET: ${PARTNER_SESSION_SECRET:?Set PARTNER_SESSION_SECRET in deploy/.env}
       SESSION_COOKIE_SECURE: "true"
       PARTNER_LISTEN_ADDRESS: 0.0.0.0:3004
+    ports:
+      - ${PARTNER_BACKEND_BIND_ADDRESS:-0.0.0.0}:${PARTNER_BACKEND_PORT:-3004}:3004
     extra_hosts:
       - host.docker.internal:host-gateway
     healthcheck:
