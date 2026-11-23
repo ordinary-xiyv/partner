@@ -1,0 +1,30 @@
+# One project per customer site. The shared user and partner APIs stay separate.
+name: ${SITE_PROJECT_NAME:?Set a unique SITE_PROJECT_NAME}
+
+services:
+  web-user:
+    image: ${SITE_IMAGE_NAME:-lynxton-partner-web-user}:${SITE_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - ${SITE_BIND_ADDRESS:-127.0.0.1}:${SITE_HTTP_PORT:-8080}:80
+    environment:
+      SITE_ID: ${SITE_ID:?Set SITE_ID}
+      SITE_DOMAIN: ${SITE_DOMAIN:?Set SITE_DOMAIN}
+      SITE_CREDENTIAL: ${SITE_CREDENTIAL:?Set SITE_CREDENTIAL}
+      SITE_API_ORIGIN: ${SITE_API_ORIGIN:?Set SITE_API_ORIGIN}
+      SITE_PARTNER_API_ORIGIN: ${SITE_PARTNER_API_ORIGIN:?Set SITE_PARTNER_API_ORIGIN}
+      SITE_ALLOW_INSECURE_HTTP: ${SITE_ALLOW_INSECURE_HTTP:-false}
+      SITE_ENFORCE_HOST: ${SITE_ENFORCE_HOST:-true}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ./nginx.conf.template:/etc/nginx/site.conf.template:ro
+      - ./start.sh:/etc/lynxtonapi/start-site.sh:ro
+    entrypoint: ["/bin/sh", "/etc/lynxtonapi/start-site.sh"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- --header=Host:$$SITE_DOMAIN http://127.0.0.1/healthz >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+

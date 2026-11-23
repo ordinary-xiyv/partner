@@ -73,7 +73,7 @@ USER_PARTNER_PROXY_TARGET=http://127.0.0.1:3004      # 本仓库 backend
 
 伙伴平台自己的前后端容器及同域反向代理位于 [`deploy/`](deploy/README.md)，只包含 `backend/` 与 `web/`。从仓库构建，复制 `deploy/.env.example` 配置共享数据库与会话密钥，然后在该目录运行 Docker Compose；原平台的部署目录无需参与。
 
-`web-user/` 不在 `deploy/compose.yml` 里，它由 `lynxtonapi` 的部署体系负责构建（`lynxtonapi/deploy/docker/Dockerfile.web-user`），本仓库里没有它的 Dockerfile。
+`web-user/` 不在伙伴后台的 `deploy/compose.yml` 里。客户站使用本仓库独立的 [`deploy/distribution/`](deploy/distribution/README.md) 模板；先用其中的 `package-image.sh` 从 `web-user/Dockerfile` 构建并导出版本镜像，再按站点配置共享 user API 与伙伴后端两个代理目标。不依赖 `lynxtonapi/deploy` 目录或原项目的 user-web 镜像。
 
 ## 本地运行
 
