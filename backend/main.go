@@ -75,7 +75,8 @@ func loginLimit() gin.HandlerFunc {
 
 func buildRouter() *gin.Engine {
 	r := gin.New()
-	_ = r.SetTrustedProxies(nil)
+	// CLB 等内网入口透传 X-Forwarded-For，信任内网网段才能拿到真实客户端 IP（登录限流按 IP 计数）
+	_ = r.SetTrustedProxies([]string{"10.0.0.0/8"})
 	r.Use(gin.Logger(), gin.Recovery())
 	r.GET("/healthz", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"ok": true}) })
 	p := r.Group("/api/partner")
