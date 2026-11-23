@@ -1,0 +1,19 @@
+<svg viewBox="0 0 24 24" stroke-width="1.7" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <!--
+    欢迎卡图标 5：文档 + 铅笔（对应「教育发展」的写作/规划意象）。
+
+    线条风格与 customer-service-contact.svg 一致：纯 stroke、圆头圆角、无填充。
+    铅笔斜压在文档右下角，和原 PNG 的构图保持一致，用户不会觉得换了套图。
+  -->
+  <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 文档外框，右下角留出铅笔穿过的缺口 -->
+    <path d="M14.2 3.2H6.4A1.9 1.9 0 0 0 4.5 5.1v13.8a1.9 1.9 0 0 0 1.9 1.9h6.2"/>
+    <!-- 文本行 -->
+    <path d="M7.8 7.6h6.4M7.8 11.1h6.4M7.8 14.6h3.4"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 铅笔：笔身 + 笔尖，斜 45° -->
+    <path d="M18.9 11.4a1.9 1.9 0 0 1 2.7 2.7l-6.4 6.4-3.6.9.9-3.6z"/>
+    <path d="M17.5 12.8 19.8 15.1"/>
+  </g>
+</svg>

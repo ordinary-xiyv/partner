@@ -6,7 +6,6 @@ const POST_AUTH_DASHBOARD_PATHS = new Set([
   '/',
   '/login',
   '/register',
-  '/pricing',
   '/about',
   '/trust',
   '/legal',
@@ -16,7 +15,6 @@ const POST_AUTH_DASHBOARD_PATHS = new Set([
   '/support-plans',
   '/status-page',
   '/setup',
-  '/enterprise/apply',
 ]);
 
 function shouldRedirectToDashboard(path: string): boolean {

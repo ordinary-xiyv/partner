@@ -1,5 +1,12 @@
 :root {
   --app-header-padding-inline: 24px;
+  /*
+   * 槽位宽度的「历史值」，现在只作为响应式断点里的参考上限。
+   *
+   * 实际槽位已改为按 logo 内容收缩（见 .app-header-logo__slot），这个变量
+   * 不再决定任何布局。保留是因为 responsive.css 的窄屏断点还在读它当
+   * max-width 的量级依据，删掉会让那边的语义断链。
+   */
   --app-header-logo-slot-width: 148px;
   --app-header-nav-margin-left: 28px;
   --app-header-nav-link-padding-inline: 12px;
@@ -14,10 +21,6 @@
    * 再出现「页头之外还有一条固定高度的东西」，改这一行即可。
    */
   --app-site-top-chrome-h: var(--app-header-height-expanded);
-  --app-header-nav-text-offset: calc(
-    var(--app-header-padding-inline) + var(--app-header-logo-slot-width) +
-      var(--app-header-nav-margin-left) + var(--app-header-nav-link-padding-inline)
-  );
 }
 
 .app-header-bar {
@@ -33,12 +36,9 @@
 }
 
 /*
- * Logo 槽位。
+ * Logo 锚点。
  *
- * 固定宽度、始终挂载 —— 有没有配 logo 都占这 148px。
- * 这不只是视觉上的「留个位置」：导航文字的起始位置
- * （--app-header-nav-text-offset）就是按这个宽度推出来的，槽位一旦
- * 不渲染，导航会整体左移，看起来像左侧少了一块。
+ * 始终挂载、不参与换行 —— 有没有 logo 都留一个可点击的入口。
  */
 .app-header-logo {
   display: flex;
@@ -47,9 +47,33 @@
   text-decoration: none;
 }
 
+/*
+ * Logo 槽位：贴合 logo 实际宽度，不再固定 148px。
+ *
+ * 以前这里是 `flex: 0 0 148px`，理由是「导航位置按它推算」。实际查下来
+ * --app-header-nav-text-offset 这个变量**从未被任何规则消费**（只出现在
+ * 注释里），导航的位置完全由 flex 流决定 —— 也就是「槽宽 + 28px 外边距」。
+ * 所以固定宽度这个前提本身不成立。
+ *
+ * 固定的代价很直观：正方形 logo 渲染出来只有 32px 宽，左边贴着 24px 的
+ * 页头内边距、右边空出 116px 才轮到「模型广场」。logo 看起来孤零零挂在
+ * 最左侧，和导航之间一道很宽的空白，这就是「太靠左、观感不好」的来源之一。
+ *
+ * 改成按内容收缩后：
+ *   · 正方形 logo  → 槽 32px，导航紧跟其后（间距仍是 28px）
+ *   · 横版 4:1 logo → 槽最多 196px，铺满仍有版面感
+ *   · 没图有首字  → 首字方块 32px，同上
+ *   · 什么都没有   → 塌到 min-width 32px，不会 0 宽
+ *
+ * max-width 从 148 放宽到 196：148 是当年按「正方形图标」估的数，横版
+ * 品牌名（中英双语的 wordmark）到 148 会被压得读不清。196 在 1440 视口
+ * 下仍给导航留足 1000px 以上，不会挤。
+ */
 .app-header-logo__slot {
-  flex: 0 0 var(--app-header-logo-slot-width);
-  width: var(--app-header-logo-slot-width);
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 32px;
+  max-width: 196px;
   height: 32px;
   display: flex;
   align-items: center;
@@ -64,6 +88,113 @@
   max-width: 100%;
   object-fit: contain;
   object-position: left center;
+}
+
+/*
+ * 窄 logo 的补宽：图 + 品牌名并排。
+ *
+ * 触发条件是图片宽高比 < 3.2（见 Header.tsx 的 needsWordmark）。典型场景
+ * 就是商户传了个正方形图标 —— 渲染出来只有 32px 宽，右边一整片空白，
+ * 页头左段看起来是残缺的。补上品牌名之后宽度约 130~180px，和横版
+ * wordmark 的视觉分量相当，而且换任何一个商户的图都成立。
+ *
+ * 为什么加在右侧而不是放大图标：图标从 32 放到 40 只多 8px 宽，根本
+ * 填不满；而且 40px 会顶破 64px 页头的垂直呼吸，得不偿失。
+ *
+ * 间距 10px：logo 底边是图形、品牌名是文字，两者基线不共享，
+ * 8px 显得挤、12px 又散，10px 在 17px 字号下刚好。
+ */
+.app-header-logo__slot--wordmark {
+  gap: 10px;
+  /*
+   * 有品牌名时放宽上限。196 是纯图形的上限（横版 4:1 大约 150px 就够），
+   * 但「方形图标 + 品牌名」会到 32 + 10 + 文字宽度，中文长名可能 200px
+   * 以上。给到 260，同时靠 overflow: hidden 兜底防止把导航挤走。
+   */
+  max-width: 260px;
+}
+
+.app-header-logo__wordmark {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /*
+   * 文字不能被压缩：slot 是 flex 容器，图有固定宽高、文字默认会被
+   * flex-shrink 压成「lynx…」。min-width: 0 配合 max-width 才是
+   * 「可以省略但不能压扁」的正确组合。
+   */
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/*
+ * 没配 logo 时的「品牌色方块 + 首字」。
+ *
+ * 和伙伴后台的预览（web/src/shared/ui/BrandLogo.tsx）保持同一套视觉语言：
+ * 32×32 圆角方块、品牌色底、反色字、字重 800。方块尺寸固定在 32px，
+ * 与 logo 图片的高度一致 —— 这样「有没有配 logo」页头的垂直重心不变。
+ *
+ * 用 --btn-primary-text 而不是直接写 #fff：品牌色可能是浅色（黄、浅绿），
+ * 白字会看不清。这个变量由 theme/brandTokens 的 readableTextOn 算出来，
+ * 项目里所有「品牌色底上的文字」都用它。
+ */
+.app-header-logo__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--theme-color-primary, #6d51fe);
+  color: var(--btn-primary-text, #fff);
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  user-select: none;
+  overflow: hidden;
+}
+
+/*
+ * 首页 hero：页头左边缘对齐正文容器左边缘。
+ *
+ * 问题：正文是 max-width 1200 + padding 40 居中，页头是全宽 + padding 24。
+ * 1440 视口下正文从 160px 起、logo 在 24px，差 136px；1920 视口差 376px。
+ * 屏幕越宽错位越大，logo 看起来「孤零零贴在左上角」，和整页内容没有关系。
+ *
+ * 修法不是把 24 改成某个更大的固定值 —— 那样只是把 1440 调好、1920 又错了。
+ * 必须让页头的边距跟着正文容器的实际左边缘走：
+ *
+ *   正文左边缘 = max(容器内边距, (视口宽 - 1200) / 2 + 容器内边距)
+ *
+ * 两档对应 .tm-shell / .ed-shell 自己的断点（40 / 32），数字必须和首页
+ * 样式里的 padding 保持一致，改一处要同步另一处。
+ *
+ * 选择器写 header.app-header--hero 而不是 .app-header--hero：responsive.css
+ * 在 :root 里也设这个变量（16px @769–1023），两边特异性相同、胜负取决于
+ * 样式表引入顺序，那是不可靠的。多挂一个元素选择器把特异性拉开一档。
+ *
+ * 只覆盖 ≥769px：
+ *   · 窄屏 .header-bar 上有 padding: 0 12px !important，且侧栏汉堡按钮需要
+ *     更靠边的空间，强行对齐反而更挤
+ *   · 只作用于 --hero（首页）。模型广场正文容器是 1640 + 24，本来就与页头
+ *     的 24 对齐；控制台那片走侧栏绝对定位，都不受影响
+ */
+@media (min-width: 1081px) {
+  header.app-header--hero {
+    --app-header-padding-inline: max(40px, calc((100vw - 1200px) / 2 + 40px));
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1080px) {
+  header.app-header--hero {
+    --app-header-padding-inline: 32px;
+  }
 }
 
 .app-header-bar > .header-nav {
@@ -114,6 +245,15 @@
     padding-left: var(--app-header-padding-inline);
     padding-right: 12px;
     border-right: none;
+  }
+
+  /*
+   * 控制台侧栏只有 220~256px 宽，还要减去左右内边距。带品牌名的槽位上限
+   * 必须收在侧栏内，否则长品牌名会把右边的内容挤出可视区。
+   * 品牌名自己有 text-overflow: ellipsis，这里只要给对可用宽度。
+   */
+  .app-header--console .app-header-logo__slot {
+    max-width: 100%;
   }
 }
 

@@ -5,7 +5,6 @@ export const HEADER_INTERNAL_PATHS = [
   '/image-chat',
   '/video',
   '/speech',
-  '/pricing',
   '/dashboard',
   '/tokens',
   '/logs',
@@ -21,7 +20,6 @@ export const HEADER_INTERNAL_PATHS = [
   '/announcements',
   '/support-plans',
   '/status-page',
-  '/enterprise/apply',
   '/docs',
 ] as const;
 

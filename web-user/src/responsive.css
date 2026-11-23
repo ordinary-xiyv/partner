@@ -56,10 +56,23 @@
 
   .header-actions { order: 3; margin-left: auto; }
 
+  /*
+   * 窄屏槽位：跟随 logo 实际宽度收缩，但留一个上限防止长 wordmark 把
+   * 右侧的菜单/登录按钮挤出去。
+   *
+   * 曾经这里是 `flex: 0 0 120px` 的固定宽度，注释理由是「保留一块确定的
+   * 宽度，让有没有 logo 都不影响布局」。但固定宽度的代价是：正方形 logo
+   * 只有 32px 宽，右边白留 88px，logo 像被孤立在最左边。而它原本要保护
+   * 的那件事（导航位置）在窄屏根本不成立 —— 窄屏导航折进抽屉，页头右侧
+   * 只有按钮组，靠 `margin-left: auto` 就能保持贴右，不依赖 logo 宽度。
+   *
+   * 128px 上限：768 视口下页头可用宽约 768 - 12*2 = 744，汉堡 32 + 间距
+   * 4 + logo 128 + 按钮组约 130 ≈ 294，仍余量充足。
+   */
   .app-header-logo__slot {
-    flex: 0 0 var(--app-header-logo-slot-width);
-    width: var(--app-header-logo-slot-width);
-    max-width: var(--app-header-logo-slot-width);
+    flex: 0 1 auto;
+    width: auto;
+    max-width: 128px;
   }
 
   .header-bar { padding: 0 12px !important; height: 56px !important; }

@@ -1,7 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { DocsExternalLink } from '../../components/DocsExternalLink';
 import StaticPage from './StaticPage';
 
 export default function Legal() {
@@ -28,17 +26,6 @@ export default function Legal() {
 
       <h2>{t('static.legalSection3Title')}</h2>
       <p>{t('static.legalSection3Body')}</p>
-
-      <div className="static-page-cta">
-        <div>
-          <strong>{t('static.legalCtaTitle')}</strong>
-          <p>{t('static.legalCtaBody')}</p>
-        </div>
-        <div className="static-page-cta-actions">
-          <DocsExternalLink>{t('static.legalCtaPrimary')}</DocsExternalLink>
-          <Link to="/enterprise/apply">{t('static.legalCtaSecondary')}</Link>
-        </div>
-      </div>
     </StaticPage>
   );
 }

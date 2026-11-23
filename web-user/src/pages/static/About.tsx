@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import StaticPage from './StaticPage';
 
@@ -27,17 +26,6 @@ export default function About() {
 
       <h2>{t('static.aboutSection3Title')}</h2>
       <p>{t('static.aboutSection3Body')}</p>
-
-      <div className="static-page-cta">
-        <div>
-          <strong>{t('static.aboutCtaTitle')}</strong>
-          <p>{t('static.aboutCtaBody')}</p>
-        </div>
-        <div className="static-page-cta-actions">
-          <Link to="/pricing">{t('static.aboutCtaPrimary')}</Link>
-          <Link to="/enterprise/apply">{t('static.aboutCtaSecondary')}</Link>
-        </div>
-      </div>
     </StaticPage>
   );
 }

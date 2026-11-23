@@ -76,10 +76,8 @@ export interface LoginMediaConfig {
 export interface CustomerServiceConfig {
   enabled: boolean;
   show_contact: boolean;
-  show_feedback: boolean;
   qr_code_file_id: string;
   qr_code_url?: string;
-  feedback_url: string;
 }
 
 export interface FooterSocialLink {

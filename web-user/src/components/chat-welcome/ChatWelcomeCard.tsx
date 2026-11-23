@@ -55,6 +55,7 @@ export function ChatWelcomeCardButton({ card, disabled, onApply }: ChatWelcomeCa
   };
 
   if (card.type === 'text') {
+    const Icon = card.Icon;
     return (
       <button
         type="button"
@@ -64,8 +65,8 @@ export function ChatWelcomeCardButton({ card, disabled, onApply }: ChatWelcomeCa
         onClick={handleClick}
       >
         <div className="chat-text-welcome-card-icon" aria-hidden>
-          {card.iconSrc ? (
-            <img src={card.iconSrc} alt="" />
+          {Icon ? (
+            <Icon className="chat-text-welcome-card-icon-svg" focusable="false" />
           ) : (
             <span className="chat-text-welcome-card-icon-fallback">·</span>
           )}

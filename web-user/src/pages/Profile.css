@@ -40,7 +40,16 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent-primary), #8b7bff);
+  /*
+   * 头像渐变：起点跟品牌色，终点由品牌色往深里推。
+   * 原来终点写死 #8b7bff —— 换主色后起点变了、终点还是紫的，
+   * 渐变会出现明显的色相断层。
+   */
+  background: linear-gradient(
+    135deg,
+    var(--accent-primary),
+    color-mix(in srgb, var(--accent-primary, #8b7bff) 78%, #000)
+  );
   color: #fff;
   font-size: 22px;
   font-weight: 700;

@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import StaticPage from './StaticPage';
 
@@ -31,16 +30,6 @@ export default function Consulting() {
           </section>
         ))}
       </div>
-
-      <section className="static-highlight-card">
-        <div className="static-kicker">{t('static.consultingSection3Title')}</div>
-        <h2>{t('static.consultingCtaTitle')}</h2>
-        <p>{t('static.consultingCtaBody')}</p>
-        <div className="static-page-cta-actions">
-          <Link to="/enterprise/apply">{t('static.consultingCtaPrimary')}</Link>
-          <Link to="/pricing">{t('static.consultingCtaSecondary')}</Link>
-        </div>
-      </section>
     </StaticPage>
   );
 }

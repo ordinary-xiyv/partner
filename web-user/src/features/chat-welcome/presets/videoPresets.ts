@@ -11,10 +11,17 @@ import {
 /**
  * 视频欢迎卡。
  *
- * 视频文件不再打包进仓库（原厂那几条 mp4 体积太大且与业务无关），
- * 改为按 VIDEO_PRESET_ORDER 的顺序固定生成卡片，src 指向 public/videos/welcome/{id}.mp4。
- * 把同名 mp4 放进 web/public/videos/welcome/ 即可生效；文件缺失时卡片仍在，
- * 只是封面/预览为空白，不会报错。
+ * 视频文件不打包进 bundle（5 条共 20MB，走 import 会被 vite 内联进
+ * assets 并生成 hash 名，既拖慢首屏也让运维换视频变成重新构建）。
+ * 改为按 VIDEO_PRESET_ORDER 的顺序固定生成卡片，
+ * src 指向 public/videos/welcome/{id}.mp4。
+ *
+ * public/ 下的文件 vite 原样拷贝、不改名，所以运维换一条视频只要
+ * 覆盖同名文件即可，不需要动代码、不需要重新 build。
+ *
+ * 封面：这些视频没有配套封面图，靠 ChatWelcomeVideoMedia 在 loadeddata 时
+ * seek 到第 0.05 秒那一帧当静态预览。所以 coverSrc 留空是正确的，
+ * 不要为了「有封面」去传一个不存在的路径 —— 那会让 poster 属性发出 404。
  */
 const VIDEO_PRESET_BASE = '/videos/welcome';
 

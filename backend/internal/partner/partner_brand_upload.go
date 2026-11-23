@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -64,7 +65,19 @@ const (
 const (
 	brandTargetLogo    = "logo_url"
 	brandTargetFavicon = "favicon_url"
+	/*
+	 * 客服二维码。和前两个不同，它不落独立列，而是写进 brand_support
+	 * 这个 jsonb 里的 qr_code_url 键 —— lc_distribution_merchants 是主平台表，
+	 * 为一张二维码加列的代价（改主平台迁移）远大于收益，而 support 本来就是
+	 * 自由格式的 jsonb，加一个键不需要任何 DDL。
+	 */
+	brandTargetSupportQR = "support_qr"
 )
+
+// supportQRKey 是 brand_support 里存二维码地址的键名。
+// 客户站读的是 siteAppearance.customer_service_config.qr_code_url，
+// 由 partnerBrandToCustomerService 在这里把值搬过去。
+const supportQRKey = "qr_code_url"
 
 var (
 	errStorageNotConfigured = errors.New("对象存储未配置，请联系平台在系统设置里填写")
@@ -197,8 +210,12 @@ objectKey 按平台既有模板生成对象键。
 模板里的 {user_id} 对伙伴体系没有意义（伙伴登录的是商户，不是 users 表里的用户），
 这里传 -1 占位，与平台上已有的自营站点 logo 保持一致——
 那些文件的对象键就是 .../site-logo/-1/...，沿用同一个形态便于按前缀做批量清理。
+
+replaceDir 用来把模板里的 site-logo 换成别的目录名。二维码走同一个模板、
+只换目录，是为了让「品牌图都挂在 branding/ 下面」这个约定不被破坏，
+将来按前缀巡检或清理时不用记两套规则。
 */
-func (c objectStorageConfig) objectKey(merchantID int64, fileID, filename string) string {
+func (c objectStorageConfig) objectKey(merchantID int64, fileID, filename, replaceDir string) string {
 	key := c.KeyTemplate
 	key = strings.ReplaceAll(key, "{key_prefix}", c.KeyPrefix)
 	key = strings.ReplaceAll(key, "{user_id}", "-1")
@@ -206,6 +223,9 @@ func (c objectStorageConfig) objectKey(merchantID int64, fileID, filename string
 	key = strings.ReplaceAll(key, "{filename}", filename)
 	// 商户 ID 单独一段，方便按商户定位和清理
 	key = strings.ReplaceAll(key, "{merchant_id}", fmt.Sprintf("%d", merchantID))
+	if replaceDir != "" {
+		key = strings.Replace(key, "site-logo", replaceDir, 1)
+	}
 	return strings.TrimPrefix(key, "/")
 }
 
@@ -235,15 +255,15 @@ func newFileID() (string, error) {
 /*
 normalizeBrandTarget 把前端传来的 target 归一。
 
-只认 logo_url / favicon_url 两个落点，空值默认 logo —— 商户点「上传 logo」
-是主路径，漏传 target 时按主路径处理比报错更合理。
+认 logo_url / favicon_url / support_qr 三个落点，空值默认 logo —— 商户点
+「上传 logo」是主路径，漏传 target 时按主路径处理比报错更合理。
 */
 func normalizeBrandTarget(raw string) (string, error) {
 	target := strings.ToLower(strings.TrimSpace(raw))
 	switch target {
 	case "":
 		return brandTargetLogo, nil
-	case brandTargetLogo, brandTargetFavicon:
+	case brandTargetLogo, brandTargetFavicon, brandTargetSupportQR:
 		return target, nil
 	default:
 		return "", errBrandUploadTarget
@@ -375,6 +395,23 @@ func uploadBrandImage(merchantID int64, target, filename, contentType string, co
 		return MerchantBrand{}, err
 	}
 
+	/*
+	 * 自动规范化：去透明留白 + 白底转透明。
+	 *
+	 * 放在校验之后、上传之前：校验保证进来的确实是图片，规范化只在
+	 * 确认能安全处理时才改写字节（见 partner_brand_image.go）。
+	 * 拿不到收益（SVG、已紧裁的透明图、处理完过大）时返回 false，
+	 * 这里就继续用原始 data 上传。
+	 *
+	 * 必须接住返回的类型：JPEG 没有 alpha，做透明只能重编码成 PNG。
+	 * 若仍按原来的 image/jpeg 写对象，桶里就会出现「.jpg 扩展名 + PNG 内容」
+	 * 的文件，浏览器按扩展名解码多半显示不出来 —— 商户看到的是破图。
+	 */
+	if normalized, normalizedType, ok := normalizeBrandImage(contentType, data); ok {
+		data = normalized
+		contentType = normalizedType
+	}
+
 	client, err := cfg.newClient()
 	if err != nil {
 		return MerchantBrand{}, err
@@ -384,7 +421,12 @@ func uploadBrandImage(merchantID int64, target, filename, contentType string, co
 		return MerchantBrand{}, err
 	}
 	fileBase := safeFilename(strings.TrimSuffix(path.Base(strings.TrimSpace(filename)), path.Ext(filename)))
-	objectKey := cfg.objectKey(merchantID, fileID, fileBase+brandImageExt[contentType])
+	// 二维码单独放 site-qr 目录，便于按前缀定位；其余沿用 site-logo
+	dirName := ""
+	if target == brandTargetSupportQR {
+		dirName = "site-qr"
+	}
+	objectKey := cfg.objectKey(merchantID, fileID, fileBase+brandImageExt[contentType], dirName)
 
 	ctx, cancel := context.WithTimeout(context.Background(), uploadTimeout)
 	defer cancel()
@@ -409,13 +451,17 @@ func uploadBrandImage(merchantID int64, target, filename, contentType string, co
 		return MerchantBrand{}, errors.New("图片地址过长")
 	}
 	/*
-	 * 写回对应的列。logo_url 和 favicon_url 是同一个上传流程的两个落点，
-	 * 由后端根据 target 决定写哪一列，而不是让浏览器自己拼 payload。
+	 * 写回对应的落点。三个 target 走同一个上传流程，只是落点不同：
+	 *   · logo_url / favicon_url → 各自独立列
+	 *   · support_qr           → brand_support 这个 jsonb 里的一个键
 	 *
 	 * 旧对象不做删除：桶是和 lynxtonapi 共用的，同一个对象键可能还被别的记录
 	 * 引用（比如平台自营站点的那份 logo）；为了省几百 KB 冒「删掉别处在用的图」
-	 * 的风险不划算。真要清理，按 site-logo 前缀做定期巡检更安全。
+	 * 的风险不划算。真要清理，按 site-logo / site-qr 前缀做定期巡检更安全。
 	 */
+	if target == brandTargetSupportQR {
+		return mergeSupportQR(merchantID, publicURL)
+	}
 	input := merchantBrandInput{}
 	if target == brandTargetFavicon {
 		input.FaviconURL = &publicURL
@@ -423,6 +469,38 @@ func uploadBrandImage(merchantID int64, target, filename, contentType string, co
 		input.LogoURL = &publicURL
 	}
 	return UpdateMerchantBrand(merchantID, input)
+}
+
+/*
+mergeSupportQR 把二维码地址合并进 brand_support，不改动其余键。
+
+为什么不直接构造一个 {"qr_code_url": url} 丢给 UpdateMerchantBrand：
+brand_support 对后端是**整体替换**语义（传什么写什么）。如果只传二维码那一个键，
+商户原来填的邮箱、电话、微信、服务时间会被一起抹成 NULL ——
+上传一张图把人家的客服信息清空，这是不能接受的。
+所以先读出现值、合并、再整体写回。
+*/
+func mergeSupportQR(merchantID int64, url string) (MerchantBrand, error) {
+	row, err := loadBrandRow(merchantID)
+	if err != nil {
+		return MerchantBrand{}, err
+	}
+	support := map[string]any{}
+	if raw := row.BrandSupport.Raw; len(raw) > 0 {
+		// 历史脏数据（不是 object）直接忽略，重新从空对象开始：
+		// 数据库那条 CHECK 约束保证了正常情况不会走到这里。
+		_ = json.Unmarshal(raw, &support)
+		if support == nil {
+			support = map[string]any{}
+		}
+	}
+	support[supportQRKey] = url
+	merged, err := json.Marshal(support)
+	if err != nil {
+		return MerchantBrand{}, err
+	}
+	raw := json.RawMessage(merged)
+	return UpdateMerchantBrand(merchantID, merchantBrandInput{Support: &raw})
 }
 
 func brandUploadError(c *gin.Context, err error) {

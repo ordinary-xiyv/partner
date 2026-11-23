@@ -32,7 +32,6 @@ export default function News() {
         </div>
         <div className="static-page-cta-actions">
           <Link to="/announcements">{t('static.newsCtaPrimary')}</Link>
-          <Link to="/enterprise/apply">{t('static.newsCtaSecondary')}</Link>
         </div>
       </div>
     </StaticPage>

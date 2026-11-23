@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { DocsExternalLink } from '../../components/DocsExternalLink';
 import StaticPage from './StaticPage';
@@ -39,7 +38,6 @@ export default function Trust() {
         <p>{t('static.trustCtaBody')}</p>
         <div className="static-page-cta-actions">
           <DocsExternalLink>{t('static.trustCtaPrimary')}</DocsExternalLink>
-          <Link to="/enterprise/apply">{t('static.trustCtaSecondary')}</Link>
         </div>
       </section>
     </StaticPage>

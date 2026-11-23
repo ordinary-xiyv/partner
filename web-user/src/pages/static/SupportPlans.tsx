@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import StaticPage from './StaticPage';
 
@@ -31,16 +30,6 @@ export default function SupportPlans() {
           </section>
         ))}
       </div>
-
-      <section className="static-highlight-card">
-        <div className="static-kicker">{t('static.supportPlansSection3Title')}</div>
-        <h2>{t('static.supportPlansCtaTitle')}</h2>
-        <p>{t('static.supportPlansCtaBody')}</p>
-        <div className="static-page-cta-actions">
-          <Link to="/pricing">{t('static.supportPlansCtaPrimary')}</Link>
-          <Link to="/enterprise/apply">{t('static.supportPlansCtaSecondary')}</Link>
-        </div>
-      </section>
     </StaticPage>
   );
 }

@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { DocsExternalLink } from '../../components/DocsExternalLink';
 import StaticPage from './StaticPage';
@@ -25,7 +24,6 @@ export default function PlaygroundStatic() {
         </div>
         <div className="static-page-cta-actions">
           <DocsExternalLink>{t('static.playgroundCtaPrimary')}</DocsExternalLink>
-          <Link to="/pricing">{t('static.playgroundCtaSecondary')}</Link>
         </div>
       </div>
     </StaticPage>

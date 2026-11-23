@@ -1,0 +1,16 @@
+<svg viewBox="0 0 24 24" stroke-width="1.7" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <!--
+    欢迎卡图标 4：摊开的书（对应「个人理财」的阅读/方案意象）。
+
+    线条风格与 customer-service-contact.svg 一致：纯 stroke、圆头圆角、无填充。
+    中缝用一条竖线暗示折痕，左右两页各自成弧，比实心书页更透气。
+  -->
+  <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 左页 -->
+    <path d="M12 6.6C10.2 5.2 7.9 4.6 5.4 4.6a1 1 0 0 0-1 1v11.2a1 1 0 0 0 1 1c2.5 0 4.8.6 6.6 2"/>
+    <!-- 右页 -->
+    <path d="M12 6.6c1.8-1.4 4.1-2 6.6-2a1 1 0 0 1 1 1v11.2a1 1 0 0 1-1 1c-2.5 0-4.8.6-6.6 2"/>
+    <!-- 中缝 -->
+    <path d="M12 6.6v13.2"/>
+  </g>
+</svg>

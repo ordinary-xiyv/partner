@@ -41,7 +41,13 @@ import {
   parseHomeStyle,
   readableOnPrimary,
 } from '@lynx/shared';
-import type { HomeStyle, TenantBrand, TenantBrandUpdatePayload, TenantDomain } from '@lynx/shared';
+import type {
+  HomeStyle,
+  TenantBrand,
+  TenantBrandUpdatePayload,
+  TenantDomain,
+  TenantSupport,
+} from '@lynx/shared';
 import type { BrandImageTarget } from '@lynx/shared';
 
 const { Text } = Typography;
@@ -220,19 +226,47 @@ function buildPatch(
     note: values.support_note?.trim() || undefined,
   };
   const prev = brand.support ?? {};
-  const supportChanged =
+  const textChanged =
     nextSupport.email !== (prev.email || undefined) ||
     nextSupport.phone !== (prev.phone || undefined) ||
     nextSupport.wechat !== (prev.wechat || undefined) ||
     nextSupport.note !== (prev.note || undefined);
+
+  /*
+   * 二维码也住在 brand_support 里，但它不由表单管理 —— 上传成功时后端已经
+   * 直接写库了。这里只需要处理「用户点了移除」这一种情况。
+   *
+   * 判断依据沿用 draft：draft.support 里出现 qr_code_url 且和服务端不一致，
+   * 才算改动过。没有这个键就是「没碰过」。
+   */
+  const draftQR = draft.support?.qr_code_url;
+  const serverQR = typeof prev.qr_code_url === 'string' ? prev.qr_code_url.trim() : '';
+  const nextQR = draftQR === undefined ? undefined : draftQR.trim();
+  const qrChanged = nextQR !== undefined && nextQR !== serverQR;
+
   /*
    * 四个子字段全空时也要提交 {}，否则「把人家的客服信息清空」这件事
    * 在 diff 里看起来是「没变化」，用户点了保存却什么都没变。
+   *
+   * 二维码的两种情形要分开处理：
+   *   · 没碰过二维码 → 原样带上服务端值。brand_support 是整体替换语义，
+   *     只提交四个文字键会把二维码顶掉 —— 现象就是「传完二维码、回头改个
+   *     电话保存，二维码就没了」。
+   *   · 点了移除     → 不要带，让它在库里被清成 null。
    */
-  if (supportChanged) {
-    patch.support = nextSupport.email || nextSupport.phone || nextSupport.wechat || nextSupport.note
-      ? nextSupport
-      : {};
+  if (textChanged || qrChanged) {
+    const merged: TenantSupport = { ...nextSupport };
+    if (qrChanged) {
+      // 移除：不写入这个键，整体替换时自然就没了
+      if (nextQR) merged.qr_code_url = nextQR;
+    } else if (serverQR) {
+      merged.qr_code_url = serverQR;
+    }
+    /*
+     * 全部为空时提交 {}（显式清空）。用 Object.keys 判断而不是逐个取反 ——
+     * 二维码也算内容，只有二维码、没填任何文字联系方式的商户不该被当成「空」。
+     */
+    patch.support = Object.keys(merged).length > 0 ? merged : {};
   }
 
   /*
@@ -839,6 +873,64 @@ export default function Brand() {
                 </Col>
               </Row>
 
+              {/*
+                客服二维码。
+                ................
+                放在 Form.Item 里是为了跟上面四格视觉对齐（同一套标签排版），
+                但这一格**不是表单字段** —— 它没有 name、不走 initialValues，
+                上传成功就由后端直接落库。理由和 logo 相同：图片传的是二进制，
+                先传完再等用户点保存，中间那段「已经传上去了但还没生效」的状态很难解释。
+              */}
+              <Form.Item
+                label="客服二维码"
+                extra="客户站右下角客服浮窗里展示的二维码图。不上传则不显示二维码，只显示上面的文字联系方式"
+              >
+                <BrandImagePicker
+                  value={previewBrand?.support?.qr_code_url}
+                  target="support_qr"
+                  uploading={uploading === 'support_qr'}
+                  progress={uploadProgress}
+                  compact
+                  onChange={(url) => {
+                    /*
+                     * 「移除」走这里。
+                     *
+                     * 和 logo 不同，二维码不在 Form 里，所以没有 form.setFieldValue
+                     * 要同步；它只能通过 support 这层走 patch。
+                     *
+                     * 直接写空串而不是 delete：buildPatch 用「draft.support 里有没有
+                     * qr_code_url」判断用户是否真的清空过。写成 undefined 会被当成
+                     * 「没碰过」，点了移除却不生效。
+                     */
+                    setDraft((d) => ({
+                      ...d,
+                      support: { ...(d.support ?? brand?.support ?? {}), qr_code_url: url },
+                    }));
+                  }}
+                  onUploaded={(next) => {
+                    setBrand(next);
+                    /*
+                     * 只清草稿里的 qr_code_url，不动 support 的其它键。
+                     *
+                     * 上传接口已经把地址写进库了，这个键不再算「未保存的改动」，
+                     * 留着会一直显示「未保存」标签。但同一个 support 对象里可能
+                     * 还有用户刚改、尚未保存的邮箱/电话 —— 把整个 support 删掉会
+                     * 让预览瞬间回退成旧值，看起来像改动丢了。
+                     */
+                    setDraft((d) => {
+                      if (!d.support) return d;
+                      const { qr_code_url: _ignored, ...restSupport } = d.support;
+                      return {
+                        ...d,
+                        support: Object.keys(restSupport).length > 0 ? restSupport : undefined,
+                      };
+                    });
+                  }}
+                  onUploadingChange={(active) => setUploading(active ? 'support_qr' : '')}
+                  onProgress={setUploadProgress}
+                />
+              </Form.Item>
+
               <Space>
                 <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={saving}>
                   保存配置
@@ -991,6 +1083,19 @@ function DomainStatusIcon({ status }: { status: TenantDomain['status'] }) {
 }
 
 /**
+ * 上传成功后的提示语，按落点区分。
+ *
+ * 三种落点写的位置不同（logo / favicon 各自一列，二维码写进 brand_support），
+ * 但共同点是「上传即生效，不用点保存」—— 提示语要把这件事说出来，
+ * 否则用户会习惯性地去找保存按钮。
+ */
+const UPLOAD_SUCCESS_TEXT: Record<BrandImageTarget, string> = {
+  logo_url: 'logo 已上传并生效',
+  favicon_url: '图标已上传并生效',
+  support_qr: '二维码已上传并生效',
+};
+
+/**
  * 品牌图片选择器：缩略图 + 上传 / 移除。
  *
  * 上传成功后调用 onUploaded 把整个品牌对象交回父组件 —— 后端在确认上传时
@@ -1024,7 +1129,13 @@ function BrandImagePicker({
     try {
       const next = await dealerApi.uploadBrandImage(file, target, { onProgress });
       onUploaded(next);
-      notifyApiSuccess(target === 'logo_url' ? 'logo 已上传并生效' : '图标已上传并生效');
+      /*
+       * 提示语按落点分开写。
+       *
+       * 原来是个三元表达式，只区分 logo / 其它。二维码进来后不能再靠「不是 logo
+       * 就是图标」这个假设 —— 否则传完二维码会弹出「图标已上传并生效」。
+       */
+      notifyApiSuccess(UPLOAD_SUCCESS_TEXT[target]);
     } catch (err) {
       notifyApiError(err, '上传失败');
     } finally {

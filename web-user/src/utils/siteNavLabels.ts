@@ -8,8 +8,6 @@ export const HEADER_NAV_LABEL_KEYS: Record<string, string> = {
   'app-plaza': 'header.navAppPlaza',
   tts: 'header.navTtsApp',
   chat: 'header.navChat',
-  enterprise: 'header.navEnterprise',
-  pricing: 'header.navPricing',
   docs: 'header.navDocs',
 };
 

@@ -1,0 +1,16 @@
+<svg viewBox="0 0 24 24" stroke-width="1.7" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <!--
+    欢迎卡图标 3：钱包（对应「草莓谜题」的消费/日常意象）。
+
+    线条风格与 customer-service-contact.svg 一致：纯 stroke、圆头圆角、无填充。
+    扣子用小圆而不是实心点，保持整套「无填充」的一致观感。
+  -->
+  <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 钱包主体，右下角单独做出翻盖缺口 -->
+    <path d="M20.5 9.2V7.6a1.9 1.9 0 0 0-1.9-1.9H5.4A2.4 2.4 0 0 0 3 8.1v8.4a2.4 2.4 0 0 0 2.4 2.4h13.2a1.9 1.9 0 0 0 1.9-1.9v-1.6"/>
+    <!-- 卡包翻盖 -->
+    <path d="M20.5 9.2h-3.3a2.6 2.6 0 0 0 0 5.2h3.3z"/>
+    <!-- 扣子 -->
+    <circle cx="17.7" cy="11.8" r="0.85"/>
+  </g>
+</svg>

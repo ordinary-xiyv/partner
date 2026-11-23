@@ -97,13 +97,13 @@
 }
 
 .speech-gen-voice-trigger--has-value {
-  border-color: color-mix(in srgb, var(--accent-purple) 48%, var(--border-default));
+  border-color: color-mix(in srgb, var(--accent-primary) 48%, var(--border-default));
   font-weight: 500;
 }
 
 .speech-gen-voice-trigger--has-value:hover:not(:disabled) {
   background: var(--bg-hover);
-  border-color: color-mix(in srgb, var(--accent-purple) 62%, var(--border-default));
+  border-color: color-mix(in srgb, var(--accent-primary) 62%, var(--border-default));
 }
 
 .speech-gen-voice-trigger:disabled {
@@ -157,12 +157,12 @@
 }
 
 .speech-gen-lang-select--has-value.ant-select .ant-select-selector {
-  border-color: color-mix(in srgb, var(--accent-purple) 48%, var(--border-default)) !important;
+  border-color: color-mix(in srgb, var(--accent-primary) 48%, var(--border-default)) !important;
   font-weight: 500;
 }
 
 .speech-gen-lang-select--has-value.ant-select:not(.ant-select-disabled):hover .ant-select-selector {
-  border-color: color-mix(in srgb, var(--accent-purple) 62%, var(--border-default)) !important;
+  border-color: color-mix(in srgb, var(--accent-primary) 62%, var(--border-default)) !important;
 }
 
 .speech-gen-lang-select.ant-select .ant-select-selection-item {

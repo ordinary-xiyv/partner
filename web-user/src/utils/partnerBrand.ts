@@ -53,29 +53,37 @@ export function resolvePartnerBrandNames(brand: PartnerSiteBrand | null): {
 /**
  * 伙伴客服联系方式 → 客户站客服浮窗配置。
  *
- * 这里有个语义差：伙伴的 support 是「联系我们」的信息（邮箱/电话/微信/备注），
- * 客户站的 CustomerServiceConfig 是「浮窗要不要显示、显示哪几个 tab」。
+ * 这里有个语义差：伙伴的 support 是「联系我们」的信息（邮箱/电话/微信/备注/二维码），
+ * 客户站的 CustomerServiceConfig 是「浮窗要不要显示、显示什么」。
  * 前者有内容就说明商户希望客户能找到人，所以：
- *   · support 有任何一项 → 开启浮窗并显示联系 tab
- *   · support 为空 → 不开启，保持平台默认（避免出现一个空白浮窗）
+ *   · support 有任何一项（含二维码）→ 开启浮窗并显示联系 tab
+ *   · support 全空 → 不开启，保持平台默认（避免出现一个空白浮窗）
  *
- * 只接管 enabled / show_contact 与 qr_code_url，其余字段（show_feedback、
- * feedback_url）保留平台侧的原值 —— 反馈入口是平台功能，不属于商户品牌。
+ * 接管的字段：enabled / show_contact / qr_code_url，其余保留平台侧原值。
+ *
+ * qr_code_url 从 support.qr_code_url 搬过来 —— 伙伴后台上传的二维码存在
+ * brand_support 这个 jsonb 里（见 partner_brand_upload.go 的 brandTargetSupportQR），
+ * 而浮窗读的是 siteAppearance 上的同名字段，所以要在这里做一次桥接。
+ * 商户没传二维码时保持 base 的值不动，让平台侧配过的二维码仍然可用。
  */
 export function partnerBrandToCustomerService(
   support: Record<string, unknown> | undefined,
   base: CustomerServiceConfig,
 ): CustomerServiceConfig {
   if (!support) return base;
+  // 二维码也算「有内容」：只传了二维码、没填文字联系方式的商户，
+  // 同样应该看到浮窗
+  const qrCode = readText(support.qr_code_url);
   const hasAny = ['email', 'phone', 'wechat', 'note'].some((key) => {
     const value = support[key];
     return typeof value === 'string' && value.trim() !== '';
-  });
+  }) || qrCode !== '';
   if (!hasAny) return base;
   return {
     ...base,
     enabled: true,
     show_contact: true,
+    ...(qrCode ? { qr_code_url: qrCode } : {}),
   };
 }
 
@@ -89,9 +97,19 @@ export function partnerBrandToCustomerService(
 export interface PartnerSupportLine {
   label: string;
   value: string;
-  /** 邮箱/电话给成可点击链接，微信只能复制 */
-  href?: string;
 }
+
+/**
+ * 这一组里哪些字段可以点击复制。
+ *
+ * 为什么不生成 href（mailto: / tel:）：
+ * 点击邮箱会弹出系统的邮件客户端，点击电话会唤起拨号或 FaceTime ——
+ * 对「只是想抄一下客服邮箱」的人来说，这两个行为都是打断，而且
+ * 在桌面浏览器上大概率唤起一个没配置好的空客户端。用户明确要求改成点击复制。
+ *
+ * 展示层判断哪些行可点，就是看 label 在不在这个集合里。
+ */
+export const PARTNER_SUPPORT_COPYABLE_LABELS = ['邮箱', '电话', '微信'] as const;
 
 export function buildPartnerSupportLines(
   support: Record<string, unknown> | undefined,
@@ -99,9 +117,9 @@ export function buildPartnerSupportLines(
   if (!support) return [];
   const lines: PartnerSupportLine[] = [];
   const email = readText(support.email);
-  if (email) lines.push({ label: '邮箱', value: email, href: `mailto:${email}` });
+  if (email) lines.push({ label: '邮箱', value: email });
   const phone = readText(support.phone);
-  if (phone) lines.push({ label: '电话', value: phone, href: `tel:${phone}` });
+  if (phone) lines.push({ label: '电话', value: phone });
   const wechat = readText(support.wechat);
   if (wechat) lines.push({ label: '微信', value: wechat });
   const note = readText(support.note);
@@ -117,9 +135,15 @@ function readText(value: unknown): string {
 /**
  * 品牌 logo。
  *
- * 伙伴没配 logo 时返回 null，让调用方回退到平台侧那套（亮/暗两版）。
- * 这里不拿名称首字生成一个「文字 logo」—— 长得很像占位图，
- * 反而让人以为配置成功了。
+ * 只做「有 URL 就返回 URL」这一件事，返回 null 交给调用方决定怎么办。
+ *
+ * 这里曾经写着一句「不拿名称首字生成文字 logo —— 长得很像占位图」，
+ * 那条约束已经在 Header 里作废了：伙伴后台的预览面板（web/src/shared/ui/BrandLogo.tsx）
+ * 一直是拿首字画品牌色方块的，客户站却只留一片空白，商户会以为上传失败。
+ * 现在的分工是：
+ *   · 没 logo        → Header 画「品牌色方块 + 首字」
+ *   · logo 太方      → Header 在图右侧并排品牌名补足横向分量
+ * 两处都发生在渲染层，本函数仍然只管「有没有 URL」。
  */
 export function resolvePartnerLogo(brand: PartnerSiteBrand | null): string | null {
   const url = brand?.logo_url?.trim() ?? '';

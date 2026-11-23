@@ -38,6 +38,17 @@ export interface TenantSupport {
   wechat?: string;
   /** 补充说明，如服务时间 */
   note?: string;
+  /**
+   * 客服二维码图片地址。
+   *
+   * 它跟上面四个一样存在 brand_support 这个 jsonb 里，但写入途径不同：
+   * 上传接口（partner_brand_upload.go 的 mergeSupportQR）会直接把地址写进
+   * 这个键，再返回最新品牌对象 —— 不需要用户点保存。
+   *
+   * 客户站那边读的是 siteAppearance.customer_service_config.qr_code_url，
+   * 由 web-user/src/utils/partnerBrand.ts 做桥接。
+   */
+  qr_code_url?: string;
 }
 
 /**

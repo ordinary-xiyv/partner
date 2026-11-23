@@ -1,0 +1,22 @@
+<svg viewBox="0 0 24 24" stroke-width="1.7" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <!--
+    欢迎卡图标 1：计算器（对应「9.9 和 9.11 哪个数更大？」）。
+
+    为什么换成矢量：原来是一张 112×112 的 3D 玻璃质感 PNG，
+    紫色是渲染进像素里的 —— 伙伴在后台把主色改成橙、粉、绿之后，
+    卡片底变了、图标还是紫的。位图做不到跟随品牌色，只能重出一套。
+
+    SVG 用 currentColor，父级一个 color 就能换色，换品牌色零成本。
+    线条风格与 customer-service-contact.svg 一致：纯 stroke、圆头圆角、无填充。
+  -->
+  <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 机身外框 -->
+    <rect x="5" y="2.5" width="14" height="19" rx="2.5"/>
+    <!-- 屏幕 -->
+    <rect x="7.8" y="5.2" width="8.4" height="3.4" rx="1"/>
+    <!-- 按键：3 行 × 3 列，用短横线而非小方块，缩到 24px 也不糊 -->
+    <path d="M8.3 12.2h1.1M11.45 12.2h1.1M14.6 12.2h1.1"/>
+    <path d="M8.3 15.4h1.1M11.45 15.4h1.1M14.6 15.4h1.1"/>
+    <path d="M8.3 18.6h1.1M11.45 18.6h1.1M14.6 18.6h1.1"/>
+  </g>
+</svg>

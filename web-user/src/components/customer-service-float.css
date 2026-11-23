@@ -1,8 +1,26 @@
 .customer-service-float-dock {
   position: fixed;
   right: 15px;
-  top: 80%;
-  transform: translateY(-50%);
+  /*
+   * 底边锚定，不要用 top + translateY(-50%)。
+   *
+   * 原来的写法是 top: 80% + transform: translateY(-50%)，那会把元素的
+   * **中心**钉在视口 80% 处。展开后元素一下子变高（从 44px 的圆钮变成
+   * 三百多像素的面板），于是它向上下两侧同时生长，下半截直接跑到屏幕外 ——
+   * 表现就是「浮窗太高，底部被挡住」。
+   *
+   * 改成 bottom 锚定后，底边是固定的，展开多少就往上长多少，
+   * 永远不会越过屏幕下沿。
+   *
+   * calc(20% - 22px) 是原来那个底边的精确等价：20% 视口高是「中心到屏幕底
+   * 的距离」，再减掉圆钮高度的一半（44/2 = 22px），就从「中心锚定」
+   * 换算成「底边锚定」—— 收起状态的圆钮位置和改动前完全一样，不会突然跳一下。
+   *
+   * 用 dvh 而不是 %：面板的 max-height 要拿这个值做减法（见下面 __panel），
+   * 而百分比在 panel 里会按父元素（dock，高度 auto）解析，算不出视口高度；
+   * dvh 是全局视口单位，在哪都能正确解析。
+   */
+  bottom: calc(20dvh - 22px);
   z-index: 999;
   pointer-events: none;
 }
@@ -13,7 +31,20 @@
 
 .customer-service-float {
   display: flex;
-  align-items: center;
+  /*
+   * 底边对齐，不要 center。
+   *
+   * 这是「视觉跳跃」的根因：容器高度由最高的子元素决定，展开时面板
+   * （335px）把容器撑高，center 会把 88px 的「联系客服」按钮垂直居中到
+   * 容器中段 —— 实测按钮中心从 y=584 跳到 y=460，**跳了 124px**。
+   * 用户点下去的那一刻，按钮从手指底下跑掉了，这不是好不好看的问题，
+   * 是点击目标在操作中位移，非常不友好。
+   *
+   * 改 flex-end 之后：容器底边固定不动，按钮始终贴着底边，
+   * 面板从按钮左侧往左上展开，按钮本身完全不动。
+   * 这也是 Intercom / Crisp 这类客服组件的通行做法。
+   */
+  align-items: flex-end;
   pointer-events: none;
 }
 
@@ -41,6 +72,29 @@
   user-select: none;
   cursor: pointer;
   transition: box-shadow 0.2s ease, background 0.2s ease;
+  /*
+   * 圆钮 → 长条是一次「形态变化」，不是两个无关元素互换。
+   *
+   * 收起时是 44×44 的圆，悬停后换成 68×88 的圆角矩形。两个元素是分别挂载
+   * 卸载的，中间没有过渡，所以看起来像硬切一刀 —— 这就是「视觉跳跃」的另一半。
+   *
+   * 给两边都加上「从右下角生长」的入场动画：右下角是唯一的固定不动点
+   * （贴合屏幕右边缘和底边），从那里长出来，观感上就是同一个东西在变形，
+   * 而不是一个消失、另一个凭空出现。
+   */
+  transform-origin: bottom right;
+  animation: customer-service-trigger-in 0.18s ease-out;
+}
+
+@keyframes customer-service-trigger-in {
+  from {
+    opacity: 0;
+    transform: scale(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 body[theme-mode='light'] .customer-service-float__tab {
@@ -66,27 +120,32 @@ body:not([theme-mode='light']) .customer-service-float-dock--collapsible:hover .
   box-shadow: 0 6px 24px rgba(139, 115, 255, 0.45);
 }
 
+/*
+ * 收起态圆钮里的图标。
+ *
+ * 尺寸必须和展开态长条里的图标（--icon-img--contact，26px）完全一致。
+ * 原来这里是 22px：鼠标一悬停，同一个耳机图标会从 22 蹦到 26 ——
+ * 外壳在生长、里面的东西却还自己抖一下，这是「视觉跳跃」的最后一处残留。
+ * 两态是同一个东西的两个形态，图形尺寸应当锁死，只让外壳变。
+ */
 .customer-service-float__tab-icon {
   display: block;
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   flex-shrink: 0;
 }
 
 .customer-service-float--collapsible.customer-service-float--expanded .customer-service-float__bar {
-  animation: customer-service-bar-in 0.22s ease-out;
+  animation: customer-service-trigger-in 0.18s ease-out;
 }
 
-@keyframes customer-service-bar-in {
-  from {
-    opacity: 0;
-    transform: translateX(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
+/*
+ * 旧的 customer-service-bar-in 已删除。
+ *
+ * 它做的是 translateX(8px) 横向滑入，和圆钮那边的 scale 生长不是一套语言 ——
+ * 两态衔接时一个横移、一个缩放，拼起来正好就是用户感觉到的那种「跳跃」。
+ * 现在两边共用 customer-service-trigger-in，原点都是右下角。
+ */
 
 .customer-service-float__panel,
 .customer-service-float__bar {
@@ -94,13 +153,42 @@ body:not([theme-mode='light']) .customer-service-float-dock--collapsible:hover .
 }
 
 .customer-service-float__panel {
-  width: 320px;
+  /*
+   * 宽度从 320 收到 280。
+   *
+   * 320px 在这个浮窗里偏大：它几乎占了半屏宽度，视觉重量和「客服入口」
+   * 这个次要角色不匹配，小屏上还容易压住正文。280 更紧凑，
+   * 同时仍能容纳「邮箱 + 长地址」这一行（地址本身是 word-break: break-all）。
+   */
+  width: 280px;
   margin-right: 8px;
-  padding: 28px 32px 24px;
+  /* 上下内边距各收 8px，配合下面的二维码尺寸一起把整体高度压下来 */
+  padding: 20px 24px 16px;
   background: var(--bg-card);
   border-radius: 8px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
   animation: customer-service-panel-in 0.2s ease-out;
+  /* 面板与按钮底边齐平、位于其左侧，所以生长原点是右下角 */
+  transform-origin: bottom right;
+  /*
+   * 兜底：任何窗口下都不越过视口上下沿。
+   *
+   * bottom 锚定解决了「向下长出去」，但还有个反向的坑：一旦 max-height 生效
+   * 把面板压矮，它的**顶部**会继续往上顶 —— 在 360px 高的窗口里实测顶部会
+   * 越界 18px，被浏览器地址栏吃掉。
+   *
+   * 所以上限要把「底边离屏幕底有多远」扣掉，再留 16px 上边距：
+   *   可用高度 = 视口高 - 底边偏移 - 上边距
+   * 底边偏移就是下面 bottom 用的同一个式子（20dvh - 22px），两处必须一致，
+   * 否则算出来的空间和实际占用的对不上，兜底会失效。
+   *
+   * 用 dvh 而非 vh：移动端 vh 按「地址栏收起」算，比真实可视区高，
+   * 拿它减出来的空间偏大，照样会溢出。dvh 才是当下的真实可视高度。
+   */
+  max-height: calc(100dvh - (20dvh - 22px) - 16px);
+  overflow-y: auto;
+  /* 内容超出被压缩时，滚动条不要贴着圆角切进去 */
+  overscroll-behavior: contain;
 }
 
 body[theme-mode='dark'] .customer-service-float__panel,
@@ -109,41 +197,29 @@ body:not([theme-mode='light']) .customer-service-float__panel {
   box-shadow: var(--theme-shadow-elevated, 0 8px 40px rgba(0, 0, 0, 0.5));
 }
 
+/*
+ * 面板入场：从按钮那边「拉出来」，而不是整块平移。
+ *
+ * 原来的 translateX(10px) 让整个面板从右往左滑一下 —— 但面板有 335px 高，
+ * 这么大一块东西整体平移，视觉上更像「弹窗跳出来」，和它从属于右侧按钮的
+ * 关系对不上。
+ *
+ * 改成以右下方为原点做缩放：面板像是从按钮那个位置长出来的，
+ * 空间关系一眼就能读懂。配合 0.94 的起始缩放，不做到 0 是因为从「一个点」
+ * 放大到 335px 会显得夸张，0.94 足够传达「从按钮展开」的意图而不过火。
+ *
+ * transform-origin 用 bottom right：面板在按钮左侧、与按钮底边齐平，
+ * 所以「最近的那个点」就是它的右下角。
+ */
 @keyframes customer-service-panel-in {
   from {
     opacity: 0;
-    transform: translateX(10px);
+    transform: scale(0.94);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: scale(1);
   }
-}
-
-.customer-service-float__title {
-  margin: 0 0 8px;
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.45;
-  color: #0e176c;
-  text-align: center;
-  letter-spacing: 0.02em;
-}
-
-.customer-service-float__subtitle {
-  margin: 0 0 20px;
-  font-size: 17px;
-  line-height: 1.5;
-  font-weight: 500;
-  color: #0e176c;
-  text-align: center;
-}
-
-body[theme-mode='dark'] .customer-service-float__title,
-body:not([theme-mode='light']) .customer-service-float__title,
-body[theme-mode='dark'] .customer-service-float__subtitle,
-body:not([theme-mode='light']) .customer-service-float__subtitle {
-  color: var(--text-primary);
 }
 
 .customer-service-float__qr-wrap {
@@ -153,25 +229,19 @@ body:not([theme-mode='light']) .customer-service-float__subtitle {
 }
 
 .customer-service-float__qr {
-  width: 180px;
-  height: 180px;
+  /*
+   * 180 → 140。
+   *
+   * 它是整个面板里唯一的「大块头」：180px 高度占掉面板总高的近一半，
+   * 加上扫描提示和四条联系方式，整块就到了 391px，在小窗口里必然溢出。
+   * 140px 仍然远大于常见扫码距离下的可识别尺寸（微信扫码约 100px 起），
+   * 显示和识别都不受影响。
+   */
+  width: 140px;
+  height: 140px;
   object-fit: contain;
   background: #fff;
   border-radius: 4px;
-}
-
-.customer-service-float__qr-placeholder {
-  width: 180px;
-  height: 180px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  color: var(--text-tertiary);
-  text-align: center;
-  padding: 12px;
-  background: var(--bg-inset-panel);
 }
 
 .customer-service-float__scan-tip {
@@ -196,9 +266,16 @@ body:not([theme-mode='light']) .customer-service-float__scan-tip {
 /* ── 伙伴后台下发的文本联系方式（邮箱/电话/微信/服务时间） ── */
 .customer-service-float__support-list {
   list-style: none;
+  /*
+   * 不画分割线。
+   *
+   * 原先是 border-top + padding-top: 14px 把二维码区和联系方式分开。
+   * 现在改用纯间距分隔：浮窗本来就只有 320px 宽，多一条横线会把
+   * 「二维码 + 联系方式」这块视觉上切成两半，看起来像两个不相干的模块。
+   * padding 一并收回 —— 它是给那条线留的呼吸位，线没了就只剩多余的空白。
+   */
   margin: 16px 0 0;
-  padding: 14px 0 0;
-  border-top: 1px solid var(--border-default, rgba(0, 0, 0, 0.08));
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -227,13 +304,134 @@ body:not([theme-mode='light']) .customer-service-float__scan-tip {
   word-break: break-all;
 }
 
-.customer-service-float__support-value--link {
-  color: var(--theme-color-primary, #6d51fe);
-  text-decoration: none;
+/*
+ * 可点击复制的那几行。
+ *
+ * 用 <button> 而不是 <a href="mailto:"> —— 语义上这里是「复制」而非「跳转」，
+ * 所以按按钮来写：可以聚焦、可以用键盘 Enter/Space 触发。
+ * 视觉上故意不做成蓝色链接：一旦长得像链接，用户就会以为点了会跳走，
+ * 而实际行为是复制，预期对不上。这里让它保持正文颜色，只在悬停时
+ * 微微浮出底色 + 显示行尾的「复制」提示。
+ */
+.customer-service-float__support-value--copy {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  /* 复述 .customer-service-float__support-value 的排版，button 不会继承它们 */
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: left;
+  color: var(--text-primary, #18181b);
+  word-break: break-all;
+  /* 复位 button 的默认外观 */
+  border: none;
+  background: transparent;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease;
 }
 
-.customer-service-float__support-value--link:hover {
-  text-decoration: underline;
+.customer-service-float__support-value--copy:hover {
+  /*
+   * 深色主题不能用 var(--bg-hover)。
+   *
+   * 那个值是 #1f1f23，比面板底色 #27272a 更暗 —— 悬停时行反而「陷下去」，
+   * 看着像按了。浅色主题没问题（#f0f0f1 比白底深），所以分两套写。
+   * 下面那条暗色规则沿用本文件里 .customer-service-float__item:hover 的做法。
+   */
+  background: var(--bg-hover, rgba(0, 0, 0, 0.05));
+}
+
+body[theme-mode='dark'] .customer-service-float__support-value--copy:hover,
+body:not([theme-mode='light']) .customer-service-float__support-value--copy:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.customer-service-float__support-value--copy:active {
+  background: var(--bg-hover, rgba(0, 0, 0, 0.09));
+}
+
+body[theme-mode='dark'] .customer-service-float__support-value--copy:active,
+body:not([theme-mode='light']) .customer-service-float__support-value--copy:active {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.customer-service-float__support-value--copy:focus-visible {
+  outline: 2px solid var(--theme-color-primary, #6d51fe);
+  outline-offset: 1px;
+}
+
+/*
+ * 行尾的「复制 / 已复制」提示。
+ *
+ * 默认很淡，悬停在整行时才明显起来 —— 不然四条联系方式每行跟一个「复制」，
+ * 面板会显得很吵。它是提示，不是主要信息。
+ *
+ * 可见度是调过的：一开始用 11px + --text-tertiary（深色主题下只有 40% 白），
+ * 实测裁图几乎看不清，等于提示不存在。现在抬到 12px 并单独指定颜色，
+ * 不再依赖主题变量 —— 这个提示要在两个主题下都读得出来。
+ */
+.customer-service-float__copy-hint {
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-secondary, #71717a);
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+  /* 提示文字不参与换行，被长邮箱挤的时候优先压缩地址那部分 */
+  white-space: nowrap;
+}
+
+body[theme-mode='dark'] .customer-service-float__copy-hint,
+body:not([theme-mode='light']) .customer-service-float__copy-hint {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.customer-service-float__support-value--copy:hover .customer-service-float__copy-hint,
+.customer-service-float__support-value--copy:focus-visible .customer-service-float__copy-hint {
+  opacity: 1;
+}
+
+/*
+ * 触屏 / 小屏上「复制」提示必须常显。
+ *
+ * 手机没有 hover —— 用户不悬停就永远看不到这个提示，只能靠猜。
+ * 而这一屏唯一的操作就是「点一下把这串联系方式拿走」，猜不出来就等于功能不存在。
+ *
+ * 两个条件取「或」：
+ *   (hover: none)  —— 真正判触屏，最准（平板、触屏笔记本都能覆盖）
+ *   (max-width: 768px) —— 手机上必然成立；同时这里的分支能实际验证，
+ *                         不至于只写一个测不到的规则就交付
+ *
+ * 提示本来就是 opacity: 0 占位，只是看不见 —— 点亮它不会引起任何重排，
+ * 实测各行仍是单行、面板无横向溢出。
+ */
+@media (hover: none), (max-width: 768px) {
+  .customer-service-float__support-value--copy .customer-service-float__copy-hint {
+    opacity: 1;
+  }
+}
+
+/*
+ * 复制成功后：提示必须常显，否则用户看不到反馈。
+ *
+ * 悬停才显示还不够 —— 用户点完鼠标可能就移开了，那条反馈会跟着消失。
+ * 所以由 React 在按钮上挂 data-copied，这里无条件把提示点亮，
+ * 并用主色强调。1.6 秒后 React 把属性撤掉，自动回到常态。
+ */
+.customer-service-float__support-value--copy[data-copied='true'] .customer-service-float__copy-hint {
+  opacity: 1;
+  color: var(--theme-color-primary, #6d51fe);
+  font-weight: 500;
+}
+
+body[theme-mode='dark'] .customer-service-float__support-value--copy[data-copied='true'] .customer-service-float__copy-hint,
+body:not([theme-mode='light']) .customer-service-float__support-value--copy[data-copied='true'] .customer-service-float__copy-hint {
+  /* 深色底上主色往往偏暗，提亮一点，确保「已复制」一眼能看到 */
+  color: var(--theme-color-primary-hover, #a894ff);
 }
 
 .customer-service-float__bar {
@@ -246,6 +444,8 @@ body:not([theme-mode='light']) .customer-service-float__scan-tip {
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   overflow: visible;
+  /* 与圆钮同一套生长方式，原点也取右下角 —— 两态衔接才不会像换了个东西 */
+  transform-origin: bottom right;
 }
 
 body[theme-mode='light'] .customer-service-float__bar {
@@ -300,26 +500,26 @@ body:not([theme-mode='light']) .customer-service-float__item--active {
   cursor: not-allowed;
 }
 
+/*
+ * 客服图标（内联 SVG 耳机）。
+ *
+ * 尺寸从原来的 40px 收到 26px：位图头像是实心圆块，需要在 40px 才看得清细节；
+ * 线性图标在 26px 已经很清晰，而且给下面的「联系客服」文字留出更多呼吸空间 ——
+ * 长条最窄只有 64px，图标太大文字就被挤成两行了。
+ *
+ * 不再需要 object-fit / border-radius：那是给位图做的裁切，SVG 没有这回事。
+ *
+ * 颜色跟随 currentColor，容器（.customer-service-float__item）的 color 就是
+ * 它的颜色。这样深浅两个主题、以及任意品牌色下都不用单独写规则。
+ */
 .customer-service-float__icon-img {
   display: block;
-  object-fit: contain;
   flex-shrink: 0;
 }
 
 .customer-service-float__icon-img--contact {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-}
-
-.customer-service-float__icon-img--feedback {
-  width: 32px;
-  height: 32px;
-}
-
-body[theme-mode='dark'] .customer-service-float__icon-img--feedback,
-body:not([theme-mode='light']) .customer-service-float__icon-img--feedback {
-  filter: brightness(0) invert(1);
+  width: 26px;
+  height: 26px;
 }
 
 .customer-service-float__label {
@@ -349,23 +549,19 @@ body:not([theme-mode='light']) .customer-service-float__scan-tip-highlight {
   }
 
   .customer-service-float__panel {
-    width: min(280px, calc(100vw - 80px));
+    width: min(260px, calc(100vw - 80px));
     margin-right: 4px;
-    padding: 20px 20px 18px;
+    padding: 16px 16px 14px;
   }
 
-  .customer-service-float__title {
-    font-size: 19px;
-  }
-
-  .customer-service-float__subtitle {
-    font-size: 15px;
-  }
-
-  .customer-service-float__qr,
-  .customer-service-float__qr-placeholder {
-    width: 151px;
-    height: 151px;
+  .customer-service-float__qr {
+    /*
+     * 原来是 151px —— 比桌面端（当时 180、现已 140）只小一点。
+     * 这在小屏上说不通：手机横向只有三百多像素，二维码占掉一半宽度，
+     * 加上四条联系方式必然溢出。120px 仍远高于扫码可识别下限。
+     */
+    width: 120px;
+    height: 120px;
   }
 
   .customer-service-float__bar {
@@ -379,14 +575,17 @@ body:not([theme-mode='light']) .customer-service-float__scan-tip-highlight {
     padding: 12px 8px 10px;
   }
 
-  .customer-service-float__icon-img--contact {
-    width: 36px;
-    height: 36px;
-  }
-
-  .customer-service-float__icon-img--feedback {
-    width: 28px;
-    height: 28px;
+  .customer-service-float__icon-img--contact,
+  .customer-service-float__tab-icon {
+    /*
+     * 原来是 36px，配的是位图头像。改成线性图标后桌面端是 26px，
+     * 移动端还留 36px 就变成「小屏反而更大」，说不通 —— 收到 24px。
+     *
+     * 圆钮图标必须跟在这里一起收：两个选择器写同一个值，
+     * 免得又出现「悬停时图标跳大小」的老问题。
+     */
+    width: 24px;
+    height: 24px;
   }
 
   .customer-service-float__label {
@@ -395,7 +594,15 @@ body:not([theme-mode='light']) .customer-service-float__scan-tip-highlight {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .customer-service-float__panel {
+  /*
+   * 关掉所有入场动效。
+   *
+   * 圆钮的 customer-service-trigger-in 也要一起关 —— 它现在是常态属性
+   * （写在 .customer-service-float__tab 上，不是靠父类触发），漏掉这一条
+   * 会让「减少动效」的用户每次页面加载都看到一次缩放。
+   */
+  .customer-service-float__panel,
+  .customer-service-float__tab {
     animation: none;
   }
 

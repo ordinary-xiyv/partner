@@ -1,0 +1,23 @@
+<svg viewBox="0 0 24 24" stroke-width="1.7" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <!--
+    欢迎卡图标 2：放大镜 + 字母 R（对应「写一首诗」的检索/创作意象）。
+
+    线条风格与 customer-service-contact.svg 一致：纯 stroke、圆头圆角、无填充。
+    字母 R 用 path 画而不是 <text>：<text> 依赖字体，不同系统渲染宽度不一致，
+    缩到 24px 时容易糊或者溢出圆圈。
+  -->
+  <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 镜片 -->
+    <circle cx="10.4" cy="10.4" r="6.6"/>
+    <!-- 手柄 -->
+    <path d="M15.4 15.4 20.6 20.6"/>
+  </g>
+  <!--
+    字母 R：竖笔 + 上半圆弧 + 斜腿。
+    单独一个 g 用 stroke-width 1.9，比镜片略粗，视觉重量才压得住。
+  -->
+  <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 14.2V7.1h3.1a2.55 2.55 0 0 1 0 5.1H9"/>
+    <path d="M11.4 12.2 14.2 14.2"/>
+  </g>
+</svg>

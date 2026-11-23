@@ -612,8 +612,6 @@ export const updateModelMeta = (data: Record<string, unknown>) => API.put('/api/
 export const getVendors = () => API.get('/api/vendors/');
 
 // Enterprise Applications
-export const submitEnterpriseApplication = (data: Record<string, unknown>) =>
-  API.post('/api/lynx/enterprise/apply', data);
 export const getProfileExt = () => API.get('/api/lynx/profile/ext');
 export const getEnterpriseApplications = (params?: Record<string, unknown>) =>
   API.get('/api/lynx/admin/enterprise/applications', { params });

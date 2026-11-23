@@ -927,7 +927,14 @@ export async function recheckDealerDomain(host: string): Promise<TenantDomain> {
 export const BRAND_IMAGE_MAX_BYTES = 512 * 1024;
 export const BRAND_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'] as const;
 
-export type BrandImageTarget = 'logo_url' | 'favicon_url';
+/**
+ * 上传落点。
+ *
+ * support_qr 是客服二维码：它不落独立列，而是写进 brand_support 这个 jsonb
+ * 的 qr_code_url 键（见后端 partner_brand_upload.go 的 mergeSupportQR）。
+ * 对前端来说上传行为完全一样，只是后端写的位置不同。
+ */
+export type BrandImageTarget = 'logo_url' | 'favicon_url' | 'support_qr';
 
 export interface BrandImageUploadOptions {
   /** 上传进度回调（0-100） */
@@ -967,7 +974,16 @@ export async function uploadBrandImage(
     // mock 模式不真的上传，只更新内存态，让界面流程可以走通
     await delay(null, 600);
     const objectUrl = URL.createObjectURL(file);
-    mockBrand = { ...mockBrand, [target]: objectUrl };
+    if (target === 'support_qr') {
+      // 二维码在真实后端是写进 support 里的一个键，mock 要跟这个结构一致，
+      // 否则界面读 previewBrand.support.qr_code_url 时拿不到值
+      mockBrand = {
+        ...mockBrand,
+        support: { ...mockBrand.support, qr_code_url: objectUrl },
+      };
+    } else {
+      mockBrand = { ...mockBrand, [target]: objectUrl };
+    }
     return mockBrand;
   }
 

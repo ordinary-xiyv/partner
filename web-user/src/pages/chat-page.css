@@ -42,7 +42,7 @@
           --chat-msg-content-max-width: min(88%, 720px);
           --chat-horizontal-inset: clamp(16px, 2.5vw, 28px);
           --chat-sidebar-width: 248px;
-          --chat-msg-user-bg: #f1eefe;
+          --chat-msg-user-bg: rgb(from var(--theme-color-primary) r g b / 0.12);
           --chat-msg-user-text: #1f2937;
           --chat-msg-ai-bg: #ffffff;
           --chat-msg-ai-border: #e5e7eb;
@@ -216,7 +216,7 @@
         .chat-spinner {
           width: 24px; height: 24px;
           border: 2px solid var(--border-default, #333);
-          border-top-color: #7c3aed;
+          border-top-color: var(--theme-color-primary, #7c3aed);
           border-radius: 50%;
           animation: spin 0.7s linear infinite;
         }
@@ -611,7 +611,7 @@
           color: var(--text-primary, var(--text-primary)) !important;
         }
         .chat-input-toolbar .chat-composer-toolbar-btn.ant-btn:focus-visible {
-          outline: 2px solid rgba(124, 58, 237, 0.35);
+          outline: 2px solid rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.35);
           outline-offset: 1px;
         }
         .chat-input-toolbar .chat-composer-toolbar-btn.ant-btn:disabled {
@@ -857,10 +857,27 @@
           border-radius: 16px;
           cursor: pointer;
           text-align: center;
-          background: linear-gradient(180deg, #635695 0%, #4f4578 46%, #453d6c 100%);
+          /*
+           * 深浅三段渐变由品牌主色推导，不再写死紫色。
+           *
+           * 原来这里是 #635695 → #4f4578 → #453d6c，是「灵通云紫」的固定色值。
+           * 分销商在伙伴后台把主色改成橙、蓝、绿之后，卡片还是紫的 ——
+           * 站内其他元素（按钮、选中态、视频页渐变）都跟着 `--theme-color-primary`
+           * 走了，唯独这一块不动，看起来就像皮肤换了一半。
+           *
+           * 用 color-mix 往黑/白两端推，而不是预设三档色值：
+           * 主色可能是任意深浅，写死三档必然有某一档和主色脱节。
+           * 上浅下深，保留原来那种「受光面在上」的体积感。
+           */
+          background: linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--theme-color-primary, #635695) 78%, #fff) 0%,
+            var(--theme-color-primary, #4f4578) 46%,
+            color-mix(in srgb, var(--theme-color-primary, #453d6c) 74%, #000) 100%
+          );
           box-shadow:
             0 10px 32px rgba(0, 0, 0, 0.42),
-            0 0 28px rgba(110, 90, 185, 0.14);
+            0 0 28px color-mix(in srgb, var(--theme-color-primary, #6e5ab9) 22%, transparent);
           transition: transform 0.18s ease, box-shadow 0.18s ease;
           color: inherit;
           font: inherit;
@@ -869,7 +886,7 @@
           transform: translateY(-2px);
           box-shadow:
             0 14px 40px rgba(0, 0, 0, 0.5),
-            0 0 36px rgba(125, 100, 210, 0.2);
+            0 0 36px color-mix(in srgb, var(--theme-color-primary, #7d64d2) 30%, transparent);
         }
         .chat-text-welcome-card-icon {
           width: 100%;
@@ -889,18 +906,64 @@
           width: auto;
           height: auto;
           object-fit: contain;
-          filter: drop-shadow(0 10px 20px rgba(95, 69, 198, 0.35));
+          filter: drop-shadow(0 10px 20px color-mix(in srgb, var(--theme-color-primary, #5f45c6) 38%, transparent));
+        }
+        /*
+         * 图标改为单色 SVG 后跟随品牌主色。
+         *
+         * 原来是 3D 玻璃质感 PNG，颜色写死在像素里，CSS 改不动。
+         * 现在 currentColor 继承这里的 color，换品牌色零成本。
+         *
+         * 尺寸：桌面 58px、比原来的 88px 视觉区小一点 ——
+         * 线条图标做太大会显得空，且和下方两行文字的比例更协调。
+         * 用 width/height 而不是 max-*，避免 SVG 在自己的 viewBox 下
+         * 撑成 100%（inline svg 没有 intrinsic size 的概念）。
+         *
+         * 颜色分主题，不能一律用品牌色：
+         * 深色主题下卡片底就是品牌色渐变（见上方 .chat-text-welcome-card），
+         * 品牌色图标压在品牌色底上对比度是 1.00:1 —— 完全隐形。
+         * 实测白图标在 #db2777 / #d97706 / #2563eb 三种主色下
+         * 对比度分别为 4.60 / 3.19 / 5.17，都达标，所以深色用白。
+         */
+        .chat-text-welcome-card-icon-svg {
+          width: 58px;
+          height: 58px;
+          color: var(--theme-color-primary, #5f45c6);
+          stroke-width: 1.55;
+        }
+        body[theme-mode="dark"] .chat-text-welcome-card-icon-svg,
+        body:not([theme-mode="light"]) .chat-text-welcome-card-icon-svg {
+          /*
+           * 半透明白而不是纯白：卡片顶部的品牌色被混了 22% 白，
+           * 纯白图标在那一小块上会显得过曝、和底脱层。
+           * 0.94 的白既能压住品牌色，又保留一点「映在玻璃上」的融合感。
+           */
+          color: rgba(255, 255, 255, 0.94);
+          filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.28));
         }
         body[theme-mode="dark"] .chat-text-welcome-card-icon img,
         body:not([theme-mode="light"]) .chat-text-welcome-card-icon img {
-          filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 14px rgba(140, 115, 220, 0.28));
+          filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 14px color-mix(in srgb, var(--theme-color-primary, #8c73dc) 30%, transparent));
         }
         body[theme-mode="light"] .chat-text-welcome-card:not(.chat-text-welcome-card--image-preset):not(.chat-text-welcome-card--video-preset) {
-          background: linear-gradient(180deg, #d2c7fc 0%, #e6ddfe 45%, #f3f0ff 100%);
-          box-shadow: 0 8px 26px rgba(75, 55, 130, 0.1);
+          /*
+           * 浅色主题下卡片是一块淡底色 —— 原来是 #d2c7fc → #e6ddfe → #f3f0ff
+           * （淡紫的深浅三段）。同样要跟着品牌色走，否则浅色主题下也是
+           * 「设置成橙色、卡片还是紫的」。
+           *
+           * 这里的混合比例比深色版更高（往白色推得更多）：浅色主题下卡片
+           * 是承载深色文字的底，太浓会让标题读不清。
+           */
+          background: linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--theme-color-primary, #d2c7fc) 22%, #fff) 0%,
+            color-mix(in srgb, var(--theme-color-primary, #e6ddfe) 12%, #fff) 45%,
+            color-mix(in srgb, var(--theme-color-primary, #f3f0ff) 5%, #fff) 100%
+          );
+          box-shadow: 0 8px 26px color-mix(in srgb, var(--theme-color-primary, #4b3782) 12%, transparent);
         }
         body[theme-mode="light"] .chat-text-welcome-card:not(.chat-text-welcome-card--image-preset):not(.chat-text-welcome-card--video-preset):hover {
-          box-shadow: 0 12px 32px rgba(75, 55, 130, 0.14);
+          box-shadow: 0 12px 32px color-mix(in srgb, var(--theme-color-primary, #4b3782) 18%, transparent);
         }
         .chat-text-welcome-card-icon-fallback {
           font-size: 22px;
@@ -1100,6 +1163,15 @@
           .chat-text-welcome-grid:not(.chat-text-welcome-grid--fixed-cols) .chat-text-welcome-card-icon {
             height: 72px;
           }
+          /*
+           * 移动端图标同步收小。SVG 是固定 width/height，
+           * 不会像原来的 <img> 那样被 max-width:100% 自动缩，
+           * 不显式改就会在 72px 高的槽里顶出边。
+           */
+          .chat-text-welcome-card-icon-svg {
+            width: 48px;
+            height: 48px;
+          }
         }
         @media (max-width: 380px) {
           .chat-text-welcome-grid:not(.chat-text-welcome-grid--fixed-cols) {
@@ -1154,9 +1226,9 @@
           }
         }
         .welcome-prompt:hover {
-          border-color: rgba(120, 92, 220, 0.36);
+          border-color: rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.36);
           transform: translateY(-1px);
-          box-shadow: 0 12px 28px rgba(80, 56, 162, 0.14);
+          box-shadow: 0 12px 28px rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.14);
         }
         .welcome-prompt-title {
           font-size: 20px;
@@ -1194,14 +1266,14 @@
           gap: 6px;
           padding: 8px 16px;
           border-radius: 8px;
-          border: 1px solid rgba(124,58,237,0.4);
-          background: rgba(124,58,237,0.08);
-          color: #c4b5fd;
+          border: 1px solid rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.4);
+          background: rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.08);
+          color: color-mix(in srgb, var(--theme-color-primary, #c4b5fd) 72%, #fff);
           font-size: 13px;
           cursor: pointer;
           transition: background 0.12s;
         }
-        .chat-empty-btn:hover { background: rgba(124,58,237,0.18); }
+        .chat-empty-btn:hover { background: rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.18); }
 
         /* Message group — 头像在气泡上方；用户右对齐、助手全宽 */
         .message-group {
@@ -1251,10 +1323,26 @@
           font-weight: 600;
           flex-shrink: 0;
         }
+        /*
+         * 用户头像：品牌色渐变。
+         *
+         * 原来写死 #8b5cf6 → #a78bfa（紫）。这个圆标出现在文本/图像/视频/语音
+         * 四个页面的每条用户消息上，是站内出现频率最高的品牌视觉之一，
+         * 换主色后还是紫的会很扎眼。
+         *
+         * 用 color-mix 从主色往白/深两头推 —— 不预设两档固定色值，
+         * 因为主色本身深浅不定（#d97706 偏亮、#2563eb 偏深），
+         * 写死两档必然有某一档和主色脱节。
+         * 左上亮、右下深，保留原来那种受光的方向感。
+         */
         .msg-avatar--user {
-          background: linear-gradient(135deg, #8b5cf6, #a78bfa);
-          color: #fff;
-          box-shadow: 0 1px 2px rgba(79, 70, 229, 0.2);
+          background: linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--theme-color-primary, #8b5cf6) 78%, #fff),
+            color-mix(in srgb, var(--theme-color-primary, #a78bfa) 86%, #000)
+          );
+          color: var(--btn-primary-text, #fff);
+          box-shadow: 0 1px 2px rgb(from var(--theme-color-primary, #4f46e5) r g b / 0.28);
         }
         .msg-avatar--ai {
           background: var(--chat-msg-ai-bg);
@@ -1610,10 +1698,24 @@
         }
 
         /* Markdown */
-        .chat-markdown a.md-link { color: #a78bfa; text-decoration: none; }
+        /*
+         * 正文链接与引用条跟品牌色。
+         * 浅色主题下品牌色（如 #d97706 橙）压在近白底上对比度够；
+         * 深色主题下改由下面那条 body:not([theme-mode=light]) 规则提亮。
+         */
+        .chat-markdown a.md-link { color: var(--theme-color-primary, #a78bfa); text-decoration: none; }
         .chat-markdown a.md-link:hover { text-decoration: underline; }
+        /*
+         * 深色主题把链接提亮一档。
+         * 品牌色可能是 #2563eb 这种深蓝，直接用在深色底上对比度只有 2.6:1 左右，
+         * 正文里的链接会糊进背景。混 24% 白把亮度抬起来，色相不变。
+         */
+        body[theme-mode="dark"] .chat-markdown a.md-link,
+        body:not([theme-mode="light"]) .chat-markdown a.md-link {
+          color: color-mix(in srgb, var(--theme-color-primary, #a78bfa) 76%, #fff);
+        }
         .chat-markdown .md-blockquote {
-          border-left: 3px solid #7c3aed;
+          border-left: 3px solid var(--theme-color-primary, #7c3aed);
           padding-left: 12px;
           margin: 6px 0;
           color: var(--text-secondary, #a1a1aa);
@@ -1644,7 +1746,7 @@
           padding: 2px 5px;
           border-radius: 4px;
           font-size: 0.88em;
-          color: #c4b5fd;
+          color: color-mix(in srgb, var(--theme-color-primary, #c4b5fd) 72%, #fff);
           font-family: 'Menlo', 'Monaco', monospace;
         }
         .chat-md-img-wrap {
@@ -1660,7 +1762,7 @@
           cursor: zoom-in;
         }
         .chat-md-img-wrap:focus-visible {
-          outline: 2px solid #a78bfa;
+          outline: 2px solid var(--theme-color-primary, #a78bfa);
           outline-offset: 2px;
         }
         .chat-markdown .chat-md-img {
@@ -1693,9 +1795,9 @@
           border-radius: 999px;
           font-size: 12px;
           font-weight: 600;
-          background: rgba(124, 58, 237, 0.14);
-          color: #c4b5fd;
-          border: 1px solid rgba(124, 58, 237, 0.35);
+          background: rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.14);
+          color: color-mix(in srgb, var(--theme-color-primary, #c4b5fd) 72%, #fff);
+          border: 1px solid rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.35);
         }
         .video-task-card__status--completed {
           color: #34d399;
@@ -1739,14 +1841,14 @@
           align-self: flex-start;
           padding: 5px 10px;
           border-radius: 8px;
-          border: 1px solid rgba(124, 58, 237, 0.35);
-          background: rgba(124, 58, 237, 0.14);
-          color: #c4b5fd;
+          border: 1px solid rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.35);
+          background: rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.14);
+          color: color-mix(in srgb, var(--theme-color-primary, #c4b5fd) 72%, #fff);
           font-size: 12px;
           cursor: pointer;
         }
         .video-task-card__retry-btn:hover {
-          background: rgba(124, 58, 237, 0.2);
+          background: rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.2);
         }
         .video-task-card__retry-btn:disabled {
           opacity: 0.6;
@@ -1792,9 +1894,9 @@
           transition: all .15s ease;
         }
         .video-task-card__retry-icon-btn:hover {
-          border-color: #7c3aed;
-          color: #c4b5fd;
-          background: rgba(124, 58, 237, 0.14);
+          border-color: var(--theme-color-primary, #7c3aed);
+          color: color-mix(in srgb, var(--theme-color-primary, #c4b5fd) 62%, #fff);
+          background: rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.14);
         }
         .video-task-card__retry-icon-btn:disabled {
           opacity: 0.55;
@@ -2379,13 +2481,23 @@
           border-top-left-radius: 14px;
           border-top-right-radius: 14px;
         }
+        /*
+         * 聚焦描边跟品牌色。
+         *
+         * 原来写死 rgba(124,58,237,...)（灵通云紫）。实测时主色是 #db2777 粉，
+         * 整页扫下来这是唯一一处残留紫色元素 —— 输入框聚焦时跳出紫边。
+         *
+         * 用 rgb(from ... / 透明度) 而不是 color-mix：
+         * 这里只需要「同一个颜色、不同 alpha」，rgb(from ...) 更直接，
+         * 也不用为每个透明度档位写一遍 color-mix。
+         */
         .chat-input-box:focus-within {
-          border-color: rgba(124,58,237,0.5);
-          box-shadow: 0 0 0 3px rgba(124,58,237,0.1);
+          border-color: rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.5);
+          box-shadow: 0 0 0 3px rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.1);
         }
         .chat-input-box.chat-input-box--drag-active {
-          border-color: rgba(124, 58, 237, 0.65);
-          box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.18);
+          border-color: rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.65);
+          box-shadow: 0 0 0 3px rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.18);
         }
         .chat-textarea {
           display: block;
@@ -2437,12 +2549,12 @@
         }
         .input-tool-btn:hover { background: var(--bg-hover, var(--bg-card)); color: var(--text-primary, #e4e4e7); }
         .input-tool-btn--channel-active {
-          color: #a78bfa;
-          background: rgba(124,58,237,0.12);
+          color: color-mix(in srgb, var(--theme-color-primary, #a78bfa) 58%, #fff);
+          background: rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.12);
         }
         .input-tool-btn--channel-active:hover {
-          color: #c4b5fd;
-          background: rgba(124,58,237,0.18);
+          color: color-mix(in srgb, var(--theme-color-primary, #c4b5fd) 72%, #fff);
+          background: rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.18);
         }
         .action-icon-svg {
           width: 18px;
@@ -2496,9 +2608,9 @@
         }
         .input-model-count {
           font-size: 14px;
-          color: #a78bfa;
-          background: rgba(124,58,237,0.1);
-          border: 1px solid rgba(124,58,237,0.25);
+          color: color-mix(in srgb, var(--theme-color-primary, #a78bfa) 58%, #fff);
+          background: rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.1);
+          border: 1px solid rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.25);
           border-radius: 10px;
           padding: 2px 8px;
         }

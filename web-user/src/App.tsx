@@ -14,7 +14,6 @@ import CustomerServiceFloat from './components/CustomerServiceFloat';
 import { isModelsConsoleEmbed } from './utils/modelsConsoleEmbed';
 
 const Home = lazy(() => import('./pages/HomePageGate'));
-const Pricing = lazy(() => import('./pages/Pricing'));
 const ModelPlazaPage = lazy(() => import('./pages/model-plaza/ModelPlazaPage'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Tokens = lazy(() => import('./pages/Tokens'));
@@ -34,7 +33,6 @@ const TextChat = lazy(() => import('./pages/TextChat'));
 const DocsHomePage = lazy(() => import('./pages/docs/DocsPages'));
 const DocsArticlePage = lazy(() => import('./pages/docs/DocsPages').then((m) => ({ default: m.DocsArticlePage })));
 const DocsApiRedirect = lazy(() => import('./pages/DocsApiRedirect'));
-const EnterpriseApply = lazy(() => import('./pages/EnterpriseApply'));
 const AboutPage = lazy(() => import('./pages/static/About'));
 const TrustPage = lazy(() => import('./pages/static/Trust'));
 const LegalPage = lazy(() => import('./pages/static/Legal'));
@@ -265,14 +263,12 @@ export default function App() {
             <Route path="/user-pricing" element={<Navigate to="/dashboard" replace />} />
           </Route>
           <Route path="/" element={<LazyPage><Home /></LazyPage>} />
-          <Route path="/pricing" element={<LazyPage><Pricing /></LazyPage>} />
           <Route element={<ConsoleIfAuthedLayout />}>
             <Route path="/models" element={<LazyPage><ModelPlazaPage /></LazyPage>} />
           </Route>
           <Route path="/docs/api" element={<LazyPage><DocsApiRedirect /></LazyPage>} />
           <Route path="/docs/:slug" element={<LazyPage><DocsArticlePage /></LazyPage>} />
           <Route path="/docs" element={<LazyPage><DocsHomePage /></LazyPage>} />
-          <Route path="/enterprise/apply" element={<LazyPage><EnterpriseApply /></LazyPage>} />
           <Route path="/about" element={<LazyPage><AboutPage /></LazyPage>} />
           <Route path="/trust" element={<LazyPage><TrustPage /></LazyPage>} />
           <Route path="/legal" element={<LazyPage><LegalPage /></LazyPage>} />

@@ -32,7 +32,6 @@ export default function ServiceStatus() {
         </div>
         <div className="static-page-cta-actions">
           <Link to="/announcements">{t('static.serviceStatusCtaPrimary')}</Link>
-          <Link to="/enterprise/apply">{t('static.serviceStatusCtaSecondary')}</Link>
         </div>
       </div>
     </StaticPage>

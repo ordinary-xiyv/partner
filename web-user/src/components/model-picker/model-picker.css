@@ -126,12 +126,12 @@
 }
 .composer-model-pill--has-models {
   justify-content: flex-start;
-  border-color: color-mix(in srgb, var(--accent-purple) 48%, var(--border-default));
+  border-color: color-mix(in srgb, var(--accent-primary) 48%, var(--border-default));
   font-weight: 500;
 }
 .composer-model-pill--has-models:hover:not(:disabled) {
   background: var(--bg-hover, var(--bg-hover));
-  border-color: color-mix(in srgb, var(--accent-purple) 62%, var(--border-default));
+  border-color: color-mix(in srgb, var(--accent-primary) 62%, var(--border-default));
   color: var(--text-primary, var(--text-primary));
 }
 .composer-model-pill-text {
@@ -177,9 +177,14 @@
   max-width: var(--model-picker-panel-width, min(100%, 20.125rem));
   min-width: 0;
   border-radius: 14px;
-  border: 1px solid rgba(124, 58, 237, 0.38);
+  /*
+   * 下拉面板边框与内发光跟品牌色。
+   * 原来写死 rgba(124,58,237,...)（紫）—— 这正是用户在截图里指出
+   * 「模型选择组件的选中特效没跟品牌色」的那层紫色描边。
+   */
+  border: 1px solid rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.38);
   box-shadow:
-    0 0 0 1px rgba(124, 58, 237, 0.12),
+    0 0 0 1px rgb(from var(--theme-color-primary, #7c3aed) r g b / 0.12),
     0 18px 48px rgba(0, 0, 0, 0.55);
   display: flex;
   flex-direction: column;
@@ -620,7 +625,7 @@
   flex-shrink: 0;
 }
 .model-picker-item--selected .model-picker-dot {
-  background: #7c3aed;
+  background: var(--theme-color-primary, #7c3aed);
 }
 .model-picker-name {
   flex: 1;

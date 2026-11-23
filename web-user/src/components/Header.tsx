@@ -141,17 +141,94 @@ export default function Header({
 
   const showLogoImage = Boolean(remoteLogoSrc && !statusLoading && !logoBroken);
 
+  /*
+   * Logo 的原始宽高比。
+   *
+   * 为什么要记这个：页头 logo 高度锁死 32px，宽度按比例走。于是
+   *
+   *   · 横版 logo（4~5:1）→ 渲染宽 130~150px，视觉上撑得住页头左段
+   *   · 方形图标（1:1）    → 渲染宽只有 32px，旁边一大片空白，
+   *                          看起来「孤零零贴在左边」
+   *
+   * 这不是图片质量问题，是横向分量不足。实测：横版墨迹宽 134.8px、
+   * 方形墨迹宽 24.5px，差 5.5 倍，而高度几乎一样（18.6 vs 17.8）。
+   * 所以单纯调 CSS 尺寸救不了方形图 —— 把 32px 放大到 40px 也只多 6px 宽。
+   *
+   * 解法是补宽度而不是放大：宽高比低于阈值时，在图右侧并排品牌名文字
+   * （见下面的 needsWordmark）。这是 SaaS 页头的通行做法，而且对任意
+   * 尺寸上传都成立 —— 商户传方图、传长图、传带留白的图，最终宽度都够。
+   *
+   * 用 null 表示「还没测出来」：首次渲染时图片尚未 load，此时不补文字，
+   * 避免先闪一下品牌名再变回纯图。
+   */
+  const [logoAspect, setLogoAspect] = React.useState<number | null>(null);
+
+  /*
+   * 低于这个宽高比就判定为「图标型」，需要品牌名补足横向宽度。
+   *
+   * 3.2 对应渲染宽度约 102px（32 × 3.2）。取这个值是因为：
+   *   · 常见横版 wordmark 都在 3.5:1 以上（本例 4.7:1 → 150px）
+   *   · 1:1~3:1 的图渲染出来 32~96px，在页头里明显偏窄
+   * 宁可多补一点：字体是 17px 的常规字重，补上去就是正常字标，不会难看；
+   * 反过来漏补的话，就是一整个空槽。
+   */
+  const ICON_LOGO_ASPECT_MAX = 3.2;
+
+  const needsWordmark = logoAspect !== null && logoAspect < ICON_LOGO_ASPECT_MAX;
+
+  /*
+   * 并排显示的品牌名。
+   *
+   * 白标站用伙伴填的完整品牌名（不是 short_name —— 那是给方形小标用的
+   * 一两个字缩写，放在页头上读起来像残缺）。非白标站退到 i18n 的
+   * {{brandName}}，它已经被 StatusContext 按平台配置插过值了。
+   */
+  const wordmarkText = React.useMemo(() => {
+    if (!needsWordmark) return '';
+    const partnerName = (partnerBrand?.name ?? '').trim();
+    return partnerName || t('header.systemName');
+  }, [needsWordmark, partnerBrand, t]);
+
+  /*
+   * 没配 logo（或图破了）时画「品牌色方块 + 首字」。
+   *
+   * 这是伙伴后台 BrandLogo 预览已经在用的规则（web/src/shared/ui/BrandLogo.tsx）：
+   * 取 short_name 首字，没有就取品牌名首字。两侧不一致过一段时间 ——
+   * 后台预览画了方块首字，客户站只留 148px 空白，商户会以为上传失败了。
+   *
+   * 取值顺序刻意和后端保持一致：short_name 是商户专门为「方形小标」准备的
+   * 缩写（一个汉字/一个字母），品牌名是完整名称，首字取出来通常是
+   * 「王」「L」这种还能看但不一定想要的字。所以 short_name 优先。
+   */
+  const brandInitial = React.useMemo(() => {
+    if (!isWhiteLabelSite) return '';
+    const short = (partnerBrand?.short_name ?? '').trim();
+    const full = (partnerBrand?.name ?? '').trim();
+    return (short || full).slice(0, 1);
+  }, [isWhiteLabelSite, partnerBrand]);
+
+  const showLogoFallback = !showLogoImage && Boolean(brandInitial);
+
   const handleLogoError = () => {
     if (!remoteLogoSrc) return;
     setLogoBroken(true);
     setSiteLogoResolve(remoteLogoSrc, 'broken');
   };
 
-  const handleLogoLoad = () => {
+  const handleLogoLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
     if (remoteLogoSrc) {
       setSiteLogoResolve(remoteLogoSrc, 'remote');
     }
+    const img = event.currentTarget;
+    if (img.naturalHeight > 0) {
+      setLogoAspect(img.naturalWidth / img.naturalHeight);
+    }
   };
+
+  /* 换图后旧的比例立刻失效，否则新图会先按旧比例决定要不要补品牌名 */
+  React.useEffect(() => {
+    setLogoAspect(null);
+  }, [remoteLogoSrc]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -330,12 +407,26 @@ export default function Header({
       <div className="app-header-capsule">
       <div className="header-bar app-header-bar">
         {/* ── 左侧：Logo ──
-            slot 无论有没有 logo 都必须挂载：它承载 --app-header-logo-slot-width
-            这个固定宽度，导航文字的起始位置（--app-header-nav-text-offset）
-            也按它推算。以前是整块条件渲染，没配 logo 时 Link 塌成 0 宽，
-            导航整体向左跳，视觉上像是「左侧缺了一块」。 */}
+            slot 始终挂载，但它按内容收缩（min-width: 32px 兜底），不再占固定
+            宽度 —— 早期版本是 flex: 0 0 148px，理由是「导航位置按它推算」，
+            但那个推算变量从未被任何样式消费，导航实际由 flex 流决定。固定
+            宽度的唯一效果是让正方形 logo 右边白留 116px。
+
+            三分支，互斥：
+              · 有图      → <img>，高度锁 32px、宽度按比例
+              · 无图/图破 → 品牌色方块 + 首字（与伙伴后台 BrandLogo 同规则）
+              · 都没有    → 空槽，靠 min-width 撑住 32px 不塌陷
+
+            另外，图太窄（方形图标）时在图右侧并排品牌名，补足横向分量 ——
+            详见 needsWordmark 的注释。 */}
         <Link to="/" className="app-header-logo" aria-label={t('header.systemName')}>
-          <span className="app-header-logo__slot">
+          <span
+            className={
+              needsWordmark && wordmarkText
+                ? 'app-header-logo__slot app-header-logo__slot--wordmark'
+                : 'app-header-logo__slot'
+            }
+          >
             {showLogoImage ? (
               <img
                 src={remoteLogoSrc}
@@ -345,6 +436,13 @@ export default function Header({
                 onLoad={handleLogoLoad}
                 onError={handleLogoError}
               />
+            ) : showLogoFallback ? (
+              <span className="app-header-logo__mark" aria-hidden>
+                {brandInitial}
+              </span>
+            ) : null}
+            {showLogoImage && needsWordmark && wordmarkText ? (
+              <span className="app-header-logo__wordmark">{wordmarkText}</span>
             ) : null}
           </span>
         </Link>

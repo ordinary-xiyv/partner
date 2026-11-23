@@ -1,0 +1,18 @@
+<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <!--
+    客服耳机图标。
+
+    为什么是矢量而非位图：原来这里是一张 41KB 的 3D 卡通头像 PNG，
+    要备深/浅两套、Retina 上还会糊，换品牌色也得重新出图。
+    这个 SVG 0.3KB，用 currentColor 跟随主题，换色零成本。
+
+    线条风格与项目其他图标一致：纯 stroke、圆头圆角、无填充。
+  -->
+  <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 头梁：从中线拱起，两端各留一小段竖直接入耳罩 -->
+    <path d="M4.5 13.5v-1.7a7.5 7.5 0 0 1 15 0v1.7"/>
+    <!-- 左右耳罩。用 rect 而非 path，圆角由 rx 统一控制，缩到 20px 也不变形 -->
+    <rect x="2.4" y="13.2" width="3.9" height="6.2" rx="1.6"/>
+    <rect x="17.7" y="13.2" width="3.9" height="6.2" rx="1.6"/>
+  </g>
+</svg>

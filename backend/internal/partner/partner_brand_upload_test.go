@@ -73,13 +73,26 @@ func TestObjectKeyFollowsPlatformTemplate(t *testing.T) {
 		KeyPrefix:   "tokens-lynxtoncloud-LZ-CS",
 		KeyTemplate: "{key_prefix}/branding/site-logo/{user_id}/{file_id}/{filename}",
 	}
-	key := cfg.objectKey(42, "abc123", "logo.png")
+	key := cfg.objectKey(42, "abc123", "logo.png", "")
 	want := "tokens-lynxtoncloud-LZ-CS/branding/site-logo/-1/abc123/logo.png"
 	if key != want {
 		t.Fatalf("对象键不符：\n  got=%s\n  want=%s", key, want)
 	}
 	if strings.HasPrefix(key, "/") {
 		t.Fatalf("对象键不该以斜杠开头：%s", key)
+	}
+}
+
+// 二维码走同一个模板，只把目录换成 site-qr
+func TestObjectKeyUsesQRTargetDir(t *testing.T) {
+	cfg := objectStorageConfig{
+		KeyPrefix:   "tokens-lynxtoncloud-LZ-CS",
+		KeyTemplate: "{key_prefix}/branding/site-logo/{user_id}/{file_id}/{filename}",
+	}
+	key := cfg.objectKey(42, "abc123", "qr.png", "site-qr")
+	want := "tokens-lynxtoncloud-LZ-CS/branding/site-qr/-1/abc123/qr.png"
+	if key != want {
+		t.Fatalf("对象键不符：\n  got=%s\n  want=%s", key, want)
 	}
 }
 
