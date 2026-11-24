@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, DatePicker, Input, Select, Space, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { DownloadOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
@@ -15,6 +15,7 @@ import {
   formatDuration,
   formatMoney,
   formatMoneyAuto,
+  formatMoneyFixed,
   formatNumber,
   formatQuotaAsMoney,
   formatTime,
@@ -63,14 +64,36 @@ export default function Usage() {
       page,
       page_size: pageSize,
       model_name: modelFilter || undefined,
-      type: typeFilter,
-      start_time: range ? range[0].startOf('day').unix() : undefined,
-      end_time: range ? range[1].endOf('day').unix() : undefined,
+      /*
+       * range 的两个元素都要判空，不能只判 range 本身。
+       *
+       * RangePicker 在「只选了开始日期、还没选结束日期」以及清空过程中，
+       * onChange 可能给到 [Dayjs, null]。原写法 `range ? range[1].endOf('day')...`
+       * 只挡了 range 为 null 的情况，[x, null] 会直接抛
+       * TypeError: Cannot read properties of null (reading 'endOf')。
+       * 而那个异常是在 try 块里同步抛出的，外面只有 finally 没有 catch ——
+       * 于是 loading 被复位、表格数据却停在上一次的结果，用户看到的就是
+       * 「筛选点了没反应，数据不更新」。
+       */
+      start_time: range?.[0] ? range[0].startOf('day').unix() : undefined,
+      end_time: range?.[1] ? range[1].endOf('day').unix() : undefined,
     }),
     [page, pageSize, modelFilter, typeFilter, range],
   );
 
+  /*
+   * 请求序号 —— 用来丢弃「迟到的旧响应」。
+   *
+   * 没有这个守卫时会出现经典竞态：用户快速翻页 / 连续改筛选，
+   * 多个请求同时在飞，**最后返回的那个**会覆盖 state，
+   * 而它未必是最后一次操作对应的请求。表现就是「点了第 2 页，
+   * 数据显示的还是第 1 页」或者「筛选没生效」。
+   * 本地后端几十毫秒就回来，几乎复现不出；线上有网络延迟时很常见。
+   */
+  const reqSeqRef = useRef(0);
+
   const load = useCallback(async () => {
+    const seq = ++reqSeqRef.current;
     setLoading(true);
     try {
       /*
@@ -80,14 +103,28 @@ export default function Usage() {
        * 一抛错整个 Promise.all 就 reject —— 日志明明拉到了也不显示，
        * 页面只剩「用量加载失败」。改成 allSettled：明细是主数据，汇总只是加分项。
        */
+      const query = buildQuery();
       const [listRes, sumRes] = await Promise.allSettled([
-        dealerApi.fetchUsageLogs(buildQuery()),
-        dealerApi.fetchUsageSummary(buildQuery()),
+        dealerApi.fetchUsageLogs(query),
+        dealerApi.fetchUsageSummary(query),
       ]);
+
+      // 已经有更新的请求发出去了，这次的响应作废（否则会把新数据盖回旧的）
+      if (seq !== reqSeqRef.current) return;
 
       if (listRes.status === 'fulfilled') {
         setRows(listRes.value.items);
         setTotal(listRes.value.total);
+        /*
+         * 兜住「当前页码超出总页数」的情况。
+         *
+         * 场景：在第 5 页改筛选，筛完只剩 2 页。筛选的 onChange 里虽然
+         * 都会 setPage(1)，但如果是「总条数因为别的原因变少」或者翻页
+         * 后数据被删，页码就可能停在空页上 —— 表格一片空白，
+         * 用户以为是筛选坏了。
+         */
+        const maxPage = Math.max(1, Math.ceil(listRes.value.total / pageSize));
+        if (page > maxPage) setPage(maxPage);
       } else {
         setRows([]);
         setTotal(0);
@@ -99,10 +136,25 @@ export default function Usage() {
       } else {
         setSummary(null);
       }
+    } catch (err) {
+      /*
+       * 原来只有 finally 没有 catch。
+       *
+       * 后果是：buildQuery 里任何同步异常（见上面 range 判空的注释）、
+       * 或者 notifyApiError 自身抛错，都会变成一个没人处理的
+       * unhandled rejection —— loading 复位了，数据却没变，
+       * 界面看起来就是「点了没反应」，连报错都没有。
+       * 这里显式捕获并复位，至少让用户看到发生了什么。
+       */
+      if (seq === reqSeqRef.current) {
+        setRows([]);
+        setTotal(0);
+        notifyApiError(err, '用量明细加载失败');
+      }
     } finally {
-      setLoading(false);
+      if (seq === reqSeqRef.current) setLoading(false);
     }
-  }, [buildQuery]);
+  }, [buildQuery, page, pageSize]);
 
   useEffect(() => {
     void load();
@@ -176,6 +228,36 @@ export default function Usage() {
       ),
     },
     {
+      /*
+       * 缓存命中的 token 数。
+       *
+       * 数据本来就在日志表里（logs.cache_read，后端也已经 select 出来了），
+       * 只是这一列之前没渲染，于是「省了多少」完全看不见 —— 而缓存命中率
+       * 是判断成本是否合理的关键指标之一（实测该库 38529 条消费记录里
+       * 有 9573 条命中过缓存，不是可有可无的边缘数据）。
+       *
+       * 命中为 0 时显示灰色的「—」而不是「0」：
+       * 绝大多数请求就是没命中，满屏的 0 会让这一列变成噪声，
+       * 反而看不出哪些是真正省钱的调用。
+       */
+      title: '缓存',
+      dataIndex: 'cache_read',
+      width: 92,
+      align: 'right',
+      sorter: (a, b) => a.cache_read - b.cache_read,
+      render: (n: number) => (
+        <span
+          style={{
+            fontSize: 12,
+            fontVariantNumeric: 'tabular-nums',
+            color: n > 0 ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+          }}
+        >
+          {n > 0 ? formatNumber(n) : '—'}
+        </span>
+      ),
+    },
+    {
       title: '输出',
       dataIndex: 'completion_tokens',
       width: 92,
@@ -211,7 +293,18 @@ export default function Usage() {
           }}
         >
           {row.type === 6 ? '−' : ''}
-          {formatMoneyAuto(Math.abs(row.amount_cny ?? quotaToCny(q)))}
+          {/*
+           * 固定 4 位小数，不用 formatMoneyAuto。
+           *
+           * 之前用的自适应位数（>=1 元 2 位、>=0.01 元 3 位、以下 4~5 位），
+           * 同一列里每行长度都不一样：¥0.5 和 ¥0.5001 并排，右对齐也看不出
+           * 谁大谁小，扫视比较时特别费劲。
+           *
+           * 现在统一 4 位、末位补 0 不裁：库里最小的一笔是 ¥0.000002，
+           * 4 位仍会显示成 ¥0.0000 —— 那是这个维度下的真实精度极限，
+           * 再往下加位数对「看用量明细」没有意义，反而把列撑宽。
+           */}
+          {formatMoneyFixed(Math.abs(row.amount_cny ?? quotaToCny(q)))}
         </span>
       ),
     },
@@ -362,7 +455,22 @@ export default function Usage() {
             <RangePicker
               value={range}
               onChange={(v) => {
-                setRange(v as [Dayjs, Dayjs] | null);
+                /*
+                 * 只有「两个日期都选好」才当成有效区间，否则一律当清空。
+                 *
+                 * RangePicker 在交互过程中会多次回调：
+                 *   · 只点了一个日期 → [Dayjs, null]
+                 *   · 清空           → null
+                 * 原写法直接把 v 塞进 state，[Dayjs, null] 随后会让
+                 * buildQuery 里的 range[1].endOf() 抛异常，整次加载静默失败 ——
+                 * 表现就是「日期筛选点了没反应，列表还是老数据」。
+                 *
+                 * 现在把「半选」当成没选：列表立刻按全部时间加载，
+                 * 用户选完第二个日期时再按区间筛一次。
+                 */
+                const start = v?.[0];
+                const end = v?.[1];
+                setRange(start && end ? [start, end] : null);
                 setPage(1);
               }}
               placeholder={['开始日期', '结束日期']}
@@ -393,8 +501,8 @@ export default function Usage() {
           dataSource: rows,
           loading,
           size: 'middle',
-          // 列宽合计 = 158+104+168+92+92+110+90+70+80 = 964
-          scroll: { x: 964 },
+          // 列宽合计 = 158+104+168+92+92+92+110+90+70+80 = 1056
+          scroll: { x: 1056 },
           locale: { emptyText: <AppEmpty icon="📈" message="当前筛选条件下没有调用记录" /> },
           pagination: {
             current: page,

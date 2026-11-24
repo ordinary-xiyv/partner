@@ -655,7 +655,8 @@ export async function fetchUsageLogs(query: UsageQuery = {}): Promise<ListResult
       page: query.page ?? 1,
       page_size: query.page_size ?? 10,
       ...(query.customer_id ? { user_id: query.customer_id } : {}),
-      ...(query.model_name ? { model_name: query.model_name } : {}),
+      // trim 一下：下拉选项来自 fetchModelNames（已 trim），但调用方也可能直接传值
+      ...(query.model_name?.trim() ? { model_name: query.model_name.trim() } : {}),
       ...(query.type ? { type: query.type } : {}),
       ...(query.start_time ? { start_timestamp: query.start_time } : {}),
       ...(query.end_time ? { end_timestamp: query.end_time } : {}),
@@ -686,9 +687,36 @@ export async function fetchUsageSummary(query: UsageQuery = {}): Promise<UsageSu
    * 有模型筛选时账期汇总无法随之收窄 —— 这时仍然返回账期数字，
    * 由页面标注「汇总为账期口径，不随模型筛选变化」，而不是悄悄返回一个错数。
    */
-  const range = query.start_time && query.end_time
+  let range = query.start_time && query.end_time
     ? { start_date: toDateStr(query.start_time), end_date: toDateStr(query.end_time) }
     : currentMonthRange();
+
+  /*
+   * ★ 裁到后端允许的窗口内，别让整块汇总因为一个超限区间而消失。
+   *
+   * 后端 partner_billing.go 的校验是
+   *     end.Sub(start) >= 93*24*time.Hour  →  报「最多查询 93 天」
+   * 注意是「大于等于 93 就拒」，所以能通过的最大跨度是 92 天，
+   * 不是 93 天。这一点实测确认过：按 93 天裁剪后请求依然 400。
+   *
+   * 一旦用户在日期筛选里选了跨季度/跨年的区间，汇总请求必然 400。
+   * 原来的处理是让它失败 → summary 变 null → 顶部四个卡片显示
+   * 「汇总数据暂不可用」。但「最近一个季度」这个数字对用户仍然有价值，
+   * 比一个错误提示有用得多。所以把区间左端往后收，右端保持用户选的结束日。
+   *
+   * 注意：这是**故意的有损**处理，所以返回值里带着真实的 start_date/end_date，
+   * 页面上那句「汇总区间 X ~ Y」会照实显示裁过之后的区间，不会骗人。
+   */
+  const MAX_BILLING_DAYS = 92;
+  {
+    const s = new Date(`${range.start_date}T00:00:00`);
+    const e = new Date(`${range.end_date}T00:00:00`);
+    const days = Math.round((e.getTime() - s.getTime()) / 86400000);
+    if (Number.isFinite(days) && days > MAX_BILLING_DAYS) {
+      const clipped = new Date(e.getTime() - MAX_BILLING_DAYS * 86400000);
+      range = { start_date: toDateStr(clipped.getTime() / 1000), end_date: range.end_date };
+    }
+  }
 
   const billing = await fetchBilling({ ...range, page: 1, page_size: 1 });
   return {
@@ -723,7 +751,22 @@ export async function fetchModelNames(): Promise<string[]> {
     url: EP.dealer.usage,
     params: { page: 1, page_size: 100, all_history: 1 },
   }, { silent: true });
-  return [...new Set((res?.items ?? []).map((r) => r.model_name).filter(Boolean))].sort();
+  /*
+   * trim 之后再聚合。
+   *
+   * 库里存在带前导空格的模型名（实测见过 ' doubao-seedance-2-0-260128'）。
+   * 不 trim 的话下拉里会出现两个看起来一模一样、点起来结果不同的选项，
+   * 而且选中带空格的那个后，后端用 LIKE '% doubao...%' 去匹配 ——
+   * 命中与否取决于数据里空格的数量，用户完全无法预期。
+   *
+   * 反过来，trim 之后下拉里的值就是干净的名字，后端 LIKE 也能正常模糊匹配。
+   */
+  const names = [...new Set(
+    (res?.items ?? [])
+      .map((r) => (r.model_name ?? '').trim())
+      .filter(Boolean),
+  )].sort();
+  return names;
 }
 
 /**
