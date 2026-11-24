@@ -1,6 +1,7 @@
 package partner
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -48,6 +49,24 @@ func TestRealDBDocSeedImportHTTP(t *testing.T) {
 
 	const siteID = "site-seed-verify"
 	const merchantID int64 = 9001
+	/*
+	 * 这个商户只是为了让 siteIDForMerchant 能查到 site_id，不做凭证校验，
+	 * 但 site_credential_hash 必须非空且长度合法，见下面的 CHECK 约束说明。
+	 *
+	 * ★ 写入的必须是 sha256 原始 32 字节（bytea），不是 64 位十六进制字符串。
+	 *
+	 * 表上还有第二个约束 lc_distribution_merchants_credential_hash_length：
+	 *   CHECK (site_credential_hash IS NULL OR octet_length(site_credential_hash) = 32)
+	 *
+	 * 直接塞 64 位 hex 字符串是 64 字节，会被这个约束拒掉（SQLSTATE 23514）。
+	 * 真实写入路径（partner_site_brand.go）算的是：
+	 *   sha256.Sum256([]byte(64 位十六进制明文串))  →  [:]，正好 32 字节。
+	 *
+	 * 注意哈希的是「hex 明文串本身」，不是 hex.Decode 之后的 32 字节 ——
+	 * 这里照抄该算法，免得测试造出来的行和生产行的语义不一致。
+	 */
+	const verifySiteCredentialHex = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	verifySiteCredentialHash := sha256.Sum256([]byte(verifySiteCredentialHex))
 
 	/*
 	 * 先定义并立刻执行一次清理（把上一次残留删干净），再插数据。
@@ -64,13 +83,27 @@ func TestRealDBDocSeedImportHTTP(t *testing.T) {
 	cleanup()
 	t.Cleanup(cleanup)
 
-	// 造一个商户，指向本次验证专用 site_id
+	/*
+	 * 造一个商户，指向本次验证专用 site_id。
+	 *
+	 * ★ 必须带 site_credential_hash。
+	 *
+	 * 表上有 CHECK 约束 lc_distribution_merchants_site_binding_complete：
+	 *   (site_id, site_domain, site_credential_hash) 要么三个全 NULL，
+	 *   要么三个全非 NULL —— 不允许「绑了站点但没有凭证」的半绑定状态。
+	 *
+	 * 之前这条 INSERT 漏了 credential，在真实库上直接被约束拒掉
+	 * （SQLSTATE 23514）。这个约束是对的：没有凭证的站点身份登不进来，
+	 * 让它插进去只会让测试在更后面一步莫名其妙地失败。
+	 *
+	 * 值随便填，测试只走 session + siteIDForMerchant，不做凭证校验。
+	 */
 	if err := db.Exec(
 		`INSERT INTO lc_distribution_merchants
-		   (id, merchant_name, merchant_code, site_id, site_domain,
+		   (id, merchant_name, merchant_code, site_id, site_domain, site_credential_hash,
 		    partner_login_enabled, partner_password_change_required, partner_session_version)
-		 VALUES (?, '验证商户', 'seed-verify', ?, 'seed-verify.local', TRUE, FALSE, 4)`,
-		merchantID, siteID,
+		 VALUES (?, '验证商户', 'seed-verify', ?, 'seed-verify.local', ?, TRUE, FALSE, 4)`,
+		merchantID, siteID, verifySiteCredentialHash[:],
 	).Error; err != nil {
 		t.Fatalf("造商户失败（lc_distribution_merchants 存在吗）：%v", err)
 	}

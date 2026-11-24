@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Alert, Button, Tag, Typography } from 'antd';
+import { Button, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import {
@@ -251,15 +251,6 @@ export default function CustomerDetail() {
                 },
               ]}
             />
-            <div style={{ marginTop: 16 }}>
-              <Alert
-                type="info"
-                showIcon
-                style={{ fontSize: 12 }}
-                message="备注与最近调用时间暂未开放"
-                description="后端 users 表未返回 remark / last_active_at，需要先新增字段或接口。"
-              />
-            </div>
           </PagePanel>
 
           <AsyncTableCard<UsageLog>

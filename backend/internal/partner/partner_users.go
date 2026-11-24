@@ -43,8 +43,39 @@ func maskPartnerPhone(phone *string) *string {
 	return &masked
 }
 
+/*
+ * users.status 的取值，与 lynxtonapi 的 upstream/common/constants.go 一致：
+ *   1 = 启用，2 = 禁用（没有 0，0 是 Go 的零值，主站明确要求不用）
+ *
+ * 伙伴后端不引入主站的 common 包（那是另一个模块），所以这里直接用数字。
+ * 改这两个值必须同时改主站，否则状态会显示反。
+ */
+const (
+	partnerUserStatusEnabled  = 1
+	partnerUserStatusDisabled = 2
+)
+
+/*
+ * 状态筛选的合法值。0 表示「全部」，不参与过滤。
+ *
+ * 为什么用 0 当「全部」而不是 -1 或空串：
+ *   前端 Segmented 的「全部」值就是 0，契约直接对上，两边不需要各自转换。
+ */
+func validPartnerUserStatus(status int) bool {
+	return status == 0 || status == partnerUserStatusEnabled || status == partnerUserStatusDisabled
+}
+
 // ListPartnerUsers always scopes both count and rows to the authenticated merchant.
-func ListPartnerUsers(merchantID int64, keyword string, page, pageSize int) (PartnerUserPage, error) {
+//
+// status: 0=全部，1=启用，2=禁用。非法值按「全部」处理 —— 这不是宽容，
+// 而是「筛选条件写错不该让整个列表打不开」。但 API 层会先校验并返回 400，
+// 所以走到这里的非法值只可能来自内部调用。
+func ListPartnerUsers(
+	merchantID int64,
+	keyword string,
+	status int,
+	page, pageSize int,
+) (PartnerUserPage, error) {
 	if merchantID <= 0 {
 		return PartnerUserPage{}, errors.New("invalid merchant ID")
 	}
@@ -74,6 +105,16 @@ func ListPartnerUsers(merchantID int64, keyword string, page, pageSize int) (Par
 		query = query.Where("(id = ? OR LOWER(username) LIKE ? OR LOWER(display_name) LIKE ? OR LOWER(email) LIKE ? OR phone LIKE ?)",
 			id, like, like, like, "%"+keyword+"%")
 	}
+	/*
+	 * ★ 状态过滤必须加在 Count() 之前。
+	 *
+	 * Count 和 Find 共用同一个 query 对象，GORM 会把 Where 累积下来。
+	 * 如果只在 Find 上加条件，total 还是未过滤的全量 —— 那正是这个 bug
+	 * 原来的样子：表格筛出 2 条，上面写「共 137 个」，两个数字互相矛盾。
+	 */
+	if status != 0 {
+		query = query.Where("status = ?", status)
+	}
 	if err := query.Count(&result.Total).Error; err != nil {
 		return PartnerUserPage{}, err
 	}
@@ -87,7 +128,7 @@ func ListPartnerUsers(merchantID int64, keyword string, page, pageSize int) (Par
 	return result, nil
 }
 
-// PartnerUsersAPI GET /api/partner/users?keyword=&page=&page_size=
+// PartnerUsersAPI GET /api/partner/users?keyword=&status=&page=&page_size=
 func PartnerUsersAPI(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
@@ -96,7 +137,19 @@ func PartnerUsersAPI(c *gin.Context) {
 		partnerError(c, http.StatusUnauthorized, "请登录伙伴后台")
 		return
 	}
-	result, err := ListPartnerUsers(merchantID, c.Query("keyword"), page, pageSize)
+	/*
+	 * status 缺省是 0（全部）。
+	 *
+	 * 非法值返回 400 而不是静默忽略：前端如果拼错了参数，静默按「全部」
+	 * 处理会让它以为筛选生效了，实际上看到的是全量 —— 又是「看起来对、
+	 * 数字是错的」，跟这个接口原来的毛病一个性质。
+	 */
+	status, err := strconv.Atoi(c.DefaultQuery("status", "0"))
+	if err != nil || !validPartnerUserStatus(status) {
+		partnerError(c, http.StatusBadRequest, "状态参数无效")
+		return
+	}
+	result, err := ListPartnerUsers(merchantID, c.Query("keyword"), status, page, pageSize)
 	if err != nil {
 		partnerError(c, http.StatusInternalServerError, "查询用户失败")
 		return

@@ -375,34 +375,34 @@ export async function fetchCustomers(
           c.email.toLowerCase().includes(kw),
       );
     }
-    // 与真实分支保持同一套语义：状态筛选在本地做
+    // 与真实分支保持同一套语义：状态筛选由后端做，这里只是 mock 版等价物
     if (status) filtered = filtered.filter((c) => c.status === status);
     const start = (page - 1) * page_size;
     return delay({ items: filtered.slice(start, start + page_size), total: filtered.length });
   }
 
+  /*
+   * status 发给后端，由服务端过滤。
+   *
+   * 原来这里不发 status、改在下面用内存 filter 过滤当前页 —— 那是个真 bug：
+   * 表格筛出 2 条，上面的 total 仍是未过滤的全量，显示「共 137 个客户」，
+   * 两个数字互相矛盾。后端现在支持 status（见 partner_users.go），
+   * Count 和 Find 共用同一个 query，所以 total 会正确跟着筛选变。
+   *
+   * 不传 status 或传 0 都是「全部」，不会多一个无效条件。
+   */
   const res = await request<{ items: PartnerUserRow[]; total: number }>({
     url: EP.dealer.customers,
     params: {
       page: query.page ?? 1,
       page_size: query.page_size ?? 10,
       ...(query.keyword?.trim() ? { keyword: query.keyword.trim() } : {}),
+      ...(query.status ? { status: query.status } : {}),
     },
   });
 
   let items = (res?.items ?? []).map(toCustomer);
   const total = res?.total ?? 0;
-
-  /*
-   * 状态筛选在客户端做：后端不支持，只能在当前页内过滤。
-   *
-   * 这会导致「已禁用」分页上的数字不对 —— 后端返回的 total 是未过滤的总数。
-   * 与其发一个后端会忽略的参数、让人以为服务端筛过了，不如诚实一点：
-   * 页面会说明这个筛选是「当前页内筛选」。等后端加了 status 参数再改回服务端。
-   */
-  if (query.status) {
-    items = items.filter((c) => c.status === query.status);
-  }
 
   let startDate: string | undefined;
   let endDate: string | undefined;

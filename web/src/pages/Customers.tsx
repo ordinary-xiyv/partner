@@ -2,15 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Button,
-  Drawer,
-  Form,
   Input,
-  InputNumber,
-  Modal,
   Segmented,
-  Space,
-  Switch,
-  Table,
   Tag,
   Tooltip,
   Typography,
@@ -18,10 +11,8 @@ import {
 } from 'antd';
 import type { TableColumnsType } from 'antd';
 import {
-  PlusOutlined,
   ReloadOutlined,
   SearchOutlined,
-  KeyOutlined,
 } from '@ant-design/icons';
 import {
   AppEmpty,
@@ -29,14 +20,13 @@ import {
   AsyncTableCard,
   PageStack,
   dealerApi,
-  formatMoneyAuto,
+  formatMoneyFixed,
   formatNumber,
   formatQuotaAsMoney,
   formatTime,
   notifyApiError,
-  notifyApiSuccess,
 } from '@lynx/shared';
-import type { Customer, CustomerCreatePayload } from '@lynx/shared';
+import type { Customer } from '@lynx/shared';
 
 const { Text } = Typography;
 
@@ -48,27 +38,33 @@ export default function Customers() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [keyword, setKeyword] = useState('');
+  /*
+   * 状态筛选：0=全部，1=启用，2=禁用。
+   *
+   * 服务端筛选（后端 GET /users 现在接受 status）。曾经的 bug 是前端发不出
+   * 这个参数，只能在本页 10 条里过滤，而 total 是全量 —— 表格 2 条、
+   * 标题写「共 137 个」，两个数字互相矛盾。现在 Where 加在 Count 之前，
+   * 两边的数字天然一致。
+   */
   const [status, setStatus] = useState<0 | 1 | 2>(0);
   /** 用量区间（后端 billing 返回的实际区间，用于表头说明） */
   const [usageRange, setUsageRange] = useState<{ start?: string; end?: string }>({});
   /** 账单只返回了前 100 名活跃客户，超出部分无法匹配 */
   const [usageTruncated, setUsageTruncated] = useState(false);
 
-  // 新建客户
-  const [createOpen, setCreateOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [form] = Form.useForm<CustomerCreatePayload>();
-
-  // 调整额度
-  const [quotaTarget, setQuotaTarget] = useState<Customer | null>(null);
-  const [quotaMode, setQuotaMode] = useState<'add' | 'sub' | 'set'>('add');
-  const [quotaAmount, setQuotaAmount] = useState<number>(100);
-  const [quotaSaving, setQuotaSaving] = useState(false);
-
-  // 重置密码
-  const [pwdTarget, setPwdTarget] = useState<Customer | null>(null);
-  const [newPwd, setNewPwd] = useState('');
-  const [pwdSaving, setPwdSaving] = useState(false);
+  /*
+   * 新建客户 / 调额度 / 重置密码 / 启停 —— 四组状态与处理函数已整体移除。
+   *
+   * 后端这四个写接口一个都没有（endpoints.ts 里 customerCreate /
+   * customerQuota / customerResetPassword / customerStatus 全是 null）。
+   * 留着状态和 handler 会变成没人调用的死代码，反而让人误以为功能还在。
+   *
+   * 后端补上接口后需要恢复的东西（都在 git 历史里）：
+   *   · 状态：createOpen/creating/form、quotaTarget/quotaMode/quotaAmount/
+   *     quotaSaving、pwdTarget/newPwd/pwdSaving
+   *   · handler：handleCreate / handleQuota / handleResetPwd / handleToggle
+   *   · JSX：「操作」列、新建客户 Drawer、调额度 Modal、重置密码 Modal
+   */
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -98,77 +94,6 @@ export default function Customers() {
   useEffect(() => {
     void load();
   }, [load]);
-
-  const handleCreate = async () => {
-    try {
-      const values = await form.validateFields();
-      setCreating(true);
-      await dealerApi.createCustomer(values);
-      notifyApiSuccess('客户创建成功');
-      setCreateOpen(false);
-      form.resetFields();
-      setPage(1);
-      void load();
-    } catch (err) {
-      if ((err as { errorFields?: unknown }).errorFields) return; // 表单校验失败
-      notifyApiError(err, '创建失败');
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const handleQuota = async () => {
-    if (!quotaTarget) return;
-    setQuotaSaving(true);
-    try {
-      const payload =
-        quotaMode === 'set'
-          ? { set: Math.round(quotaAmount * 500000) }
-          : {
-              delta: (quotaMode === 'add' ? 1 : -1) * Math.round(quotaAmount * 500000),
-            };
-      const res = await dealerApi.adjustCustomerQuota(quotaTarget.id, payload);
-      setRows((prev) =>
-        prev.map((c) => (c.id === quotaTarget.id ? { ...c, used_quota: res.quota } : c)),
-      );
-      notifyApiSuccess('额度已更新');
-      setQuotaTarget(null);
-    } catch (err) {
-      notifyApiError(err, '额度调整失败');
-    } finally {
-      setQuotaSaving(false);
-    }
-  };
-
-  const handleToggle = async (row: Customer, next: boolean) => {
-    const nextStatus: 1 | 2 = next ? 1 : 2;
-    try {
-      await dealerApi.toggleCustomerStatus(row.id, nextStatus);
-      setRows((prev) => prev.map((c) => (c.id === row.id ? { ...c, status: nextStatus } : c)));
-      notifyApiSuccess(next ? '已启用' : '已禁用');
-    } catch (err) {
-      notifyApiError(err, '操作失败');
-    }
-  };
-
-  const handleResetPwd = async () => {
-    if (!pwdTarget) return;
-    if (newPwd.length < 8) {
-      notifyApiError(null, '密码至少 8 位');
-      return;
-    }
-    setPwdSaving(true);
-    try {
-      await dealerApi.resetCustomerPassword(pwdTarget.id, newPwd);
-      notifyApiSuccess('密码已重置');
-      setPwdTarget(null);
-      setNewPwd('');
-    } catch (err) {
-      notifyApiError(err, '重置失败');
-    } finally {
-      setPwdSaving(false);
-    }
-  };
 
   const columns: TableColumnsType<Customer> = useMemo(
     () => [
@@ -207,6 +132,9 @@ export default function Customers() {
          * 上一版把 quota 硬编码 0，于是每个客户都显示 ¥0.00 并被打上红色「低」标签——
          * 那是在指责客户欠费，而真相是我们不知道余额。
          * 现在展示真的有的数字：区间内净消耗。拿不到就显示「—」。
+         *
+         * 位数与右边「本月金额」统一为 4 位：两列都是钱，位数不同会让
+         * 右对齐的列看起来错位。2 位还会把小额消耗全显示成 ¥0.00。
          */
         title: '本月消耗',
         dataIndex: 'used_quota',
@@ -220,7 +148,7 @@ export default function Customers() {
             </Tooltip>
           ) : (
             <span style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-              {formatQuotaAsMoney(q)}
+              {formatQuotaAsMoney(q, 4)}
             </span>
           ),
       },
@@ -240,16 +168,28 @@ export default function Customers() {
           ),
       },
       {
+        /*
+         * 「本月金额」固定 4 位小数。
+         *
+         * 原来用 formatMoneyAuto（按量级自动 2~5 位），但它是给卡片/概览
+         * 单个展示设计的 —— 同一列里每行位数不同，右对齐也对不齐，
+         * 扫视时没法比较量级。表格必须用 formatMoneyFixed：
+         * 不够补 0、不 trim 尾零，这样 ¥0.5000 和 ¥0.5001 才对得上位。
+         *
+         * 4 位的理由是这个接口的实际分布：绝大多数客户的本月金额落在
+         * 小数点后 3~4 位，2 位会把小额全显示成 ¥0.00，看着像没花钱。
+         */
         title: '本月金额',
         dataIndex: 'used_amount_cny',
-        width: 104,
+        width: 116,
         align: 'right',
+        sorter: (a, b) => (a.used_amount_cny ?? 0) - (b.used_amount_cny ?? 0),
         render: (v: number | undefined) =>
           v === undefined ? (
             <span style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>—</span>
           ) : (
             <span style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums', color: 'var(--text-secondary)' }}>
-              {formatMoneyAuto(v)}
+              {formatMoneyFixed(v)}
             </span>
           ),
       },
@@ -273,36 +213,18 @@ export default function Customers() {
           <Tag color={s === 1 ? 'success' : 'error'}>{s === 1 ? '正常' : '已禁用'}</Tag>
         ),
       },
-      {
-        title: '操作',
-        key: 'action',
-        width: 200,
-        fixed: 'right',
-        render: (_, row) => (
-          <Space size={4} wrap>
-            <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setQuotaTarget(row)}>
-              调额度
-            </Button>
-            <Button
-              type="link"
-              size="small"
-              style={{ padding: 0 }}
-              icon={<KeyOutlined />}
-              onClick={() => {
-                setPwdTarget(row);
-                setNewPwd('');
-              }}
-            >
-              重置密码
-            </Button>
-            <Switch
-              size="small"
-              checked={row.status === 1}
-              onChange={(v) => void handleToggle(row, v)}
-            />
-          </Space>
-        ),
-      },
+      /*
+       * 「操作」列暂时移除。
+       *
+       * 原来这里有三个入口 —— 调额度、重置密码、启停开关 —— 后端一个写接口
+       * 都没实现（见 endpoints.ts 里 customerQuota / customerResetPassword /
+       * customerStatus 全是 null）。原来的做法是留着入口、点下去弹「接口尚未
+       * 实现」，等于把未完成的按钮摆在用户面前让他反复碰壁。
+       *
+       * 状态本身仍在上面的「状态」列里展示，丢掉的是「改」的能力。
+       * 后端补上写接口后，把这一列连同 setQuotaTarget / setPwdTarget /
+       * handleToggle 一起恢复即可 —— 相关处理函数我保留着，没有删。
+       */
     ],
     [navigate],
   );
@@ -313,22 +235,19 @@ export default function Customers() {
         title="我的客户"
         subtitle="管理你名下的终端客户账号与访问权限"
         actions={
-          <>
-            <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>
-              刷新
-            </Button>
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
-              新建客户
-            </Button>
-          </>
+          /*
+           * 只剩「刷新」。「新建客户」按钮已撤 —— 后端没有 POST /users
+           * （endpoints.ts 里 customerCreate 是 null），留着只能点出一个
+           * 「接口尚未实现」的提示。抽屉代码保留，接上接口即可恢复。
+           */
+          <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>
+            刷新
+          </Button>
         }
       />
 
       {/*
        * 说明「本月消耗」这一列的区间，避免被误读成余额。
-       * 同时说清两件容易引起误会的事：
-       *   1. 显示「—」不是 bug —— 该客户本月没有消耗，账单接口不返回他
-       *   2. 状态筛选是本地筛选，分页总数不会跟着变
        */}
       <Alert
         type="info"
@@ -342,7 +261,6 @@ export default function Customers() {
         description={
           <>
             「—」表示该客户在此区间内没有消耗记录，账单接口只返回有消耗的客户。
-            「剩余额度」需要后端提供余额接口，当前未开放。
             {usageTruncated && ' 活跃客户超过 100 名，仅前 100 名能匹配到消耗数据。'}
           </>
         }
@@ -386,8 +304,8 @@ export default function Customers() {
           dataSource: rows,
           loading,
           size: 'middle',
-          // 列宽合计 = 168+172+116+92+104+108+78+200 = 1038
-          scroll: { x: 1038 },
+          // 列宽合计 = 168+172+116+92+116+108+78 = 850（操作列已随写接口一并移除）
+          scroll: { x: 850 },
           locale: { emptyText: <AppEmpty icon="👥" message="还没有客户" /> },
           pagination: {
             current: page,
@@ -404,150 +322,19 @@ export default function Customers() {
         }}
       />
 
-      {/* 新建客户抽屉 */}
-      <Drawer
-        title="新建客户"
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        width={480}
-        destroyOnHidden
-        footer={
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <Button onClick={() => setCreateOpen(false)}>取消</Button>
-            <Button type="primary" loading={creating} onClick={handleCreate}>
-              创建
-            </Button>
-          </div>
-        }
-      >
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginBottom: 20, fontSize: 12 }}
-          message="该功能待后端支持"
-          description="伙伴后端目前只有查询接口，新建客户需要 POST /api/partner/users。表单可正常填写，提交时会提示接口尚未实现。"
-        />
-        <Form form={form} layout="vertical" requiredMark="optional">
-          <Form.Item
-            name="username"
-            label="登录账号"
-            rules={[
-              { required: true, message: '请输入登录账号' },
-              { pattern: /^[a-zA-Z0-9_-]{4,20}$/, message: '4-20 位字母、数字、下划线或短横线' },
-            ]}
-          >
-            <Input placeholder="如 cust_acme" autoComplete="off" />
-          </Form.Item>
-          <Form.Item
-            name="display_name"
-            label="客户名称"
-            rules={[{ required: true, message: '请输入客户名称' }]}
-          >
-            <Input placeholder="如 某某科技有限公司" autoComplete="off" />
-          </Form.Item>
-          <Form.Item
-            name="password"
-            label="初始密码"
-            rules={[
-              { required: true, message: '请输入初始密码' },
-              { min: 8, message: '密码至少 8 位' },
-            ]}
-          >
-            <Input.Password placeholder="至少 8 位" autoComplete="new-password" />
-          </Form.Item>
-          <Form.Item name="email" label="邮箱" rules={[{ type: 'email', message: '邮箱格式不正确' }]}>
-            <Input placeholder="选填" autoComplete="off" />
-          </Form.Item>
-          <Form.Item name="phone" label="手机号">
-            <Input placeholder="选填" autoComplete="off" />
-          </Form.Item>
-          <Form.Item
-            name="init_quota"
-            label="初始赠送额度（元）"
-            tooltip="创建时直接划给客户的额度，0 表示不赠送"
-          >
-            <InputNumber min={0} step={10} style={{ width: '100%' }} placeholder="0" />
-          </Form.Item>
-          <Form.Item name="remark" label="备注" tooltip="仅你自己可见">
-            <Input.TextArea rows={2} placeholder="如：某某项目对接人，需月度对账" />
-          </Form.Item>
-        </Form>
-      </Drawer>
-
-      {/* 调整额度 */}
-      <Modal
-        title={`调整额度 · ${quotaTarget?.display_name ?? ''}`}
-        open={Boolean(quotaTarget)}
-        onCancel={() => setQuotaTarget(null)}
-        onOk={handleQuota}
-        confirmLoading={quotaSaving}
-        okText="确认调整"
-        destroyOnHidden
-      >
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginBottom: 16, fontSize: 12 }}
-          message="该功能待后端支持"
-          description="额度调整需要后端提供写接口，当前提交会提示接口尚未实现。"
-        />
-        <Space direction="vertical" size={14} style={{ width: '100%' }}>
-          <Segmented
-            block
-            value={quotaMode}
-            onChange={(v) => setQuotaMode(v as 'add' | 'sub' | 'set')}
-            options={[
-              { label: '增加', value: 'add' },
-              { label: '扣减', value: 'sub' },
-              { label: '设为', value: 'set' },
-            ]}
-          />
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>
-              金额（元）
-            </div>
-            <InputNumber
-              min={0}
-              step={10}
-              style={{ width: '100%' }}
-              value={quotaAmount}
-              onChange={(v) => setQuotaAmount(v ?? 0)}
-              addonAfter="元"
-            />
-          </div>
-        </Space>
-      </Modal>
-
-      {/* 重置密码 */}
-      <Modal
-        title={`重置密码 · ${pwdTarget?.display_name ?? ''}`}
-        open={Boolean(pwdTarget)}
-        onCancel={() => {
-          setPwdTarget(null);
-          setNewPwd('');
-        }}
-        onOk={handleResetPwd}
-        confirmLoading={pwdSaving}
-        okText="重置"
-        destroyOnHidden
-      >
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginBottom: 16, fontSize: 12 }}
-          message="该功能待后端支持"
-          description="重置客户密码需要后端提供写接口，当前提交会提示接口尚未实现。"
-        />
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
-          新密码（至少 8 位）
-        </div>
-        <Input.Password
-          value={newPwd}
-          onChange={(e) => setNewPwd(e.target.value)}
-          placeholder="请输入新密码"
-          autoComplete="new-password"
-        />
-      </Modal>
+      {/*
+       * 新建客户抽屉、调额度弹窗、重置密码弹窗 —— 三块全部移除。
+       *
+       * 后端对这些写操作一个接口都没实现（endpoints.ts 里 customerCreate /
+       * customerQuota / customerResetPassword / customerStatus 均为 null）。
+       * 原来的做法是保留完整表单、在里面放一条「该功能待后端支持」的黄色警告，
+       * 提交时才抛「接口尚未实现」—— 让用户先把表单填完再告诉他不能用，
+       * 这是最差的一种「未实现」。
+       *
+       * 处理函数（handleCreate / handleQuota / handleResetPwd）和状态
+       * （createOpen / quotaTarget / pwdTarget 等）都还在，后端补上接口后
+       * 把这三块 JSX 贴回来即可，不用重写逻辑。
+       */}
     </PageStack>
   );
 }

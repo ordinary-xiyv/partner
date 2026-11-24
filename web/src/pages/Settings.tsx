@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Button, Form, Input, Segmented, Tag, Typography } from 'antd';
+import { Alert, Button, Form, Input, Tag } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
 import {
   AppPageHeader,
@@ -13,18 +13,14 @@ import {
 } from '@lynx/shared';
 import { useDealerAuth } from '../auth';
 
-const { Text } = Typography;
-
-type Tab = 'profile' | 'password';
-
 export default function Settings() {
   const { profile, refresh } = useDealerAuth();
   /*
-   * 初始密码未改时默认落在密码页 —— 用户是被 RequireAuth 强制送到这里的，
-   * 停在「商户信息」Tab 上会让人以为没什么要做的。
+   * 初始密码未改时后端会把 users / logs / billing 全部拒掉，
+   * RequireAuth 也会把人锁在 /settings。这里给一条明确的横幅，
+   * 免得用户看到一排 403 不知道原因。
    */
   const mustChangePassword = Boolean(profile?.password_change_required);
-  const [tab, setTab] = useState<Tab>(mustChangePassword ? 'password' : 'profile');
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm();
 
@@ -96,69 +92,43 @@ export default function Settings() {
             },
           ]}
         />
-        <div style={{ marginTop: 18, fontSize: 12, color: 'var(--text-tertiary)' }}>
-          代理等级、折扣与佣金比例需要平台运营在后台配置并提供查询接口，伙伴端暂不展示。
-        </div>
       </PagePanel>
 
       <PagePanel padded>
-        <div className="lynx-section-title">安全设置</div>
-        <Segmented
-          value={tab}
-          onChange={(v) => setTab(v as Tab)}
-          options={[
-            { label: '修改密码', value: 'password' },
-            { label: '登录记录', value: 'profile' },
-          ]}
-          style={{ marginBottom: 20 }}
-        />
-
-        {tab === 'password' ? (
-          <Form form={form} layout="vertical" style={{ maxWidth: 380 }} requiredMark={false}>
-            <Form.Item
-              name="old_password"
-              label="当前密码"
-              rules={[{ required: true, message: '请输入当前密码' }]}
-            >
-              <Input.Password placeholder="请输入当前密码" autoComplete="current-password" />
-            </Form.Item>
-            <Form.Item
-              name="new_password"
-              label="新密码"
-              rules={[
-                { required: true, message: '请输入新密码' },
-                // 与后端一致：partner/backend 的 PartnerChangePasswordAPI
-                // 校验 new_password 长度为 12–72，前端挡在 8 会让 8~11 位的
-                // 密码在这里通过、到后端才被拒，提示还很生硬。
-                { min: 12, message: '密码至少 12 位' },
-                { max: 72, message: '密码不能超过 72 位' },
-              ]}
-            >
-              <Input.Password placeholder="12-72 位" autoComplete="new-password" />
-            </Form.Item>
-            <Form.Item
-              name="confirm_password"
-              label="确认新密码"
-              rules={[{ required: true, message: '请再次输入新密码' }]}
-            >
-              <Input.Password placeholder="再次输入新密码" autoComplete="new-password" />
-            </Form.Item>
-            <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={handleSubmit}>
-              保存修改
-            </Button>
-          </Form>
-        ) : (
-          <Alert
-            type="info"
-            showIcon
-            message="登录记录功能待接入"
-            description={
-              <span style={{ fontSize: 12 }}>
-                该模块需要伙伴后端提供 <code>GET /api/partner/login-history</code> 接口，目前尚未实现。
-              </span>
-            }
-          />
-        )}
+        <div className="lynx-section-title">修改密码</div>
+        <Form form={form} layout="vertical" style={{ maxWidth: 380 }} requiredMark={false}>
+          <Form.Item
+            name="old_password"
+            label="当前密码"
+            rules={[{ required: true, message: '请输入当前密码' }]}
+          >
+            <Input.Password placeholder="请输入当前密码" autoComplete="current-password" />
+          </Form.Item>
+          <Form.Item
+            name="new_password"
+            label="新密码"
+            rules={[
+              { required: true, message: '请输入新密码' },
+              // 与后端一致：partner/backend 的 PartnerChangePasswordAPI
+              // 校验 new_password 长度为 12–72，前端挡在 8 会让 8~11 位的
+              // 密码在这里通过、到后端才被拒，提示还很生硬。
+              { min: 12, message: '密码至少 12 位' },
+              { max: 72, message: '密码不能超过 72 位' },
+            ]}
+          >
+            <Input.Password placeholder="12-72 位" autoComplete="new-password" />
+          </Form.Item>
+          <Form.Item
+            name="confirm_password"
+            label="确认新密码"
+            rules={[{ required: true, message: '请再次输入新密码' }]}
+          >
+            <Input.Password placeholder="再次输入新密码" autoComplete="new-password" />
+          </Form.Item>
+          <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={handleSubmit}>
+            保存修改
+          </Button>
+        </Form>
       </PagePanel>
     </PageStack>
   );

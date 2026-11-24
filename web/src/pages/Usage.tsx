@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, DatePicker, Input, Select, Space, Table, Tag, Typography } from 'antd';
+import { Alert, Button, DatePicker, Select, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
-import { DownloadOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
-import dayjs, { type Dayjs } from 'dayjs';
+import { ReloadOutlined, SearchOutlined } from '@ant-design/icons';
+import { type Dayjs } from 'dayjs';
 import {
   AppEmpty,
   AppPageHeader,
@@ -11,7 +11,6 @@ import {
   PageStack,
   StatCard,
   dealerApi,
-  downloadBlob,
   formatDuration,
   formatMoney,
   formatMoneyAuto,
@@ -20,7 +19,6 @@ import {
   formatQuotaAsMoney,
   formatTime,
   notifyApiError,
-  notifyApiSuccess,
   quotaToCny,
 } from '@lynx/shared';
 import type { TrendPoint, UsageLog, UsageSummary } from '@lynx/shared';
@@ -43,7 +41,6 @@ export default function Usage() {
   const [summary, setSummary] = useState<UsageSummary | null>(null);
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [loading, setLoading] = useState(false);
-  const [exporting, setExporting] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -168,18 +165,12 @@ export default function Usage() {
       .catch(() => setTrend([]));
   }, []);
 
-  const handleExport = async () => {
-    setExporting(true);
-    try {
-      const blob = await dealerApi.exportUsage(buildQuery());
-      downloadBlob(blob, `用量明细_${dayjs().format('YYYYMMDD_HHmm')}.csv`);
-      notifyApiSuccess('导出成功');
-    } catch (err) {
-      notifyApiError(err, '导出失败');
-    } finally {
-      setExporting(false);
-    }
-  };
+  /*
+   * 导出功能已撤（后端没有接口，endpoints.ts 里 usageExport 是 null）。
+   * 原来的 handleExport + 导出按钮一起移除 —— 留着它必然弹「接口尚未实现」，
+   * 而且还会先显示一个「正在导出」的加载态，比不显示这个按钮更糟。
+   * 后端补上导出接口后，从 git 历史恢复这段和按钮即可。
+   */
 
   // 模型下拉必须来自「全量模型列表」，不能从当前汇总结果里取：
   // 汇总会跟着筛选变，一旦筛了某个模型，下拉就只剩这一个选项，用户再也切不回去。
@@ -345,14 +336,15 @@ export default function Usage() {
         title="用量明细"
         subtitle="按客户、模型、时间维度追踪每一次调用"
         actions={
-          <>
-            <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>
-              刷新
-            </Button>
-            <Button icon={<DownloadOutlined />} onClick={handleExport} loading={exporting}>
-              导出 CSV
-            </Button>
-          </>
+          /*
+           * 只剩「刷新」。「导出 CSV」按钮已撤 —— 后端没有导出接口
+           * （endpoints.ts 里 usageExport 是 null）。原来点下去必然弹
+           * 「接口尚未实现」，还额外给用户一个「正在进行」的加载态，
+           * 比不显示这个按钮更糟。handleExport 保留，接上接口即可恢复。
+           */
+          <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>
+            刷新
+          </Button>
         }
       />
 

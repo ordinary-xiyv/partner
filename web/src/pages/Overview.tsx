@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Button, Space, Typography } from 'antd';
+import { Button, Typography } from 'antd';
 import {
   ArrowUpOutlined,
   ReloadOutlined,
@@ -173,26 +173,9 @@ export default function Overview() {
               title="趋势不含今天"
               desc="趋势取近 14 个已完成的自然日，今天的消耗要到次日汇总后才会出现在这里。"
             />
-            <TipRow
-              icon={<WalletOutlined />}
-              title="佣金结算"
-              desc="伙伴后台暂未接入佣金与结算数据，相关模块待后端提供接口后开放。"
-            />
           </div>
         </PagePanel>
       </div>
-
-      {/*
-       * 明确告知能力边界。这一段比留几个「0」有用：
-       * 用户看到 0 会以为「今天真的没消耗」，看到这句话才知道是没这个数据。
-       */}
-      <Alert
-        type="info"
-        showIcon
-        style={{ fontSize: 12 }}
-        message="今日实时数据与佣金暂未开放"
-        description="当前仅展示账期汇总与近 14 天趋势。今日消耗、今日请求、佣金比例、结算与提现需要伙伴后端新增接口，接入后此处会自动开放。"
-      />
 
       <style>{`
         @media (max-width: 1023px) {

@@ -123,6 +123,21 @@ func TestRealDBPartnerLogsWithSessionMiddleware(t *testing.T) {
 	}
 	t.Logf("✓ 鉴权通过，基线 total=%d 本页=%d", base.Total, len(base.Items))
 
+	/*
+	 * 下面是「数据相关性」断言：分页、类型筛选、字段完整性，都必须有真实日志行
+	 * 才能判断。
+	 *
+	 * 空库（比如刚建的验证库、或者还没产生过调用记录的新商户）上没有数据，
+	 * 这些断言只会误报失败 —— 分页「两页首行不能相同」在 0 行时无从比较，
+	 * 「type 筛选必须收窄」在 0 行时变成 0 >= 0。以前直接往下跑，
+	 * 在空库上就报出一条看着像 bug 的「type 筛选未收窄」。
+	 *
+	 * 鉴权链路本身已在上面验证过（拿到了 200），所以这里跳过是安全的。
+	 */
+	if base.Total == 0 {
+		t.Skip("该商户没有调用日志（空库），跳过依赖数据的分页/筛选/字段断言")
+	}
+
 	_, pg2 := fetch("?page=2&page_size=10&all_history=1")
 	if len(base.Items) > 0 && len(pg2.Items) > 0 {
 		if base.Items[0].ID == pg2.Items[0].ID {
