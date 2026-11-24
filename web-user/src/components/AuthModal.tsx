@@ -2021,7 +2021,21 @@ export function AuthPage({ tab }: { tab: 'login' | 'register' }) {
    * 登录页底部那句「© 2026 联通云有限公司 版权所有」还在 —— 而且写的是
    * 平台公司名，挂在分销商站上等于给平台打广告。
    */
-  const copyrightEnabled = siteAppearance?.footer_copyright_config?.enabled !== false;
+  /*
+   * 判定改成「显式不为 false 才显示」→ 保持，但把「加载中」单独挡掉。
+   *
+   * 原来的写法 `!== false` 看起来安全，实际上把两种完全不同的状态归成了同一类：
+   *   · 配置已到、商户明确开着   → true   → 显示（正确）
+   *   · 配置还没到，值是 undefined → 显示（碰巧也对，但理由不成立）
+   * 后一种之所以现在没出问题，是因为 useStatus 的 siteAppearance 有完整的
+   * 默认值兜底、合并函数也保证这个字段是布尔值。一旦哪天默认值或合并链路
+   * 有改动（比如某个分支漏填），这里会在等配置的那几百毫秒里先闪一句
+   * 平台版权文字，然后才被真实配置替换 —— 和品牌色闪烁是同一类问题。
+   *
+   * 所以先判 appearanceLoading：没拿到配置就不渲染。反正这段时间本来
+   * 也不该出现版权行。
+   */
+  const copyrightEnabled = !appearanceLoading && siteAppearance?.footer_copyright_config?.enabled !== false;
   const copyrightHidden = (siteAppearance?.footer_hidden_items ?? []).includes('copyright');
   const copyrightText = useMemo(
     () => (copyrightEnabled && !copyrightHidden

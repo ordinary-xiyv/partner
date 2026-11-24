@@ -22,6 +22,42 @@ const listeners = new Set<() => void>();
 /** #RGB / #RRGGBB 之外的输入一律当作「没配」，避免把脏数据打进 CSS 变量 */
 const HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
+/**
+ * 主色的本地缓存 —— 解决刷新时的「先紫一下再变对色」闪烁。
+ *
+ * 闪烁的原因：伙伴主色来自 /api/partner/public/site-brand 这个网络请求，
+ * 而 main.tsx 在首屏渲染时就要把 CSS 变量铺上去，那时请求还没回来，
+ * 只能先用平台默认色（暗色 #8b73ff）画第一帧；等接口回来再改成商户色，
+ * 于是就出现「紫 → 商户色」的跳变。
+ *
+ * 做法：把上一次成功拿到的商户主色存进 localStorage，模块初始化时就读出来，
+ * 这样首帧直接用对的颜色。接口回来后照常覆写（值一样就什么都不做）。
+ *
+ * 安全性：主色只是个颜色，缓存错了最坏的结果是「这一个是旧色」，
+ * 下一次接口回来就纠正 —— 不值得为它设过期时间或版本号。
+ * 而且它是同源 localStorage：不同分销商域名各自一份，不会串。
+ */
+const CACHE_KEY = 'lynx_brand_primary_v1';
+
+function readCachedPrimary(): string | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    return normalize(raw);
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedPrimary(value: string | null): void {
+  try {
+    if (value) localStorage.setItem(CACHE_KEY, value);
+    else localStorage.removeItem(CACHE_KEY);
+  } catch {
+    // 隐私模式 / 配额满：缓存写不进去不影响功能，只是会闪一下
+  }
+}
+
 function normalize(value: string | null | undefined): string | null {
   const v = (value ?? '').trim();
   if (!v || !HEX_COLOR.test(v)) return null;
@@ -32,10 +68,19 @@ function normalize(value: string | null | undefined): string | null {
   return v.toLowerCase();
 }
 
+/*
+ * 模块加载即把缓存读进内存。
+ *
+ * 放在 normalize 之后声明 —— 函数声明会提升，但 CACHE_KEY 是 const，
+ * 提前调用会撞上 TDZ。这里刻意写成「先定义函数、再赋值」的顺序。
+ */
+primaryColor = readCachedPrimary();
+
 export function setBrandPrimaryColorOverride(value: string | null | undefined): void {
   const next = normalize(value);
   if (next === primaryColor) return;
   primaryColor = next;
+  writeCachedPrimary(next);
   listeners.forEach((fn) => fn());
 }
 

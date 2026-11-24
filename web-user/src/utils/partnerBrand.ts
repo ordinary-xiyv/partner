@@ -20,15 +20,29 @@ import type { PartnerSiteBrand } from '../hooks/usePartnerSiteBrand';
  * 其余继续由平台运营统一维护。
  */
 
-/** 主色兜底。与 partner/backend 的 toMerchantBrand 保持一致，避免两处渲染出不同颜色 */
-const FALLBACK_PRIMARY = '#6d51fe';
-
-/** 主色合法值：#RGB 或 #RRGGBB。后端已校验过一次，这里再判是为了防止历史上写坏的脏数据把样式打崩 */
+/**
+ * 主色合法值：#RGB 或 #RRGGBB。后端已校验过一次，这里再判是为了防止
+ * 历史上写坏的脏数据把样式打崩。
+ */
 const HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
-export function resolvePartnerPrimaryColor(raw: string | undefined): string {
+/**
+ * 主色兜底。
+ *
+ * ★ 这里返回 null 表示「伙伴没配 / 配的不合法」，交给主题层回落到平台默认色。
+ *
+ * 早先这里返回的是硬编码的 '#6d51fe'，看着是「兜底」，实际是**覆盖**：
+ * 主题层只有在 override 为 null 时才会用平台那套按明暗模式区分的主色
+ * （暗色 #8b73ff / 亮色 #6d51fe，见 theme/brandTokens.ts）。一旦这里永远
+ * 返回一个具体色值，暗色模式下商户没配色也会被强行刷成亮色版的那个紫，
+ * 平台运营调过的主题色等于被这行代码吃掉。
+ *
+ * 「没配」和「配了个坏值」在展示上是同一件事 —— 都用平台默认，
+ * 所以统一返回 null，不再编造一个颜色出来。
+ */
+export function resolvePartnerPrimaryColor(raw: string | undefined): string | null {
   const value = (raw ?? '').trim();
-  return HEX_COLOR.test(value) ? value : FALLBACK_PRIMARY;
+  return HEX_COLOR.test(value) ? value : null;
 }
 
 /**
@@ -59,18 +73,67 @@ export function resolvePartnerBrandNames(brand: PartnerSiteBrand | null): {
  *   · support 有任何一项（含二维码）→ 开启浮窗并显示联系 tab
  *   · support 全空 → 不开启，保持平台默认（避免出现一个空白浮窗）
  *
- * 接管的字段：enabled / show_contact / qr_code_url，其余保留平台侧原值。
+ * ★ 二维码的归属规则按站点性质分流，这是「经销商配置不和主站互相影响」的核心：
  *
- * qr_code_url 从 support.qr_code_url 搬过来 —— 伙伴后台上传的二维码存在
- * brand_support 这个 jsonb 里（见 partner_brand_upload.go 的 brandTargetSupportQR），
- * 而浮窗读的是 siteAppearance 上的同名字段，所以要在这里做一次桥接。
- * 商户没传二维码时保持 base 的值不动，让平台侧配过的二维码仍然可用。
+ * 平台侧（lc_site_footer.customer_service_config）**自己就存着一张二维码**，
+ * 而且那张表没有 merchant_id / site_id —— 是全站单例，所有站点共用。
+ *
+ *   · 自营站点（isSelfOperated = true）
+ *       它就是平台自己。品牌设置里没传二维码时，沿用平台那张是**正确**的：
+ *       那是它自己的内容。所以这里保持「没传就继承 base」的老行为。
+ *
+ *   · 经销商站点（isSelfOperated = false）
+ *       它的二维码只能来自自己（brand_support.qr_code_url）。
+ *       没传就是没有 —— 不能回填平台那张，否则经销商在伙伴后台点「移除」后，
+ *       客户站刷新又冒出平台的二维码，等于平台内容渗进了经销商的站点。
+ *       那张图扫过去会加到平台那边，对经销商是实打实的伤害。
+ *
+ *   · isSelfOperated = undefined（旧版伙伴后端没下发这个键）
+ *       **沿用老行为**（继承 base）。
+ *
+ *       这里选「放行」而不是「收紧」，是权衡后的结果，不是偷懒：
+ *       前端和伙伴后端是两个独立部署物。如果缺省就按经销商收紧，那么
+ *       「只发了前端、后端还没发」这个窗口里，**平台自营站点会立刻丢掉**
+ *       版权行、备案号、二维码 file_id —— 用户看到的是主站页脚突然空了，
+ *       比经销商多继承一张图严重得多。实测过这个组合，三项全丢。
+ *
+ *       所以隔离只在后端**明确说「这是经销商」**时才生效。代价是：只要
+ *       后端没升级，隔离就是关着的（经销商仍会继承平台值）。因此后端
+ *       必须和前端一起发版，见 PartnerSiteBrand.is_self_operated 的注释。
  */
 export function partnerBrandToCustomerService(
   support: Record<string, unknown> | undefined,
   base: CustomerServiceConfig,
+  isSelfOperated?: boolean,
 ): CustomerServiceConfig {
-  if (!support) return base;
+  /*
+   * 只有「明确是经销商」才摘平台字段。
+   *
+   * base 里装的是平台单例（lc_site_footer.customer_service_config），库里实际内容是：
+   *   { enabled:true, show_contact:true, show_feedback:true,
+   *     qr_code_file_id:"c082cdbd-...", feedback_url:"https://<平台飞书>/..." }
+   * 直接 return base 等于把这套平台数据原样挂到经销商站点上。
+   *
+   * 眼下渲染层只读 qr_code_url（平台那张库里只有 file_id、没有 url，
+   * normalizeCustomerServiceConfig 也只认 url，所以图片暂时不会显示），看着「没事」；
+   * 但 file_id 是**平台的对象存储标识**，留在经销商站点上就是定时炸弹 ——
+   * 将来任何一处读 file_id 去换签名 URL 的代码，都会把平台那张图
+   * 当成经销商自己的图渲染出来。
+   *
+   * 所以经销商分支统一走 stripPlatformService：保留「浮窗要不要开」这类
+   * 无归属的开关，摘掉带平台身份的字段。
+   */
+  const stripPlatformService = (cfg: CustomerServiceConfig): CustomerServiceConfig => ({
+    ...cfg,
+    qr_code_file_id: '',
+  });
+
+  /** true = 自营；false = 经销商；undefined = 后端没下发，按老行为放行 */
+  const inheritsPlatform = isSelfOperated !== false;
+
+  const fallback = () => (inheritsPlatform ? base : stripPlatformService(base));
+
+  if (!support) return fallback();
   // 二维码也算「有内容」：只传了二维码、没填文字联系方式的商户，
   // 同样应该看到浮窗
   const qrCode = readText(support.qr_code_url);
@@ -78,12 +141,41 @@ export function partnerBrandToCustomerService(
     const value = support[key];
     return typeof value === 'string' && value.trim() !== '';
   }) || qrCode !== '';
-  if (!hasAny) return base;
+  if (!hasAny) return fallback();
+
+  /*
+   * 自营站点 / 后端未下发：沿用老行为，没传就继承平台那张。
+   * 经销商店点：二维码严格只认自己的，显式写 undefined 覆盖掉 base 里
+   * 继承来的平台值（条件展开在这里不够用 —— 不写字段等于保留 base 的值）。
+   */
+  if (inheritsPlatform) {
+    return {
+      ...base,
+      enabled: true,
+      show_contact: true,
+      ...(qrCode ? { qr_code_url: qrCode } : {}),
+    };
+  }
   return {
     ...base,
     enabled: true,
     show_contact: true,
-    ...(qrCode ? { qr_code_url: qrCode } : {}),
+    qr_code_url: qrCode || undefined,
+    /*
+     * 经销商分支里 file_id 一律清空，不管有没有自己的二维码。
+     *
+     * 原因：base 里的 qr_code_file_id 是**平台**的（lc_site_footer 是单例），
+     * 留在经销商身上就等于「经销商站点记着平台的 file_id」。当前没有渲染方
+     * 读它（浮窗只用 URL），但这是个定时炸弹 —— 将来任何一处读 file_id
+     * 的代码都会把平台那张图当成经销商的。
+     *
+     * 经销商自己的二维码地址就在 qr_code_url 里，够用了；file_id 是平台侧
+     * 那套「按 file_id 换签名 URL」机制的产物，不适用于经销商的自有 URL。
+     *
+     * 自营分支不能这样清 —— 平台自己的 file_id 必须原样保留，
+     * 否则平台侧下次读配置会以为二维码被删了。
+     */
+    qr_code_file_id: '',
   };
 }
 

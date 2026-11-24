@@ -360,19 +360,32 @@ function buildPatch(
   /*
    * 显隐开关。
    *
-   * 表单里这个 Switch 的初始值来自 toFormValues（没配过时是 true），
-   * 所以「原始没配 + 表单显示开」不能算用户改动 —— 否则商户只是打开
-   * 页面点保存，就会凭空往库里写一个 enabled: true。
-   * 只有真正的布尔值变化才提交。
+   * 基线必须是「表单打开时显示的那个值」，不能是「库里存没存过这个键」。
+   *
+   * 这里踩过一个死循环式的坑：早先写成
+   *     prevFooterEnabled = 库里是布尔值 ? 它 : undefined
+   *     if (prevFooterEnabled !== undefined && 变了) 才写库
+   * 于是只要库里还没有 enabled，拨动开关就永远走不进写库分支 ——
+   * 表现为：① 切开关点保存提示「没有改动，无需保存」；② 就算配合文字一起
+   * 保存成功，footer 里依然不含 enabled，客户站拿到 null 回落到平台默认的
+   * true，页脚照样显示。第一笔写入被自己的条件挡住了，之后永远写不进去。
+   *
+   * 正确做法：没配过时基线就是 toFormValues 显示的 true（客户站的真实表现），
+   * 拿它跟表单值比较 ——
+   *   · 没配 + 显示开 + 没动 → 相等 → 不写库（不凭空造 enabled: true）
+   *   · 没配 + 显示开 + 关掉 → 不等 → 写 enabled: false ✅
+   * 这样既不会无意义写库，也不会把用户的关闭动作吞掉。
    */
+  const hasPrevFooterEnabled = typeof prevFooter?.enabled === 'boolean';
   const nextFooterEnabled = values.footer_enabled !== false;
-  const prevFooterEnabled = typeof prevFooter?.enabled === 'boolean' ? prevFooter.enabled : undefined;
-  if (prevFooterEnabled !== undefined && nextFooterEnabled !== prevFooterEnabled) {
+  /** 表单打开时显示的值。没配过时与 toFormValues 保持一致，都是 true */
+  const shownFooterEnabled = hasPrevFooterEnabled ? (prevFooter?.enabled as boolean) : true;
+  if (nextFooterEnabled !== shownFooterEnabled) {
     nextFooter.enabled = nextFooterEnabled;
     footerChanged = true;
-  } else if (prevFooterEnabled !== undefined) {
+  } else if (hasPrevFooterEnabled) {
     // 没变也要带回去，理由同上：整体替换
-    nextFooter.enabled = prevFooterEnabled;
+    nextFooter.enabled = prevFooter?.enabled as boolean;
   }
 
   if (footerChanged) {
@@ -546,6 +559,50 @@ export default function Brand() {
                 if (changed.api_base_url !== undefined) next.api_base_url = changed.api_base_url;
                 if (changed.logo_url !== undefined) next.logo_url = changed.logo_url;
                 if (changed.favicon_url !== undefined) next.favicon_url = changed.favicon_url;
+                /*
+                 * 页脚五项也要进草稿。
+                 *
+                 * 原来这里只管「影响预览」的字段，页脚不在列 —— 而右侧的
+                 * 「未保存 / 与线上一致」标签是看 Object.keys(draft) 的，
+                 * 于是拨动「显示页脚」开关或改了版权文字之后，标签仍然写着
+                 * 「与线上一致」。用户据此以为自己没改动，就不会去保存；
+                 * 真去点了保存又撞上「没有改动，无需保存」，两处提示互相矛盾。
+                 *
+                 * 页脚确实不进预览面板（预览只画品牌名/logo/主色那一块），
+                 * 但「有没有未保存改动」是全局判断，不该因为「不影响预览」
+                 * 就漏掉。写进 draft.landing.footer 即可，buildPatch 仍然
+                 * 从 Form values 取最终值，draft 在这里只承担「标记有改动」。
+                 */
+                const footerKeys: Array<keyof FormValues> = [
+                  'footer_enabled',
+                  'footer_copyright_text',
+                  'footer_terms_label',
+                  'footer_privacy_label',
+                  'footer_beian_label',
+                ];
+                if (footerKeys.some((k) => changed[k] !== undefined)) {
+                  next.landing = {
+                    ...(draft.landing ?? brand?.landing ?? {}),
+                    footer: {
+                      ...(draft.landing?.footer ?? brand?.landing?.footer ?? {}),
+                      ...(changed.footer_enabled !== undefined
+                        ? { enabled: changed.footer_enabled }
+                        : {}),
+                      ...(changed.footer_copyright_text !== undefined
+                        ? { copyright_text: changed.footer_copyright_text }
+                        : {}),
+                      ...(changed.footer_terms_label !== undefined
+                        ? { terms_label: changed.footer_terms_label }
+                        : {}),
+                      ...(changed.footer_privacy_label !== undefined
+                        ? { privacy_label: changed.footer_privacy_label }
+                        : {}),
+                      ...(changed.footer_beian_label !== undefined
+                        ? { beian_label: changed.footer_beian_label }
+                        : {}),
+                    },
+                  };
+                }
                 const supportKeys: Array<keyof FormValues> = [
                   'support_email',
                   'support_phone',

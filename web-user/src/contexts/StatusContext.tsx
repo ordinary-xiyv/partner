@@ -130,7 +130,23 @@ export function StatusProvider({ children }: { children: React.ReactNode }) {
    * 平台配置拿不到是「网站有问题」，伙伴品牌拿不到只是「这个站点没有白标」，
    * 后者应该静默降级而不是让整个 fetchAll 走进 catch。
    */
-  const { brand: partnerBrand } = usePartnerSiteBrand();
+  const { brand: partnerBrand, loading: partnerBrandLoading } = usePartnerSiteBrand();
+  /**
+   * 伙伴品牌是否「已经问过服务器」了。
+   *
+   * 这个标记专门用来保护主色的本地缓存（见 theme/brandOverride 的 CACHE_KEY）：
+   *
+   *   · 首屏时 partnerBrand 还是 null，但那不代表「这个站点没配色」，
+   *     只代表「请求还没回来」。此时如果把 null 写进主色覆盖层，
+   *     就会把刚读出来的缓存值清掉 —— 缓存等于白做，照样先闪一下紫色。
+   *   · 只有请求确实结束了（成功拿到品牌 / 确认没有伙伴品牌），
+   *     才允许用结果去改写覆盖层。
+   *
+   * 用 ref 是因为 recomputeAppearance 里有闭包陷阱（它被定时器复用，
+   * 直接读 state 会读到首帧的旧值），和下面 partnerBrandRef 的处理一致。
+   */
+  const partnerBrandSettledRef = useRef(false);
+  partnerBrandSettledRef.current = !partnerBrandLoading;
   /**
    * 伙伴品牌的最新值（ref 版）。
    *
@@ -196,7 +212,19 @@ export function StatusProvider({ children }: { children: React.ReactNode }) {
      * 都不是「页面内容」，塞进去会让合并函数变成什么都干的大杂烩。
      */
     const partner = partnerBrandRef.current;
-    setBrandPrimaryColorOverride(resolvePartnerPrimaryColor(partner?.primary_color));
+    /*
+     * 主色：只在「伙伴品牌请求已经结束」时才写给覆盖层。
+     *
+     * 首屏那一刻 partner 一定是 null（请求还没回来），此时写 null 会把
+     * localStorage 里的缓存主色删掉 —— 而缓存的全部意义就是让首帧对上色。
+     * 所以在请求未结束前什么都不做，让 main.tsx 铺好的缓存色继续生效。
+     *
+     * 请求结束后再写：有颜色就用伙伴的，没有（null）就回落到平台默认，
+     * 同时把缓存清掉（下次启动不该再拿这个站点的旧色）。
+     */
+    if (partnerBrandSettledRef.current) {
+      setBrandPrimaryColorOverride(resolvePartnerPrimaryColor(partner?.primary_color));
+    }
     setBrandPageTitleOverride(resolvePartnerPageTitle(partner));
     // 放在 syncBrandFromAppearance 之后：那次调用用的是设置前的旧标题
     syncDocumentTitleFromBrand();

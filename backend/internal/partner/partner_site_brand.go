@@ -181,6 +181,27 @@ type PublicSiteBrand struct {
 	 * 客户站不该为了拿一句版权文字去遍历它。
 	 */
 	Footer *PublicSiteFooter `json:"footer"`
+	/*
+	 * 这个站点是不是「平台自营站点」。
+	 *
+	 * 为什么客户站需要知道这件事：两套平台共用一个库，但配置的归属不同。
+	 * 自营站点（merchant_code = 'self-operated'，通常是站点的 site-local）
+	 * 就是平台自己，它在品牌设置里没填的东西，本来就该沿用平台侧那份
+	 * 单例配置（lc_site_footer）—— 平台的客服二维码、平台的版权文案，
+	 * 对自营站点来说就是「我的内容」。
+	 *
+	 * 而分销商（经销商）的站点不是：它没填的东西不能回填平台的值，
+	 * 否则经销商把二维码删掉、下次刷新又冒出平台那张，等于平台内容
+	 * 渗进了经销商的站点。这是用户明确要求避免的「互相影响」。
+	 *
+	 * 所以下发一个布尔，让客户站按站点性质分流，而不是让前端去认
+	 * merchant_code 这种内部编码（改编码就得出两处同步改）。
+	 *
+	 * 判据用 merchant_code 而不是 has_own_web：has_own_web 表示「有没有
+	 * 自己的门户」，历史数据里自营站点的值不一定可依赖；merchant_code
+	 * 是创建时就固定的业务标识，语义更稳。
+	 */
+	IsSelfOperated bool `json:"is_self_operated"`
 }
 
 /*
@@ -294,8 +315,21 @@ func toPublicSiteBrand(brand MerchantBrand) PublicSiteBrand {
 		APIBaseURL:   strings.TrimSpace(brand.APIBaseURL),
 		HomeStyle:    homeStyleFromLanding(brand.Landing),
 		Footer:       footerFromLanding(brand.Landing),
+		/*
+		 * 自营站点的判定：merchant_code == 'self-operated'。
+		 *
+		 * 允许不等号写成常量，是因为这个值是**数据**而不是配置：
+		 * deploy/sql 的初始化脚本只给平台自己插这一条记录。用常量比查
+		 * 一张配置表更直接，也不会因为配置表没初始化就判错。
+		 * 比较前 trim + 小写，避免脏数据（尾随空格、大写）导致判错。
+		 */
+		IsSelfOperated: strings.EqualFold(strings.TrimSpace(brand.MerchantCode), selfOperatedMerchantCode),
 	}
 }
+
+// selfOperatedMerchantCode 是平台自营站点在 lc_distribution_merchants 里的
+// merchant_code。见 deploy/sql/001_partner_platform_schema.sql 的种子数据。
+const selfOperatedMerchantCode = "self-operated"
 
 /*
 PublicSiteBrandAPI GET /api/partner/public/site-brand

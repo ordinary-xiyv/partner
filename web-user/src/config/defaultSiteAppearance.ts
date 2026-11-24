@@ -25,7 +25,19 @@ export function buildDefaultSiteAppearance(t: TFunction, docsUrl: string = getDo
     copyright_text: '',
     terms_label: t('footer.terms'),
     privacy_label: t('footer.privacy'),
-    beian_label: '浙ICP备2026017573号-1',
+    /*
+     * 备案号默认留空。
+     *
+     * 原来这里写死了平台的 '浙ICP备2026017573号-1'。问题是这个默认值会被
+     * 所有没配过页脚的站点继承 —— 分销商站在自己域名下挂平台的备案号，
+     * 既误导访客（以为这站是平台运营的），也把平台拖进了不属于它的合规责任。
+     *
+     * 备案号的真实来源应该是平台运营在 /api/lynx/config/footer 里配的那一条，
+     * 已经由 mergeSiteAppearance 从 footer 接口取值。这里再写死一份，
+     * 只会在「接口没返回」时冒出来，属于纯粹的隐患。
+     * 留空 = 没配就不显示，和「商户主动清空」表现一致。
+     */
+    beian_label: '',
     layout_config: {
       show_theme_switcher: true,
       show_language_switcher: true,

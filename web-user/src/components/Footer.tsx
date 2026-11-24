@@ -82,8 +82,24 @@ export default function Footer({ className }: { className?: string; fullWidth?: 
      * 的站点有要求，英文/泰文页面挂一个浙ICP备号反而是噪音。
      */
     if (isChineseLocale(locale) && !hidden.has('beian')) {
-      const beian = siteAppearance.beian_label?.trim() || '浙ICP备2026017573号-1';
-      items.push({ key: 'beian', label: beian, href: 'https://beian.miit.gov.cn/' });
+      /*
+       * 不再硬编码备案号兜底。
+       *
+       * 原来这里写的是 `siteAppearance.beian_label?.trim() || '浙ICP备…'`，
+       * 也就是「没配」就退回平台自己的备案号。这在分销商站点上是错的：
+       * 商户在伙伴后台把备案号删干净，本意是「我不挂这条」，结果页脚上
+       * 出现了平台的 ICP 备案号 —— 备案号是主体标识，挂在别人的域名下
+       * 比不挂更糟（既误导访客，也把平台拖进了不该由它背的合规责任）。
+       *
+       * 现在的语义和其它三项完全一致：
+       *   没配（undefined / null）→ 用平台下发的值（由 merge 层给到）
+       *   明确清空（空串，同时 hidden 里登记了 beian）→ 上面这个 if 直接跳过，不渲染
+       * 也就是说「清空」= 不显示，没有兜底文案。
+       */
+      const beian = siteAppearance.beian_label?.trim() ?? '';
+      if (beian) {
+        items.push({ key: 'beian', label: beian, href: 'https://beian.miit.gov.cn/' });
+      }
     }
     return items;
   }, [siteAppearance, locale, t, hidden]);

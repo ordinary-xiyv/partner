@@ -164,6 +164,18 @@ export function mergeSiteAppearance(
         ...local?.customer_service_config,
         ...api.customer_service_config,
       }),
+      /*
+       * 站点性质决定「没配的字段要不要继承平台值」。
+       *
+       *   自营站点    → 继承平台单例配置是对的（那就是它自己的）
+       *   经销商站点  → 必须严格只认自己的，否则平台内容会渗进来
+       *   字段缺失    → 传 undefined 让下层按老行为放行
+       *
+       * 第三态很关键：只发前端、不发后端时，如果这里把 undefined 压成
+       * false，平台自营站点会立刻丢掉版权/备案/二维码，主站页脚突然变空。
+       * 实测过这个组合，三项全丢。详见 partnerBrandToCustomerService 注释。
+       */
+      sources.partner?.is_self_operated,
     ),
     login_media_config: normalizeLoginMediaConfig({
       ...defaults.login_media_config,
@@ -173,17 +185,60 @@ export function mergeSiteAppearance(
   };
 
   /*
-   * 页脚版权行：伙伴后台的值要压过平台侧，且必须在
-   * normalizeSiteAppearanceLabels **之后**叠加。
-   *
-   * 原因：那个函数把 copyright_labels 当作主数据源，会用它的 zh-CN
-   * 反过来重写 copyright_text。伙伴只给了 copyright_text、没有多语言，
-   * 先在 merged 里塞进去的话会被空 labels 覆盖回平台文案。
-   * 同样的坑在 brand_name 上踩过一次（见上面的长注释），这里按同样的
-   * 思路处理：先规范化，再把伙伴值盖上去。
+   * 规范化放在这里（而不是最后一行的 `return` 里直接串起来），
+   * 是因为下面的页脚文案隔离必须在 normalizeSiteAppearanceLabels 之后执行。
    */
   const normalized = normalizeSiteAppearanceLabels(normalizeSiteAppearanceDocs(merged));
-  return applyPartnerFooter(normalized, resolvePartnerFooter(sources.partner ?? null));
+
+  /**
+   * 平台侧页脚文案的归属规则 —— 和客服二维码同一个原则：按站点性质分流。
+   *
+   * 平台侧那套文案存在 lc_site_footer（全站单例，没有 merchant_id），
+   * 内容是「©2026 联通云有限公司 版权所有」「浙ICP备2026017573号-1」这种
+   * **平台主体**的信息。
+   *
+   *   · 自营站点 → 那就是平台自己，继承平台文案是对的。
+   *   · 经销商站点 → 它没配页脚文案时，绝不能回填平台这套：
+   *       在经销商的域名下显示「联通云有限公司版权所有」和平台的备案号，
+   *       既是给平台打广告，也把平台拖进了本不属于它的合规责任
+   *       （备案号是主体标识，挂在别人域名下比不挂更糟）。
+   *
+   * terms / privacy 保留平台值是有意的：那两个是站点通用功能的入口文字
+   * （「网站条款」「隐私政策」），不是平台主体信息，经销商一般也需要
+   * 这两个链接可点。只在经销商明确清空时才隐藏（applyPartnerFooter 处理）。
+   *
+   * ★ 位置很关键：必须在 normalizeSiteAppearanceLabels **之后**执行。
+   *   那个函数第 77 行是 `copyright_text: copyrightLabels['zh-CN'] ?? appearance.copyright_text`
+   *   —— 它拿 copyright_labels 反推 copyright_text。如果在那之前清空
+   *   copyright_text，会被 labels 里的平台文案又填回来，等于没清。
+   *   所以这里同时把 copyright_labels 一起摘掉。
+   *
+   * ★ 三态：只有后端明确说「这是经销商」（=== false）才清。
+   *   字段缺失代表旧版后端，此时按老行为保留平台文案 —— 否则「前端先发、
+   *   后端没发」的窗口里，连自营主站的页脚都会变空。
+   */
+  const platformFooterApplies = sources.partner?.is_self_operated !== false;
+  const partnerFooter = sources.partner?.footer;
+  const partnerHasCopyright = partnerFooter?.copyright_text != null;
+  const partnerHasBeian = partnerFooter?.beian_label != null;
+
+  let finalAppearance = normalized;
+  if (!platformFooterApplies && (!partnerHasCopyright || !partnerHasBeian)) {
+    finalAppearance = { ...normalized };
+    if (!partnerHasCopyright) {
+      finalAppearance.copyright_text = '';
+      /*
+       * labels 必须一起摘 —— 否则下一轮 normalize 又把它反推回来。
+       * 用 undefined 而不是 {}：{} 会让下层 ?? 判断走「有值」分支。
+       */
+      finalAppearance.copyright_labels = undefined;
+    }
+    if (!partnerHasBeian) {
+      finalAppearance.beian_label = '';
+    }
+  }
+
+  return applyPartnerFooter(finalAppearance, resolvePartnerFooter(sources.partner ?? null));
 }
 
 /**
