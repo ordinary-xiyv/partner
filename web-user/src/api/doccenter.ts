@@ -7,23 +7,8 @@ import type {
   DocArticlePreviewResult,
   DocCategory,
   DocCategoryInput,
-  DocLang,
   LynxApiEnvelope,
-  PublicDocArticle,
-  PublicDocsTree,
 } from '../types/doccenter';
-
-export const getPublicDocsTree = (lang: DocLang = 'zh') =>
-  API.get<LynxApiEnvelope<PublicDocsTree>>('/api/lynx/docs/tree', {
-    params: { lang },
-    validateStatus: (status) => status === 200 || status === 404,
-  });
-
-export const getPublicDocArticle = (slug: string, lang: DocLang = 'zh') =>
-  API.get<LynxApiEnvelope<PublicDocArticle>>(`/api/lynx/docs/articles/${encodeURIComponent(slug)}`, {
-    params: { lang },
-    validateStatus: (status) => status === 200 || status === 404,
-  });
 
 export const getAdminDocsTree = () =>
   API.get<LynxApiEnvelope<{ categories: AdminDocsTreeCategory[] }>>('/api/lynx/admin/docs/tree');

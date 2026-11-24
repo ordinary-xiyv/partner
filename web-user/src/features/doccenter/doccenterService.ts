@@ -6,9 +6,6 @@ import {
   deleteAdminDocCategory,
   getAdminDocArticle,
   getAdminDocsTree,
-  getPublicDocArticle,
-  getPublicDocsTree,
-  importAdminDocSeed,
   previewAdminDocArticle,
   reorderAdminDocArticles,
   reorderAdminDocCategories,
@@ -16,6 +13,7 @@ import {
   updateAdminDocCategory,
 } from '../../api/doccenter';
 import type {
+  AdminDocsTreeCategory,
   DocArticle,
   DocArticleInput,
   DocArticlePreviewInput,
@@ -29,15 +27,11 @@ import type {
 } from '../../types/doccenter';
 import { toDocCenterError } from './utils/formatDocCenterError';
 import { normalizePublicDocsTree } from './utils/publicDocsTree';
-import { docCenterMockStore } from './mock/store';
 import {
   getPartnerPublicDocArticle,
   getPartnerPublicDocsTree,
 } from '../../api/partnerDocs';
 import { buildDocTemplateContext, applyDocTemplate } from './utils/renderTemplate';
-
-/** 设为 true 时强制使用浏览器 localStorage mock，不走后端 */
-const USE_MOCK_ONLY = import.meta.env.VITE_DOC_CENTER_USE_MOCK === 'true';
 
 type ApiResponse<T> = { data?: LynxApiEnvelope<T> };
 
@@ -71,10 +65,9 @@ export function setDocBaseUrlOverride(partnerApiBaseUrl: string | undefined): vo
 /**
  * 设置品牌名覆盖值（{{brandName}}）。
  *
- * 为什么需要：主站后端渲染文档时会把 {{brandName}} 替换成主站品牌，
- * 分销商的客户读到「某某平台提供」会以为自己不在分销商站点上。
- * 伙伴文档是伙伴后端返回的原始 Markdown（不做服务端替换），
- * 由客户站用伙伴品牌名在前端补这一步。
+ * 为什么需要：伙伴后端渲染文档时不做任何服务端替换，正文里的
+ * {{brandName}} 会原样落给访客。分销商的客户读到「某某平台提供」
+ * 会以为自己不在分销商站点上。所以由客户站用伙伴品牌名在前端补这一步。
  */
 export function setDocBrandNameOverride(partnerBrandName: string | undefined): void {
   brandNameOverride = (partnerBrandName || '').trim();
@@ -98,54 +91,50 @@ async function callRemote<T>(call: () => Promise<ApiResponse<T>>): Promise<T> {
   }
 }
 
-async function callRemoteOrMock<T>(
-  call: () => Promise<ApiResponse<T>>,
-  fallback: () => T,
-): Promise<T> {
-  if (USE_MOCK_ONLY) return fallback();
-  try {
-    return await callRemote(call);
-  } catch {
-    return fallback();
-  }
-}
-
 /**
- * 文档树读取顺序的实现（见 docCenterService.getPublicTree 的注释）。
+ * 文档树读取的实现（见 docCenterService.getPublicTree 的注释）。
  *
  * 抽成独立函数，是因为「伙伴接口通了但树为空」这个判断不好塞进
- * callRemoteOrMock 的二元语义里 —— 它只有「成功/失败」，没有「空」。
+ * callRemote 的二元语义里 —— 它只有「成功/失败」，没有「空」。
  */
 async function fetchPartnerTreeOrFallback(lang: DocLang): Promise<PublicDocsTree> {
-  if (!USE_MOCK_ONLY) {
-    const partner = await getPartnerPublicDocsTree(lang);
-    /*
-     * 只要伙伴接口通了、且这个站点确实有文档，就用伙伴的。
-     *
-     * hasPartyDocs 的判断标准是「根部分类或顶级文章有任何一条」——
-     * 不能用 categories.length 单独判，因为顶级独立文章走 articles 字段
-     * （见 buildPublicTree 的注释：category_id 必填，所以 articles 通常是
-     * undefined，但保留这个判断以免将来后端支持无分类文章时这里漏掉）。
-     *
-     * 注意这里**不**用 normalizePublicDocsTree 的结果判断空：
-     * 规范化的职责是剔除空分支，如果伙伴后端给了一堆空分类，
-     * 规范化后变空 —— 那确实应该回落，所以用规范化后的结果判空是对的。
-     * 但规范化本身有开销，先粗判再规范化，省掉大多数情况下的多余计算。
-     */
-    if (partner.outcome === 'ok' && partner.data && hasAnyDocContent(partner.data)) {
-      return partner.data;
-    }
-    /*
-     * outcome === 'unbound' / 'error' / 空树 → 继续往下回落主站。
-     * 空树也回落这个决定见 getPublicTree 的注释：新商户还没写文档时，
-     * 给他看平台默认文档比看空白页有用。
-     */
+  const partner = await getPartnerPublicDocsTree(lang);
+  /*
+   * 只要伙伴接口通了、且这个站点确实有文档，就用伙伴的。
+   *
+   * hasAnyDocContent 的判断标准是「根部分类或顶级文章有任何一条」——
+   * 不能用 categories.length 单独判，因为顶级独立文章走 articles 字段
+   * （见 buildPublicTree 的注释：category_id 必填，所以 articles 通常是
+   * undefined，但保留这个判断以免将来后端支持无分类文章时这里漏掉）。
+   *
+   * 注意这里**不**用 normalizePublicDocsTree 的结果判断空：
+   * 规范化的职责是剔除空分支。规范化后变空 —— 那确实应该算空态，所以
+   * 最终判空交给规范化之后的长度判断（见 getPublicTree）。
+   */
+  if (partner.outcome === 'ok' && partner.data && hasAnyDocContent(partner.data)) {
+    return partner.data;
   }
 
-  return callRemoteOrMock(
-    () => getPublicDocsTree(lang),
-    () => docCenterMockStore.getPublicTree(lang),
-  );
+  /*
+   * ★ 到此结束：返回空树，**不再往主站找**（2026-11-24 起，不分站点性质）。
+   *
+   * 这是「我的文档页为什么依赖主站」这个问题的答案 —— 它本来就不该依赖。
+   * 主站后端（3002）和伙伴后端（3004）是两个独立服务，主站挂掉时
+   * 文档页不能跟着打不开（实测过：主站 3002 没起时整页 500）。
+   *
+   * 原来这里还有一层「主站也没成功 → 用浏览器本地 mock 种子」，那是个假兜底：
+   * 目录是前端编的，正文走另一条链、根本不会去 mock 取，结果就是
+   * 「左边有目录、右边写着文档不存在」。mock 已彻底删除。
+   *
+   * 代价（明确的取舍）：还没导入文档的站点会看到「暂无文档」，
+   * 而不是借用主站内容装成有文档。这是有意的 —— 假内容比空态更糟，
+   * 因为用户会以为自己的文档丢了。
+   */
+  return {
+    lang,
+    base_url: '',
+    categories: [],
+  } as PublicDocsTree;
 }
 
 function hasAnyDocContent(tree: PublicDocsTree): boolean {
@@ -160,9 +149,8 @@ function hasAnyDocContent(tree: PublicDocsTree): boolean {
  * 要导出/迁移，带着渲染结果的正文是没法用的。而 baseUrl 和品牌名取决于
  * 「访客从哪个域名进来」，本质上是展示层的事，就该在展示层拼。
  *
- * 和主站链路的差异要记住：主站后端**已经**把模板替换过了（返回的 content
- * 里没有 {{...}}），再套一遍是空操作，不会重复替换。所以这个函数对两条
- * 链路都安全，统一在出口处调用即可。
+ * 现在只有伙伴一条链路了（主站回落已移除），所以这个函数是文章出口的
+ * 唯一一处模板替换点。
  */
 function applyArticleTemplate(article: PublicDocArticle): PublicDocArticle {
   if (!article.content || !article.content.includes('{{')) return article;
@@ -184,15 +172,18 @@ export const docCenterService = {
    *   1. 伙伴后端 /api/partner/public/docs/tree —— 按站点身份返回**这个商户
    *      自己写的**文档。这是目标形态：伙伴用户在伙伴平台写了文档，他的域名
    *      就显示他的文档，与主站和其他分销商互不影响。
-   *   2. 主站 /api/lynx/docs/tree —— 伙伴没写过文档、或伙伴后端不可用时回落。
-   *      保住「老站点什么都不配也能看到平台默认真实文档」这个既有效果。
-   *   3. 本地 mock —— 后端整个不可用时的最后兜底，页面不至于白屏。
+   *   2. 站点没有文档 → 空态。**不再回落主站**（2026-11-24 起）。
+   *   3. （没有 mock 了，见 fetchPartnerTreeOrFallback 的注释）
    *
    * 关键判据是「伙伴接口通了且树非空」才用伙伴的。不能只看 HTTP 200：
    * 伙伴后端对未配置文档的站点会正大光明地返回空树（categories: []），
-   * 那是「这个商户还没写」，不是「这个商户写了空文档」—— 这种情况下
-   * 应该继续走主站的默认文档，否则新商户的客户会看到一个空白的文档中心，
-   * 以为产品坏了。
+   * 那是「这个商户还没写」，不是「这个商户写了空文档」。
+   *
+   * ★ 为什么不回落主站（不分经销商还是自营）：
+   *   主站后端（3002）和伙伴后端（3004）是两个独立服务。文档页一旦回落主站，
+   *   主站挂掉时这里也会跟着 500（实测过）。文档是站点自己的内容，不是平台
+   *   的附属品 —— 没写就显示空态，让用户知道要去伙伴后台导入/编写，
+   *   而不是拿主站内容充数。
    */
   async getPublicTree(lang: DocLang): Promise<PublicDocsTree> {
     const tree = await fetchPartnerTreeOrFallback(lang);
@@ -210,57 +201,45 @@ export const docCenterService = {
   /**
    * 读单篇文章。
    *
-   * 与 getPublicTree 同一套顺序，但多一个细节：如果伙伴接口明确回了 404
-   * （这篇 slug 在伙伴库里不存在），**不能**接着去主站找 —— 那会把主站
-   * 里同名 slug 的文章端出来，等于让分销商的客户看到别家的内容。
-   * 只有「伙伴接口整体不可用 / 未绑定」才回落主站。
+   * ★ 只认伙伴库。伙伴接口返回什么就是什么：
+   *   · ok + data   → 用伙伴的文章
+   *   · 404 / 5xx   → 没有就是没有，返回 null（页面显示「文章不存在」）
+   *
+   * **不去主站**（2026-11-24 起，不分站点性质）。理由和 getPublicTree 一致：
+   * 文档页不能依赖主站后端；而且主站文章讲的是平台方的接口地址和品牌，
+   * 端给分销商的客户就是串了品牌，这个错误比「文档打不开」更严重。
+   *
+   * ★ 这条链必须和 getPublicTree 完全同源。历史上两边各自降级过一次，
+   *   结果就是「左边有目录、右边写文档不存在」的矛盾页面。
    */
   async getPublicArticle(slug: string, lang: DocLang): Promise<PublicDocArticle | null> {
-    if (USE_MOCK_ONLY) {
-      return docCenterMockStore.getPublicArticle(slug, lang);
-    }
-
     const partner = await getPartnerPublicDocArticle(slug, lang);
     if (partner.outcome === 'ok' && partner.data) {
       return applyArticleTemplate(partner.data);
     }
-    if (partner.outcome === 'unbound') {
-      /*
-       * 403/404 有歧义：可能是「站点没绑身份」，也可能是「绑了但没这篇文章」。
-       * 这两种在 HTTP 层都是 404，分不开。保守起见按「没这篇文章」处理 ——
-       * 返回 null 让页面显示「文章不存在」，不要去主站捞同名文章。
-       *
-       * 代价：真没绑身份的站点，文档页会显示空而不是主站默认文档。
-       * 但那种站点的文档中心本来就该是空的（它没有伙伴配置），
-       * 显示主站默认文档反而是更严重的错误 —— 会让访客看到别家品牌的文档。
-       */
-      return null;
-    }
-
-    try {
-      const res = await getPublicDocArticle(slug, lang);
-      if (res.status === 404 || !res.data?.success) return null;
-      const data = res.data.data ?? null;
-      return data ? applyArticleTemplate(data) : null;
-    } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 404) {
-        return null;
-      }
-      return docCenterMockStore.getPublicArticle(slug, lang);
-    }
+    return null;
   },
 
-  getAdminTree(): Promise<{ categories: ReturnType<typeof docCenterMockStore.getAdminTree>['categories'] }> {
-    if (USE_MOCK_ONLY) {
-      return Promise.resolve(docCenterMockStore.getAdminTree());
-    }
-    return callRemote(() => getAdminDocsTree());
+  /*
+   * ------------------------------------------------------------------
+   * 管理侧方法。
+   *
+   * ★ 客户站不提供文档编辑能力 —— 那是伙伴后台（web/ 的「文档设置」页）的职责。
+   *   这几个方法留在这里只为一个用途：让 useDocCenter 之类的旧调用方
+   *   在类型上还能编译通过。实际调用点经逐一核对是 0 个。
+   *
+   * 原来每个方法都带一条 `if (USE_MOCK_ONLY) return docCenterMockStore.xxx()`，
+   * 那是把 mock 当成编辑后端。mock 已经从客户站移除（它只该是种子来源，
+   * 而种子现在在后端），这里同步去掉那些分支，别再让人以为「本地能编辑文档」。
+   * ------------------------------------------------------------------
+   */
+  getAdminTree(): Promise<{ categories: AdminDocsTreeCategory[] }> {
+    return callRemote(() => getAdminDocsTree()).then((res) => ({
+      categories: res.categories ?? [],
+    }));
   },
 
   async getArticle(id: number): Promise<DocArticle | null> {
-    if (USE_MOCK_ONLY) {
-      return docCenterMockStore.getArticle(id);
-    }
     try {
       const res = await getAdminDocArticle(id);
       if (res.data?.success && res.data.data) {
@@ -275,76 +254,39 @@ export const docCenterService = {
     }
   },
 
-  createCategory(input: DocCategoryInput, updatedBy: number): Promise<DocCategory> {
-    if (USE_MOCK_ONLY) {
-      return Promise.resolve(docCenterMockStore.createCategory(input, updatedBy));
-    }
+  createCategory(input: DocCategoryInput): Promise<DocCategory> {
     return callRemote(() => createAdminDocCategory(input));
   },
 
   updateCategory(id: number, input: DocCategoryInput): Promise<DocCategory> {
-    if (USE_MOCK_ONLY) {
-      return Promise.resolve(docCenterMockStore.updateCategory(id, input));
-    }
     return callRemote(() => updateAdminDocCategory(id, input));
   },
 
   deleteCategory(id: number): Promise<void> {
-    if (USE_MOCK_ONLY) {
-      docCenterMockStore.deleteCategory(id);
-      return Promise.resolve();
-    }
     return callRemote(() => deleteAdminDocCategory(id)).then(() => undefined);
   },
 
   reorderCategories(items: { id: number; sort: number }[]): Promise<{ updated: number }> {
-    if (USE_MOCK_ONLY) {
-      return Promise.resolve(docCenterMockStore.reorderCategories(items));
-    }
     return callRemote(() => reorderAdminDocCategories(items));
   },
 
-  createArticle(input: DocArticleInput, updatedBy: number): Promise<DocArticle> {
-    if (USE_MOCK_ONLY) {
-      return Promise.resolve(docCenterMockStore.createArticle(input, updatedBy));
-    }
+  createArticle(input: DocArticleInput): Promise<DocArticle> {
     return callRemote(() => createAdminDocArticle(input));
   },
 
-  updateArticle(id: number, input: DocArticleInput, updatedBy: number): Promise<DocArticle> {
-    if (USE_MOCK_ONLY) {
-      return Promise.resolve(docCenterMockStore.updateArticle(id, input, updatedBy));
-    }
+  updateArticle(id: number, input: DocArticleInput): Promise<DocArticle> {
     return callRemote(() => updateAdminDocArticle(id, input));
   },
 
   deleteArticle(id: number): Promise<void> {
-    if (USE_MOCK_ONLY) {
-      docCenterMockStore.deleteArticle(id);
-      return Promise.resolve();
-    }
     return callRemote(() => deleteAdminDocArticle(id)).then(() => undefined);
   },
 
   reorderArticles(categoryId: number, items: { id: number; sort: number }[]): Promise<{ updated: number }> {
-    if (USE_MOCK_ONLY) {
-      return Promise.resolve(docCenterMockStore.reorderArticles(categoryId, items));
-    }
     return callRemote(() => reorderAdminDocArticles(categoryId, items));
   },
 
   previewArticle(input: DocArticlePreviewInput): Promise<DocArticlePreviewResult> {
-    if (USE_MOCK_ONLY) {
-      return Promise.resolve(docCenterMockStore.previewArticle(input));
-    }
     return callRemote(() => previewAdminDocArticle(input));
-  },
-
-  async resetSeed(): Promise<void> {
-    if (USE_MOCK_ONLY) {
-      docCenterMockStore.resetSeed();
-      return;
-    }
-    await callRemote(() => importAdminDocSeed('overwrite'));
   },
 };

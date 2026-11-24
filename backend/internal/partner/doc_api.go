@@ -36,6 +36,13 @@ func docError(c *gin.Context, err error) {
 		// 409 而不是 400：这不是「请求写错了」，是「当前状态不允许这个操作」。
 		// 前端可以据此引导用户先去绑定站点，而不是让用户反复改请求参数。
 		partnerError(c, http.StatusConflict, err.Error())
+	case errors.Is(err, ErrDocSeedInvalid):
+		/*
+		 * 500 而不是 400：种子是编译进二进制的内置资源，用户没传任何东西，
+		 * 这里报错意味着发版时把模板弄坏了。归为「服务端问题」才能让
+		 * 排查的人去查构建，而不是去查请求参数。
+		 */
+		partnerError(c, http.StatusInternalServerError, err.Error())
 	default:
 		partnerError(c, http.StatusInternalServerError, "文档操作失败")
 	}
@@ -310,6 +317,46 @@ func AdminDocArticleReorderAPI(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"updated": updated}})
 }
 
+/*
+AdminDocSeedImportAPI POST /api/partner/docs/import/seed?mode=skip|overwrite
+
+把内置的默认文档模板导入当前商户的站点。
+
+为什么需要这个接口：新商户的文档表是空的，后台打开文档页一片空白，
+只能从零手写。而这套模板（入门 / 模型指南 / API 参考，45 篇）本来就是
+为这个产品写好的，不该让每个商户重复劳动。
+
+mode 默认 skip（只补缺，不动已有内容）。overwrite 才会覆盖同 slug 的
+标题与正文，但仍然不删除用户自己新建的任何东西 —— 「恢复默认文档」
+绝不能变成「清空我的文档」。
+*/
+func AdminDocSeedImportAPI(c *gin.Context) {
+	if !docTablesOK(c) {
+		return
+	}
+	siteID, ok := docSiteFromContext(c)
+	if !ok {
+		return
+	}
+	mode := strings.TrimSpace(c.Query("mode"))
+	if mode != DocSeedModeOverwrite {
+		mode = DocSeedModeSkip
+	}
+	summary, err := ImportDocSeed(siteID, mode)
+	if err != nil {
+		docError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"site_id": siteID,
+			"mode":    mode,
+			"summary": summary,
+		},
+	})
+}
+
 // ---------- 公网侧 ----------
 
 /*
@@ -318,7 +365,9 @@ PublicDocTreeAPI GET /api/partner/public/docs/tree?lang=zh
 客户站文档页的目录数据，匿名可访问，靠三个站点身份头认人。
 
 返回结构与 web-user 的 PublicDocsTree 对齐：
+
 	categories[].nodes[] = { type: 'category' | 'article', data: {...} }
+
 这样客户站不必为伙伴数据源再写一套树渲染。
 */
 func PublicDocTreeAPI(c *gin.Context) {
@@ -432,10 +481,11 @@ func emptyPublicTree(lang string) gin.H {
 buildPublicTree 把扁平的分类 + 文章拼成前端要的嵌套树。
 
 规则：
-  · 只出现「有已发布文章」的分类 —— 空目录在客户站上就是个点不开的项，
-    会让访客以为站点坏了
-  · 同级按 sort 升序，同 sort 按 id 升序（保证稳定）
-  · 文章路径统一拼 /docs/<slug>，和客户站现有路由一致
+
+	· 只出现「有已发布文章」的分类 —— 空目录在客户站上就是个点不开的项，
+	  会让访客以为站点坏了
+	· 同级按 sort 升序，同 sort 按 id 升序（保证稳定）
+	· 文章路径统一拼 /docs/<slug>，和客户站现有路由一致
 */
 func buildPublicTree(
 	lang, siteID string,

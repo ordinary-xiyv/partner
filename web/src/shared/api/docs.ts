@@ -199,6 +199,39 @@ export async function reorderDocArticles(items: DocSortItem[]): Promise<{ update
   });
 }
 
+/** 导入结果：只报数量，够前端做提示文案。 */
+export interface DocSeedImportSummary {
+  categories_created: number;
+  categories_updated: number;
+  categories_skipped: number;
+  articles_created: number;
+  articles_updated: number;
+  articles_skipped: number;
+}
+
+export interface DocSeedImportResult {
+  site_id: string;
+  mode: 'skip' | 'overwrite';
+  summary: DocSeedImportSummary;
+}
+
+/**
+ * 导入内置默认文档（入门 / 模型指南 / API 参考）。
+ *
+ * mode=skip（默认）只补缺失的分类与文章，不动已有内容；
+ * mode=overwrite 会用模板覆盖同 slug 的标题和正文。
+ * 两种模式都不会删除商户自己新建的东西。
+ */
+export async function importDocSeed(
+  mode: 'skip' | 'overwrite' = 'skip',
+): Promise<DocSeedImportResult> {
+  return request<DocSeedImportResult>({
+    url: EP.dealer.docsSeedImport,
+    method: 'POST',
+    params: { mode },
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* 纯函数：树构建                                                       */
 /* ------------------------------------------------------------------ */

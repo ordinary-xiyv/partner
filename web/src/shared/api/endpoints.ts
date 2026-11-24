@@ -113,5 +113,12 @@ export const EP = {
     docsArticleGet: '/api/partner/docs/articles/:id',
     docsArticleUpdate: '/api/partner/docs/articles/:id',
     docsArticleDelete: '/api/partner/docs/articles/:id',
+    /*
+     * 导入内置默认文档（入门 / 模型指南 / API 参考，45 篇）。
+     *
+     * 新站点文档表是空的，没有这一步只能从零手写分类和文章。
+     * 幂等：默认 mode=skip 只补缺失，overwrite 才覆盖同 slug 的内容。
+     */
+    docsSeedImport: '/api/partner/docs/import/seed',
   },
 } as const;

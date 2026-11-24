@@ -1,0 +1,465 @@
+{
+  "version": 1,
+  "categories": [
+    {
+      "slug": "getting-started",
+      "parent_slug": "",
+      "title_zh": "入门",
+      "title_en": "Getting Started",
+      "sort": 10
+    },
+    {
+      "slug": "model-guides",
+      "parent_slug": "",
+      "title_zh": "模型指南",
+      "title_en": "Model Guides",
+      "sort": 20
+    },
+    {
+      "slug": "api-reference",
+      "parent_slug": "",
+      "title_zh": "API 参考",
+      "title_en": "API Reference",
+      "sort": 90
+    },
+    {
+      "slug": "account",
+      "parent_slug": "api-reference",
+      "title_zh": "账户",
+      "title_en": "账户",
+      "sort": 10
+    },
+    {
+      "slug": "model-list",
+      "parent_slug": "api-reference",
+      "title_zh": "模型列表",
+      "title_en": "模型列表",
+      "sort": 20
+    },
+    {
+      "slug": "chat",
+      "parent_slug": "api-reference",
+      "title_zh": "对话",
+      "title_en": "对话",
+      "sort": 30
+    },
+    {
+      "slug": "chat-openai-chat-completions",
+      "parent_slug": "chat",
+      "title_zh": "OpenAI Chat Completions",
+      "title_en": "OpenAI Chat Completions",
+      "sort": 40
+    },
+    {
+      "slug": "chat-openai-responses",
+      "parent_slug": "chat",
+      "title_zh": "OpenAI Responses",
+      "title_en": "OpenAI Responses",
+      "sort": 50
+    },
+    {
+      "slug": "chat-anthropic-messages",
+      "parent_slug": "chat",
+      "title_zh": "Anthropic Messages",
+      "title_en": "Anthropic Messages",
+      "sort": 60
+    },
+    {
+      "slug": "image-generation",
+      "parent_slug": "api-reference",
+      "title_zh": "图片生成",
+      "title_en": "图片生成",
+      "sort": 70
+    },
+    {
+      "slug": "video-generation",
+      "parent_slug": "api-reference",
+      "title_zh": "视频生成",
+      "title_en": "视频生成",
+      "sort": 80
+    },
+    {
+      "slug": "video-generation-openai-compatible",
+      "parent_slug": "video-generation",
+      "title_zh": "OpenAI 兼容",
+      "title_en": "OpenAI 兼容",
+      "sort": 90
+    },
+    {
+      "slug": "real-person-portrait",
+      "parent_slug": "api-reference",
+      "title_zh": "真人人像库",
+      "title_en": "真人人像库",
+      "sort": 100
+    },
+    {
+      "slug": "virtual-avatar-assets",
+      "parent_slug": "api-reference",
+      "title_zh": "虚拟人素材库",
+      "title_en": "虚拟人素材库",
+      "sort": 110
+    }
+  ],
+  "articles": [
+    {
+      "slug": "auth",
+      "category_slug": "getting-started",
+      "title_zh": "认证",
+      "title_en": "Authentication",
+      "sort": 10,
+      "content_zh": "# 认证\n\n## API Token\n\n1. 登录控制台 → **令牌管理** → 创建令牌  \n2. 复制完整 Key（仅显示一次），格式：`sk-...`  \n3. 所有对外 API 请求携带：\n\n```http\nAuthorization: Bearer sk-your-api-key\n```\n\n## 多协议兼容\n\n同一 Token，按 SDK 选择不同路径：\n\n| 协议 | 适用 | 端点 |\n|------|------|------|\n| OpenAI Chat | DeepSeek、GLM、Qwen、Kimi、豆包对话 | `POST /v1/chat/completions` |\n| OpenAI Responses | OpenAI 原生 Responses 客户端 | `POST /v1/responses` |\n| Anthropic | Claude（若 `/v1/models` 返回） | `POST /v1/messages` |\n| OpenAI Video | Seedance 视频 | `POST /v1/videos` |\n| Lynx 扩展 | 虚拟人素材 | `POST /api/lynx/volc-assets/import` |\n\n## 环境\n\n| 环境 | Base URL | 说明 |\n|------|----------|------|\n| 生产 | `{{baseUrl}}` | curl 示例直接用此域名 + 路径（如 `/v1/models`） |\n| OpenAI SDK | `{{baseUrl}}/v1` | `OpenAI(base_url=...)` 需带 `/v1` |\n| Anthropic SDK | `{{baseUrl}}` | 不带 `/v1` |\n\n## 常见错误\n\n| 状态码 | 含义 |\n|--------|------|\n| 401 | Token 无效或未携带 |\n| 403 | IP 白名单限制 |\n| 429 | 限流 |\n| 402/403 | 额度不足（视网关配置） |\n\n## 可用模型\n\n调用前执行 `GET /v1/models`，返回的 `data[].id` 即为 **`model` 字段**应填写的值。详见 API 参考 → **模型列表**。\n"
+    },
+    {
+      "slug": "quickstart",
+      "category_slug": "getting-started",
+      "title_zh": "快速开始",
+      "title_en": "Quick Start",
+      "sort": 20,
+      "content_zh": "# 快速开始（第一个请求）\n\n\n\n## 1. 创建 Token\n\n\n\n控制台 → 令牌管理 → 创建 → 复制 `sk-...`（完整 Key 仅显示一次）。\n\n\n\n## 2. 列出可用模型\n\n\n\n### 方式 A：API（推荐，与调用一致）\n\n\n\n```bash\n\ncurl {{baseUrl}}/v1/models \\\n\n  -H \"Authorization: Bearer sk-your-api-key\"\n\n```\n\n\n\n| 字段 | 说明 |\n\n|------|------|\n\n| data[].id | **调用时 body 中的 `model` 字段**（大小写须一致） |\n\n| data[].modalities | `text` / `image` / `video` 等 |\n\n\n\n不同 Token 可见模型可能不同。\n\n\n\n### 方式 B：模型库（浏览价格与接入示例）\n\n\n\n无需登录即可浏览列表；**实际调用仍用同一 API Key**。\n\n\n\n```bash\n\n# 列表（可按 category 筛选：llm / image / video 等）\n\ncurl \"{{baseUrl}}/api/lynx/catalog/models?page=1&page_size=20\"\n\n\n\n# 详情（含推荐 endpoint 与 curl 示例）\n\ncurl \"{{baseUrl}}/api/lynx/catalog/models/1\"\n\n```\n\n\n\n| 字段 | 说明 |\n\n|------|------|\n\n| data.items[].name | 与 `/v1/models` 的 `id` 相同，即 **`model` 参数值** |\n\n| data.docs.http_api.endpoint | 推荐接口路径，如 `/v1/chat/completions` |\n\n| data.docs.http_api.curl | 可复制示例（将 `$LYNX_API_KEY` 换成你的 Key） |\n\n\n\n## 3. 从模型库到第一次调用\n\n\n\n```text\n\n① 取 model 名：/v1/models 的 data[].id，或模型库 data.name\n\n② 看 category 或 modalities，选 endpoint：\n\n     text  → POST /v1/chat/completions\n\n     image → POST /v1/images/generations\n\n     video → POST /v1/videos\n\n③ 同一 Authorization: Bearer sk-... 发起请求\n\n```\n\n\n\nSeedance 虚拟人/真人人像还需先走素材库 `import`，见 **Seedance 虚拟人** / **Seedance 真人人像** 指南。\n\n\n\n## 4. 对话示例（OpenAI 格式）\n\n\n\n将 `YOUR_MODEL` 换成上一步取得的 **text** 类 model 名：\n\n\n\n```bash\n\ncurl {{baseUrl}}/v1/chat/completions \\\n\n  -H \"Authorization: Bearer sk-your-api-key\" \\\n\n  -H \"Content-Type: application/json\" \\\n\n  -d '{\n\n    \"model\": \"YOUR_MODEL\",\n\n    \"messages\": [{\"role\": \"user\", \"content\": \"Hello\"}]\n\n  }'\n\n```\n\n\n\n完整 Body / 响应字段见 **通用 OpenAI Chat 参数与响应**。\n\n\n\n## 5. OpenAI SDK\n\n\n\n```python\n\nfrom openai import OpenAI\n\n\n\nclient = OpenAI(\n\n    api_key=\"sk-your-api-key\",\n\n    base_url=\"{{baseUrl}}/v1\",\n\n)\n\nresp = client.chat.completions.create(\n\n    model=\"YOUR_MODEL\",  # 来自 /v1/models\n\n    messages=[{\"role\": \"user\", \"content\": \"Hello\"}],\n\n)\n\nprint(resp.choices[0].message.content)\n\n```\n\n\n\n## 下一步\n\n\n\n- **通用 OpenAI Chat 参数与响应** → 完整 Header / Body / 响应字段表\n\n- **模型指南** → 按厂商查看示例（DeepSeek、GLM、Seedance…）\n\n- **API 参考** → 接口参数详情\n\n"
+    },
+    {
+      "slug": "openai-chat-params",
+      "category_slug": "getting-started",
+      "title_zh": "通用 OpenAI Chat 参数",
+      "title_en": "OpenAI Chat Parameters",
+      "sort": 30,
+      "content_zh": "# 通用：OpenAI Chat 参数与响应\n\n适用于 **DeepSeek、智谱 GLM、通义 Qwen、Kimi、MiniMax、豆包 Seed** 等 text 类 model。  \nEndpoint：`POST /v1/chat/completions` · Base URL：`{{baseUrl}}/v1`\n\n## 请求头\n\n| 参数 | 位置 | 必填 | 类型 | 说明 |\n|------|------|------|------|------|\n| Authorization | Header | 是 | string | `Bearer sk-...`，控制台「令牌管理」创建的完整 Key |\n| Content-Type | Header | 是 | string | 固定 `application/json` |\n\n## Body 参数（application/json）\n\n| 字段 | 类型 | 必填 | 说明 |\n|------|------|------|------|\n| model | string | 是 | model id，须与 `GET /v1/models` 返回的 `data[].id` **完全一致**（含大小写） |\n| messages | array | 是 | 对话消息列表，见下表 |\n| stream | boolean | 否 | 默认 `false`；`true` 时响应为 SSE（`text/event-stream`） |\n| max_tokens | integer | 否 | 模型回复的最大 token 数 |\n| temperature | number | 否 | 采样温度，一般 0–2，默认由上游 model 决定 |\n| top_p | number | 否 | 核采样，与 temperature 二选一调节即可 |\n| stop | string / array | 否 | 停止词 |\n\n### messages[] 元素\n\n| 字段 | 类型 | 必填 | 说明 |\n|------|------|------|------|\n| role | string | 是 | `system` / `user` / `assistant` / `tool` |\n| content | string 或 array | 是 | 纯文本；**视觉 model** 可为多模态数组，见下方示例 |\n\n**多模态 content 示例（视觉 model）：**\n\n```json\n[\n  { \"type\": \"text\", \"text\": \"这张图里有什么？\" },\n  { \"type\": \"image_url\", \"image_url\": { \"url\": \"https://example.com/image.png\" } }\n]\n```\n\n## 请求示例\n\n```json\n{\n  \"model\": \"deepseek-v4-flash\",\n  \"messages\": [{ \"role\": \"user\", \"content\": \"Hello\" }],\n  \"max_tokens\": 512,\n  \"temperature\": 0.7\n}\n```\n\n## 响应字段（非流式，HTTP 200）\n\n| 字段 | 类型 | 说明 |\n|------|------|------|\n| id | string | 本次补全 id，如 `chatcmpl-...` |\n| object | string | 固定 `chat.completion` |\n| created | integer | Unix 时间戳（秒） |\n| model | string | 实际使用的 model id |\n| choices | array | 生成结果列表 |\n| choices[].index | integer | 结果序号，通常为 0 |\n| choices[].message.role | string | 固定 `assistant` |\n| choices[].message.content | string | **助手回复正文**（业务主要读取此字段） |\n| choices[].message.reasoning_content | string | 部分推理 model 额外返回，可忽略 |\n| choices[].finish_reason | string | 结束原因，如 `stop` |\n| usage.prompt_tokens | integer | 输入 token 数 |\n| usage.completion_tokens | integer | 输出 token 数 |\n| usage.total_tokens | integer | 合计 token 数 |\n\n## 响应示例（非流式）\n\n```json\n{\n  \"id\": \"chatcmpl-c7c43d85-f836-9fc1-bccf-fc824648d950\",\n  \"object\": \"chat.completion\",\n  \"created\": 1780882705,\n  \"model\": \"deepseek-v4-flash\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"Hi!\"\n      },\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 6,\n    \"completion_tokens\": 52,\n    \"total_tokens\": 58\n  }\n}\n```\n\n## 流式响应（stream: true）\n\n- `Content-Type`：`text/event-stream`\n- 每行以 `data: ` 开头，末尾可能有 `data: [DONE]`\n- 增量文本在 `choices[0].delta.content`，客户端需逐块拼接\n\n## 错误响应\n\n| 状态码 | 说明 |\n|--------|------|\n| 401 | Token 无效或未携带 |\n| 403 | IP 白名单或额度不足 |\n| 429 | 限流 |\n\n错误体通常为 OpenAI 格式：\n\n```json\n{\n  \"error\": {\n    \"message\": \"Invalid token\",\n    \"type\": \"invalid_request_error\"\n  }\n}\n```\n"
+    },
+    {
+      "slug": "deepseek",
+      "category_slug": "model-guides",
+      "title_zh": "DeepSeek",
+      "title_en": "DeepSeek",
+      "sort": 10,
+      "content_zh": "# DeepSeek\n\n## 接入方式\n\n**OpenAI 兼容**，推荐 OpenAI SDK + 改 `base_url`。\n\n| 项目 | 值 |\n|------|-----|\n| Endpoint | `POST /v1/chat/completions` |\n| 鉴权 | `Authorization: Bearer sk-...` |\n| Base URL | `{{baseUrl}}/v1` |\n\n## 请求参数\n\nHeader、Body 字段及响应结构见 **通用 OpenAI Chat 参数与响应**。下表为本厂商可用 model id。\n\n## model 参数\n\n**以 `GET /v1/models` 返回为准**（与模型库 `name` 相同）。常见示例：\n\n| 示例 id | 说明 |\n|---------|------|\n| `deepseek-v4-pro` | DeepSeek V4 Pro |\n| `deepseek-v4-flash` | DeepSeek V4 Flash（推荐日常） |\n\n## curl 示例\n\n```bash\ncurl {{baseUrl}}/v1/chat/completions \\\n  -H \"Authorization: Bearer $API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"model\": \"deepseek-v4-flash\",\n    \"messages\": [{\"role\": \"user\", \"content\": \"解释量子纠缠\"}],\n    \"temperature\": 0.7\n  }'\n```\n\n## 流式输出\n\n```json\n{\n  \"model\": \"deepseek-v4-flash\",\n  \"stream\": true,\n  \"messages\": [{\"role\": \"user\", \"content\": \"写一首诗\"}]\n}\n```\n\n响应为 SSE（`stream: true` 时）。\n\n## Python SDK\n\n```python\nfrom openai import OpenAI\n\nclient = OpenAI(api_key=\"sk-...\", base_url=\"{{baseUrl}}/v1\")\nstream = client.chat.completions.create(\n    model=\"deepseek-v4-flash\",\n    messages=[{\"role\": \"user\", \"content\": \"Hello\"}],\n    stream=True,\n)\nfor chunk in stream:\n    print(chunk.choices[0].delta.content or \"\", end=\"\")\n```\n\n## 相关\n\n- **API 参考** → `POST /v1/chat/completions`、`GET /v1/models`\n"
+    },
+    {
+      "slug": "glm",
+      "category_slug": "model-guides",
+      "title_zh": "智谱 GLM",
+      "title_en": "Zhipu GLM",
+      "sort": 20,
+      "content_zh": "# 智谱 GLM\n\n## 接入方式\n\n**OpenAI 兼容**，与 DeepSeek 相同端点，仅 `model` 不同。\n\n| 项目 | 值 |\n|------|-----|\n| Endpoint | `POST /v1/chat/completions` |\n| Base URL | `{{baseUrl}}/v1` |\n\n## 请求参数\n\nHeader、Body 字段及响应结构见 **通用 OpenAI Chat 参数与响应**。下表为本厂商可用 model id。\n\n## model 参数\n\n**以 `GET /v1/models` 返回为准**（与模型库 `name` 相同）。常见示例：\n\n| 示例 id | 说明 |\n|---------|------|\n| `GLM-5.1` | GLM 5.1 |\n| `GLM-5` | GLM 5 |\n| `GLM4.6V` | 视觉语言 |\n\n> 注意大小写：须与 API 返回完全一致。\n\n## curl 示例\n\n```bash\ncurl {{baseUrl}}/v1/chat/completions \\\n  -H \"Authorization: Bearer $API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"model\": \"GLM-5.1\",\n    \"messages\": [{\"role\": \"user\", \"content\": \"你好\"}]\n  }'\n```\n\n## 多轮对话\n\n```json\n{\n  \"model\": \"GLM-5.1\",\n  \"messages\": [\n    {\"role\": \"system\", \"content\": \"你是助手\"},\n    {\"role\": \"user\", \"content\": \"第一轮\"},\n    {\"role\": \"assistant\", \"content\": \"回复\"},\n    {\"role\": \"user\", \"content\": \"第二轮\"}\n  ]\n}\n```\n\n## 相关\n\n- **API 参考** → `POST /v1/chat/completions`\n"
+    },
+    {
+      "slug": "qwen",
+      "category_slug": "model-guides",
+      "title_zh": "通义 Qwen",
+      "title_en": "Qwen",
+      "sort": 30,
+      "content_zh": "# 通义 Qwen\n\n## 接入方式\n\n**OpenAI 兼容**，与 DeepSeek 相同端点，仅 `model` 不同。\n\n| 项目 | 值 |\n|------|-----|\n| Endpoint | `POST /v1/chat/completions` |\n| Base URL | `{{baseUrl}}/v1` |\n| 鉴权 | `Authorization: Bearer sk-...` |\n\n## 请求参数\n\nHeader、Body 字段及响应结构见 **通用 OpenAI Chat 参数与响应**。视觉 model（如 `Qwen2.5-VL-72B-Instruct`）的 `messages[].content` 支持 text + image_url 多模态，见该页示例。\n\n## model 参数\n\n**以 `GET /v1/models` 返回为准**（与模型库 `name` 相同）。常见示例：\n\n| 示例 id | 说明 |\n|---------|------|\n| `Qwen3.5` | 通用 |\n| `Qwen3.5-397B-A17B-Pro` | 大规格 Pro |\n| `Qwen2.5-VL-72B-Instruct` | 视觉语言 |\n| `Qwen3-Coder-480B-A35B-Instruct` | 代码 |\n\n## curl 示例\n\n```bash\ncurl {{baseUrl}}/v1/chat/completions \\\n  -H \"Authorization: Bearer $API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"model\": \"Qwen3.5\",\n    \"messages\": [{\"role\": \"user\", \"content\": \"你好\"}]\n  }'\n```\n\n## Python SDK\n\n```python\nfrom openai import OpenAI\n\nclient = OpenAI(api_key=\"sk-...\", base_url=\"{{baseUrl}}/v1\")\nresp = client.chat.completions.create(\n    model=\"Qwen3.5\",\n    messages=[{\"role\": \"user\", \"content\": \"Hello\"}],\n)\nprint(resp.choices[0].message.content)\n```\n\n## 相关\n\n- **API 参考** → `POST /v1/chat/completions`\n"
+    },
+    {
+      "slug": "kimi",
+      "category_slug": "model-guides",
+      "title_zh": "Kimi",
+      "title_en": "Kimi",
+      "sort": 40,
+      "content_zh": "# Kimi（Moonshot）\n\n## 接入方式\n\n**OpenAI 兼容**。\n\n| 项目 | 值 |\n|------|-----|\n| Endpoint | `POST /v1/chat/completions` |\n| Base URL | `{{baseUrl}}/v1` |\n\n## 请求参数\n\nHeader、Body 字段及响应结构见 **通用 OpenAI Chat 参数与响应**。`Kimi-K2-Thinking` 等推理 model 响应中可能含 `reasoning_content`，正文仍读 `choices[0].message.content`。\n\n## model 参数\n\n**以 `GET /v1/models` 返回为准**（与模型库 `name` 相同）。常见示例：\n\n| 示例 id | 说明 |\n|---------|------|\n| `kimi-k2.6` | Kimi K2.6 对话 |\n| `Kimi-K2-Thinking` | 思考/推理类 |\n\n## curl 示例\n\n```bash\ncurl {{baseUrl}}/v1/chat/completions \\\n  -H \"Authorization: Bearer $API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"model\": \"kimi-k2.6\",\n    \"messages\": [{\"role\": \"user\", \"content\": \"总结这段话的要点\"}]\n  }'\n```\n\n## 推理模型示例\n\n```json\n{\n  \"model\": \"Kimi-K2-Thinking\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"9.11 和 9.8 哪个大？\"}]\n}\n```\n\n## 相关\n\n- **API 参考** → `POST /v1/chat/completions`\n"
+    },
+    {
+      "slug": "minimax",
+      "category_slug": "model-guides",
+      "title_zh": "MiniMax",
+      "title_en": "MiniMax",
+      "sort": 50,
+      "content_zh": "# MiniMax\n\n## 接入方式\n\n**OpenAI 兼容**。\n\n| 项目 | 值 |\n|------|-----|\n| Endpoint | `POST /v1/chat/completions` |\n| Base URL | `{{baseUrl}}/v1` |\n\n## 请求参数\n\nHeader、Body 字段及响应结构见 **通用 OpenAI Chat 参数与响应**。\n\n## model 参数\n\n**以 `GET /v1/models` 返回为准**（与模型库 `name` 相同）。常见示例：`Minimax-M2.5`\n\n## curl 示例\n\n```bash\ncurl {{baseUrl}}/v1/chat/completions \\\n  -H \"Authorization: Bearer $API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"model\": \"Minimax-M2.5\",\n    \"messages\": [{\"role\": \"user\", \"content\": \"Hello\"}]\n  }'\n```\n\n## 相关\n\n- **API 参考** → `POST /v1/chat/completions`\n"
+    },
+    {
+      "slug": "doubao-seed",
+      "category_slug": "model-guides",
+      "title_zh": "豆包 Seed",
+      "title_en": "Doubao Seed",
+      "sort": 60,
+      "content_zh": "# 豆包 Seed（文本对话）\n\n## 接入方式\n\n**OpenAI 兼容**，用于豆包 Seed 2.0 系列**文本/代码**模型（非视频、非图片）。\n\n| 项目 | 值 |\n|------|-----|\n| Endpoint | `POST /v1/chat/completions` |\n| Base URL | `{{baseUrl}}/v1` |\n\n## 请求参数\n\nHeader、Body 字段及响应结构见 **通用 OpenAI Chat 参数与响应**。\n\n## model 参数\n\n**以 `GET /v1/models` 返回为准**（与模型库 `name` 相同）。常见示例：\n\n| 示例 id | 说明 |\n|---------|------|\n| `Doubao-Seed-2.0-pro` | Pro |\n| `Doubao-Seed-2.0-lite` | Lite |\n| `doubao-seed-2.0-mini` | Mini |\n| `doubao-seed-2.0-code` | 代码 |\n\n> 大小写须与 API 返回一致。\n\n## curl 示例\n\n```bash\ncurl {{baseUrl}}/v1/chat/completions \\\n  -H \"Authorization: Bearer $API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"model\": \"Doubao-Seed-2.0-pro\",\n    \"messages\": [{\"role\": \"user\", \"content\": \"用 Python 写快速排序\"}]\n  }'\n```\n\n## 相关\n\n- 图片模型见 **豆包 Seedream**\n- 视频模型见 **Seedance 视频**\n"
+    },
+    {
+      "slug": "doubao-seedream",
+      "category_slug": "model-guides",
+      "title_zh": "豆包 Seedream 图片",
+      "title_en": "Doubao Seedream Image",
+      "sort": 70,
+      "content_zh": "# 豆包 Seedream（图片生成）\n\n## 接入方式\n\n**OpenAI Images 兼容**。\n\n| 项目 | 值 |\n|------|-----|\n| Endpoint | `POST /v1/images/generations` |\n| Base URL | `{{baseUrl}}/v1` |\n\n## 请求头\n\n| 参数 | 位置 | 必填 | 类型 | 说明 |\n|------|------|------|------|------|\n| Authorization | Header | 是 | string | `Bearer sk-...` |\n| Content-Type | Header | 是 | string | `application/json` |\n\n## Body 参数（application/json）\n\n| 字段 | 类型 | 必填 | 说明 |\n|------|------|------|------|\n| model | string | 是 | image 类 model id，见下表 |\n| prompt | string | 是 | 图片描述文本 |\n| size | string | 否 | 图片尺寸，如 `1024x1024` |\n| n | integer | 否 | 生成张数，默认 `1` |\n| response_format | string | 否 | `url`（返回链接）或 `b64_json`（返回 base64） |\n\n## model 参数\n\n**以 `GET /v1/models` 返回的 image 类 `id` 为准**（与模型库 `name` 相同）。常见示例：\n\n| 示例 id | 说明 |\n|---------|------|\n| `doubao-seedream-5.0-lite` | Seedream 5.0 Lite |\n| `doubao-seedream-4.5` | Seedream 4.5 |\n| `doubao-seedream-4.0` | Seedream 4.0 |\n\n`size` 等可选参数以火山 Seedream 官方文档为准；网关按 OpenAI Images 形态转发。\n## curl 示例\n\n```bash\ncurl -X POST {{baseUrl}}/v1/images/generations \\\n  -H \"Authorization: Bearer $API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"model\": \"doubao-seedream-5.0-lite\",\n    \"prompt\": \"一只橙色机械猫坐在未来城市屋顶，电影感光影\",\n    \"n\": 1,\n    \"size\": \"1024x1024\",\n    \"response_format\": \"url\"\n  }'\n```\n\n## 响应字段（HTTP 200）\n\nOpenAI Images 兼容格式：\n\n| 字段 | 类型 | 说明 |\n|------|------|------|\n| created | integer | Unix 时间戳 |\n| data | array | 生成结果列表 |\n| data[].url | string | 图片 URL（`response_format=url` 时） |\n| data[].b64_json | string | Base64 图片（`response_format=b64_json` 时） |\n| data[].revised_prompt | string | 部分上游会返回修订后的 prompt |\n\n### 响应示例\n\n```json\n{\n  \"created\": 1780882800,\n  \"data\": [\n    {\n      \"url\": \"https://example-cdn.volcengine.com/generated/abc123.png\",\n      \"revised_prompt\": \"一只橙色机械猫坐在未来城市屋顶，电影感光影\"\n    }\n  ]\n}\n```\n\n## 相关\n\n- **API 参考** → 图片生成 → `POST /v1/images/generations`\n"
+    },
+    {
+      "slug": "seedance-video",
+      "category_slug": "model-guides",
+      "title_zh": "Seedance 视频",
+      "title_en": "Seedance Video",
+      "sort": 80,
+      "content_zh": "# 豆包 Seedance 视频\n\n## 接入方式\n\n入口为 **OpenAI Video 兼容**（`POST /v1/videos`），请求体字段对齐火山 Seedance 视频生成任务 API；网关会把参数转发给上游。\n\n| 操作 | 方法 | 路径 |\n|------|------|------|\n| 创建任务 | POST | `/v1/videos` |\n| 查询任务 | GET | `/v1/videos/{task_id}` |\n| 下载视频 | GET | `/v1/videos/{task_id}/content` |\n\nBase URL：`{{baseUrl}}`\n\n## 从模型库获取 model\n\n1. `GET /v1/models`（或模型广场 `GET /api/lynx/catalog/models?category=video`）取 **`name` / `data[].id`**\n2. 调用 `POST /v1/videos` 时 **`model` 填该值**（大小写须一致）\n3. 模型详情 `GET /api/lynx/catalog/models/:id` 的 `docs.http_api.endpoint` 为推荐入口（video 类为 `/v1/videos`）\n\n> 不同 Token 可见模型不同，**以 `/v1/models` 实时返回为准**，勿写死文档里的示例名。\n\n## 请求头（所有接口）\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | Header | 是 | `Bearer sk-...` |\n| Content-Type | Header | POST 必填 | `application/json` |\n\n## POST /v1/videos — Body 参数\n\n### 基础字段\n\n| 字段 | 类型 | 必填 | 说明 |\n|------|------|------|------|\n| model | string | 是 | video 类模型名，来自 `/v1/models` 的 `id` |\n| prompt | string | 是* | 视频描述；若 `content` 中含 `type=text` 且带文本，可从中自动提取 |\n| duration | integer | 否 | 时长（秒）；与 `metadata.duration` 等效，**二选一即可** |\n| resolution | string | 否 | 如 `480p`、`720p`、`1080p`|\n| ratio | string | 否 | 宽高比，如 `16:9`、`9:16`；与 `metadata.ratio` 等效 |\n\n### 多模态与扩展（可写顶层，也可放在 `metadata` 同名键下）\n\n| 字段 | 类型 | 说明 |\n|------|------|------|\n| content | array | 多模态内容，见下表；私域素材 URL 用 `asset://...` |\n| frames | integer | 帧数（与 duration 二选一，按上游规则） |\n| seed | integer | 随机种子 |\n| camera_fixed | boolean | 是否固定镜头 |\n| watermark | boolean | 是否加水印 |\n| generate_audio | boolean | 是否生成音频 |\n| reference_video_url | string | 参考视频公网 URL |\n| reference_video_urls | array | 多个参考视频 URL |\n\n### metadata 可选字段（与顶层同名字段等效）\n\n| 字段 | 说明 |\n|------|------|\n| duration / resolution / ratio | 与顶层字段相同，**不要重复填写** |\n| img_url | 简单图生视频：单张参考图公网 URL（等价于一张 `image_url`） |\n| content | 与顶层 `content` 相同 |\n\n### content[] 元素\n\n| 字段 | 类型 | 说明 |\n|------|------|------|\n| type | string | `text` / `image_url` / `video_url` |\n| text | string | `type=text` 时的文本 |\n| image_url.url | string | 公网 URL 或 `asset://asset-xxx` |\n| video_url.url | string | 参考视频 URL 或 `asset://...` |\n| role | string | `reference_image`、`first_frame`、`last_frame`、`reference_video` 等 |\n\n未指定 `role` 时，网关会按模型能力补全默认值。**Seedance 1.0 / 1.5 Pro 不支持多图 reference（r2v）**，带图请求会自动按首尾帧（i2v）处理，最多 2 张图。\n\n### resolution 参考\n\n| 值 | 说明 |\n|----|------|\n| `480p` | 较低分辨率 |\n| `720p` | 常用 |\n| `1080p` | Seedance 2.0 标准版；**fast 变体最高 720p** |\n\n\n## 文生视频（curl）\n\n将 `YOUR_VIDEO_MODEL` 替换为 `/v1/models` 返回的 video 类 `id`：\n\n```bash\ncurl -X POST {{baseUrl}}/v1/videos \\\n  -H \"Authorization: Bearer $API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"model\": \"YOUR_VIDEO_MODEL\",\n    \"prompt\": \"一只猫在草地上奔跑，电影感\",\n    \"duration\": 5,\n    \"resolution\": \"1080p\",\n    \"ratio\": \"16:9\"\n  }'\n```\n\n## POST /v1/videos — 响应字段（HTTP 200）\n\n| 字段 | 类型 | 说明 |\n|------|------|------|\n| id | string | 任务 id，后续查询/下载使用 |\n| task_id | string | 与 `id` 相同（兼容字段） |\n| object | string | 固定 `video` |\n| model | string | 请求中的 model |\n| status | string | `queued` / `in_progress` / `completed` / `failed` |\n| progress | integer | 进度 0–100 |\n| created_at | integer | 创建时间（Unix 秒） |\n| completed_at | integer | 完成时间（完成后才有） |\n| metadata.url | string | 完成后视频 URL（查询接口返回） |\n| error.message | string | 失败时的错误信息 |\n| error.code | string | 失败时的错误码 |\n\n火山上游任务状态为 `succeeded`；平台对外映射为 `completed`。\n\n## GET /v1/videos/{task_id}\n\nPath 参数 `task_id` = 创建任务返回的 `id`。\n\n```bash\ncurl \"{{baseUrl}}/v1/videos/$TASK_ID\" \\\n  -H \"Authorization: Bearer $API_KEY\"\n```\n\n## GET /v1/videos/{task_id}/content\n\n任务 `status=completed` 后下载视频：\n\n```bash\ncurl -L \"{{baseUrl}}/v1/videos/$TASK_ID/content\" \\\n  -H \"Authorization: Bearer $API_KEY\" \\\n  -o output.mp4\n```\n\n## 异步流程\n\n1. `POST /v1/videos` → 返回 `id`，`status` 多为 `queued`\n2. 轮询 `GET /v1/videos/{task_id}` 直到 `status` 为 **`completed`**（失败为 `failed`）\n3. `GET /v1/videos/{task_id}/content` 下载成片\n\n## 简单图生视频（单张公网图）\n\n```json\n{\n  \"model\": \"YOUR_VIDEO_MODEL\",\n  \"prompt\": \"人物缓缓转头\",\n  \"duration\": 5,\n  \"ratio\": \"16:9\",\n  \"metadata\": {\n    \"img_url\": \"https://your-cdn.example.com/frame.png\"\n  }\n}\n```\n\n## 多模态 + 私域素材（虚拟人 / 真人人像）\n\n先从素材库 `import` 取得 `asset_ref`（见 **Seedance 虚拟人** / **Seedance 真人人像**），再在 `content` 中引用：\n\n```bash\ncurl -X POST {{baseUrl}}/v1/videos \\\n  -H \"Authorization: Bearer $API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"model\": \"YOUR_VIDEO_MODEL\",\n    \"duration\": 5,\n    \"resolution\": \"1080p\",\n    \"ratio\": \"16:9\",\n    \"content\": [\n      {\n        \"type\": \"text\",\n        \"text\": \"图片1中的博主用中文介绍产品，近景镜头，笑容自然\"\n      },\n      {\n        \"type\": \"image_url\",\n        \"image_url\": { \"url\": \"asset://asset-20260318035710-xxx\" },\n        \"role\": \"reference_image\"\n      }\n    ]\n  }'\n```\n\n| 项 | 说明 |\n|----|------|\n| `asset://...` | 来自 import 响应的 `data.asset_ref`；素材须 `status=Active` |\n| `role` | 多参考用 `reference_image`；首尾帧用 `first_frame` / `last_frame` |\n| Prompt | 用「图片1、图片2」指代 `content` 中素材顺序，不要在文本里写 Asset ID |\n\n## 相关\n\n- 虚拟人素材 → **Seedance 2.0 虚拟人**\n- 真人人像素材 → **Seedance 真人人像**\n- **快速开始** → 模型库调用流程\n"
+    },
+    {
+      "slug": "seedance-avatar",
+      "category_slug": "model-guides",
+      "title_zh": "Seedance 2.0 虚拟人",
+      "title_en": "Seedance 2.0 Avatar",
+      "sort": 90,
+      "content_zh": "# Seedance 2.0 虚拟人（AIGC 素材库 + 视频）\n\n无需真人活体的 **AIGC 虚拟人**流程：登记参考图/视频 → 取得 `asset_ref` → 调用 Seedance 生成视频。\n\n真人人像（须 H5 活体 + 真人组 `id`）见 **模型指南 → Seedance 真人人像**。\n\n---\n\n## 整体流程\n\n```text\n① GET /v1/models 或模型库          取 video 类 model 名\n② POST /api/lynx/volc-assets/import  登记参考素材（可选 id 指定 AIGC 组）\n③ 确认 data.status = Active        wait_active:true 或 POST .../wait\n④ 记下 data.asset_ref              形如 asset://asset-20260318-xxx\n⑤ POST /v1/videos                  content 里引用 asset_ref\n⑥ GET  /v1/videos/{task_id}        轮询直到 status=completed\n⑦ GET  /v1/videos/{task_id}/content  下载成片\n```\n\nBase URL：`{{baseUrl}}`\n\n### 通用请求头\n\n| Header | 必填 | 说明 |\n|--------|------|------|\n| Authorization | 是 | `Bearer sk-你的API密钥` |\n| Content-Type | 是（POST） | `application/json` |\n\nLynx 扩展 API 统一响应：`{ \"success\": true, \"message\": \"\", \"data\": { ... } }`\n\n---\n\n## 关于字段 `id`（易混，必读）\n\n平台用 **`id` 一个字段名** 表达不同含义，取决于接口：\n\n| 场景 | `id` 指什么 | 从哪来 |\n|------|-------------|--------|\n| import **Body** 的 `id` | **素材组 id**（AIGC 组） | `GET /groups` 返回的 `data.items[].id`；省略则用账号**最早创建**的默认组 |\n| import 响应 **data.id** | **素材记录 id** | 管理素材用（GET/DELETE/wait 路径参数） |\n| GET 列表 **Query** `id` | **按组筛选** | 同上，填 AIGC 组 id |\n| GET/DELETE/wait **Path** `/{id}` | **素材记录 id** | import 响应的 `data.id` |\n| DELETE groups **Path** `/{id}` | **AIGC 组 id** | `GET /groups` 的 `items[].id` |\n\n> 文档或 OpenAPI 里若出现 `group_id`、`face_group_id`，当前实现对应的是 **`id`**（Body / Query / Path 均如此）。虚拟人 import **不要**传真人组 id。\n\n---\n\n## 关键字段\n\n| 字段 | 用在哪 | 从哪来 | 说明 |\n|------|--------|--------|------|\n| `url` | import Body | 公网 HTTPS 图片/视频地址 | 火山须能直接下载 |\n| `file_id` | import Body（与 url 二选一） | 平台文件上传返回 | 须 `public_read` 且上传完成 |\n| `asset_type` | import Body | 按文件类型填写 | **`Image` 或 `Video`**（首字母大写） |\n| `id`（Body） | import | `GET /groups` 的组 `id` | 可选；指定素材归入哪个 AIGC 组 |\n| `id`（Path） | 素材详情/删除/wait | import 响应 `data.id` | 素材记录 UUID |\n| `asset_ref` | POST /v1/videos | import 响应 `data.asset_ref` | **生成视频用这个** |\n| `group` | 素材列表/详情响应 | 自动返回 | 素材所属组 id（只读） |\n\n---\n\n## 枚举与大小写\n\n| 字段 | 合法值 | 说明 |\n|------|--------|------|\n| `asset_type` | `Image`、`Video` | 默认 `Image` |\n| `group_type`（Query） | `AIGC` | 列表筛虚拟人素材 |\n| `scope`（Query） | `all`、`mine`、`official` | 默认 `all` |\n| `status` | `pending`、`Processing`、`Active`、`Failed` | 区分大小写 |\n\n---\n\n## 1. POST /api/lynx/volc-assets/import（推荐）\n\n### Body 参数\n\n| 字段 | 类型 | 必填 | 说明 |\n|------|------|------|------|\n| url | string | 是* | 公网 HTTPS URL（与 `file_id` 二选一） |\n| file_id | string | 是* | 平台已上传文件 id |\n| asset_type | string | 否 | `Image` 或 `Video`，默认 `Image` |\n| name | string | 否 | 显示名称 |\n| wait_active | boolean | 否 | `true` 阻塞直到 `status=Active` |\n| id | string | 否 | **AIGC 素材组 id**（`GET /groups` 返回）；省略则用默认组 |\n| group_name | string | 否 | 配合 `create_group:true` 新建组时的名称 |\n| create_group | boolean | 否 | `true` 强制新建 AIGC 组 |\n| tags | string | 否 | 标签 |\n\n### 响应 data（AssetView）\n\n| 字段 | 说明 |\n|------|------|\n| id | 素材记录 UUID（路径操作用） |\n| asset_ref | **视频生成用**，如 `asset://asset-20260318035710-abc123` |\n| group | 所属 AIGC 组 id |\n| asset_type | `Image` / `Video` |\n| status | `pending` → `Processing` → `Active` 或 `Failed` |\n| source_url | 原始 URL |\n| fail_reason | `Failed` 时的上游原因 |\n\n### 请求示例\n\n```bash\ncurl -X POST \"{{baseUrl}}/api/lynx/volc-assets/import\" \\\n  -H \"Authorization: Bearer $API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"url\": \"https://your-cdn.example.com/avatar-ref.mp4\",\n    \"asset_type\": \"Video\",\n    \"name\": \"虚拟人全身参考\",\n    \"wait_active\": true\n  }'\n```\n\n指定已有组：\n\n```bash\ncurl -X POST \"{{baseUrl}}/api/lynx/volc-assets/import\" \\\n  -H \"Authorization: Bearer $API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"url\": \"https://your-cdn.example.com/ref.png\",\n    \"asset_type\": \"Image\",\n    \"id\": \"YOUR_AIGC_GROUP_ID\",\n    \"wait_active\": true\n  }'\n```\n\n---\n\n## 2. GET /api/lynx/volc-assets — 列出素材\n\n| 参数 | 默认 | 说明 |\n|------|------|------|\n| page | 1 | 页码 |\n| page_size | 20 | 每页条数，最大 100 |\n| scope | all | `all` / `mine` / `official` |\n| group_type | — | 虚拟人填 `AIGC` |\n| status | — | `pending` / `Processing` / `Active` / `Failed` |\n| asset_type | — | `Image` 或 `Video` |\n| id | — | 按 **AIGC 组 id** 筛选（`GET /groups` 返回的 `id`） |\n\n```bash\ncurl \"{{baseUrl}}/api/lynx/volc-assets?scope=mine&group_type=AIGC&status=Active\" \\\n  -H \"Authorization: Bearer $API_KEY\"\n```\n\n---\n\n## 3. GET /api/lynx/volc-assets/{id} — 素材详情\n\nPath `id` = import 返回的 **素材记录** `data.id`。Query `sync=true` 时从火山同步最新 status。\n\n---\n\n## 4. POST /api/lynx/volc-assets/{id}/wait — 等待就绪\n\nPath `id` = 素材记录 id。阻塞直到 `Active` 或失败。\n\n---\n\n## 5. DELETE /api/lynx/volc-assets/{id} — 删除素材\n\nPath `id` = 素材记录 id。\n\n---\n\n## 6. POST /api/lynx/volc-assets/groups — 创建 AIGC 组（可选）\n\n多数场景可省略：import 不传 Body `id` 时会自动使用默认组。\n\n| 字段 | 必填 | 说明 |\n|------|------|------|\n| name | 是 | 组名称 |\n| description | 否 | 描述 |\n| group_type | 否 | 默认 `AIGC`；**不要**填 `LivenessFace` |\n\n响应 `data.id` 即为后续 import Body 里可填的 **组 id**。\n\n---\n\n## 7. GET /api/lynx/volc-assets/groups — 列出 AIGC 组\n\n响应 `data.items[]`：`id`、`name`、`asset_count`、`created_at`。\n\n---\n\n## 8. DELETE /api/lynx/volc-assets/groups/{id} — 删除 AIGC 组\n\nPath `id` = 组 id（`GET /groups` 或 `POST /groups` 返回的 `data.id`）。会删除组内素材。\n\n---\n\n## 9. POST /api/lynx/volc-assets — 创建素材\n\nBody：`url`/`file_id`、`asset_type`、`name`、可选 Body `id`（组 id）。功能少于 import，**推荐 import**。\n\n---\n\n## 然后：Seedance 视频生成\n\n见 **模型指南 → 豆包 Seedance 视频**。在 `content` 的 `image_url.url` / `video_url.url` 中填入 **`asset_ref`**（不是素材记录 `id`）。\n\n---\n\n## 相关\n\n- **API 参考 → 虚拟人素材库**\n- **API 参考 → 视频生成 → OpenAI 兼容**\n- **快速开始 → 从模型库发起调用**\n"
+    },
+    {
+      "slug": "seedance-portrait",
+      "category_slug": "model-guides",
+      "title_zh": "Seedance 真人人像",
+      "title_en": "Seedance Portrait",
+      "sort": 100,
+      "content_zh": "# Seedance 2.0 真人人像（活体认证 + 素材库 + 视频）\n\n真人人像 = **H5 活体认证** → **取得真人组 id** → **import 同人素材** → **Seedance 生成视频**。\n\nAIGC 虚拟人见 **模型指南 → Seedance 2.0 虚拟人**。\n\n---\n\n## 整体流程\n\n```text\n① POST liveness/sessions              创建 H5 认证\n② 真人打开 h5_url（约 120 秒内）\n③ GET session 直至 status=succeeded   platform 模式无需 complete\n④ 取真人组 id（见下文「id 从哪来」）\n⑤ POST import，Body.id = 真人组 id    登记同人素材\n⑥ POST /v1/videos（asset_ref）       生成视频\n```\n\nBase URL：`{{baseUrl}}`  \n鉴权：`Authorization: Bearer sk-...`\n\n---\n\n## 关于字段 `id`（易混，必读）\n\n| 场景 | `id` 指什么 | 从哪来 |\n|------|-------------|--------|\n| 活体会话成功后的 **data.id** | **真人组 id** | `GET .../sessions/{session_id}` 在 `status=succeeded` 时返回 |\n| **GET /face-groups** 的 **items[].id** | **真人组 id** | 列出/查询真人组 |\n| import **Body.id** | **真人组 id**（必填） | 用上两行取得的 id；组须 `status=verified` |\n| import 响应 **data.id** | **素材记录 id** | 管理素材用，不是组 id |\n| GET 列表 Query **id** | 按真人组筛选 | 填真人组 id |\n\n> 当前 API **没有** `face_group_id` / `group_id` 请求字段；请统一使用 **`id`**。\n\n---\n\n## 两种回调模式\n\n| 模式 | 创建会话 | H5 结束后 | 是否调 complete |\n|------|----------|-----------|-----------------|\n| **platform**（默认） | 不传 `callback_url` | 平台自动处理 | **不需要**；轮询 GET session 或 `webhook_url` |\n| **client** | 传 https `callback_url` | 浏览器跳到您的地址 | **需要** POST complete |\n\n响应 `callback_mode`：`platform` / `client`。\n\n### 模式 A：平台托管（推荐）\n\n```text\n① POST liveness/sessions（不传 callback_url）\n② 真人打开 h5_url\n③ GET session 直至 status=succeeded → 记录 data.id（真人组 id）\n④ POST import，Body: { \"id\": \"<真人组id>\", \"url\": \"...\" }\n⑤ POST /v1/videos\n```\n\n### 模式 B：自建回调\n\n```text\n① POST liveness/sessions，callback_url=https://your-app.com/callback\n② 真人完成 H5 → 火山跳转 callback_url（Query 含 bytedToken、resultCode 等）\n③ POST .../sessions/{session_id}/complete\n     Body: { \"byted_token\": \"...\", \"result_code\": \"10000\" }\n④ GET session → data.id（真人组 id）→ import → 视频\n```\n\n`result_code` 成功值为 **`10000`**（字符串）。\n\n---\n\n## 1. POST /api/lynx/volc-assets/liveness/sessions\n\n| 字段 | 必填 | 说明 |\n|------|------|------|\n| display_name | 否 | 真人展示名 |\n| language | 否 | `zh` / `en` / `zh-Hant`，默认 zh |\n| callback_url | 否 | https；传入则 client 模式 |\n| webhook_url | 否 | https；终态事件通知 |\n\n```bash\ncurl -X POST \"{{baseUrl}}/api/lynx/volc-assets/liveness/sessions\" \\\n  -H \"Authorization: Bearer $API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"display_name\":\"模特小美\",\"language\":\"zh\"}'\n```\n\n---\n\n## 2. GET /api/lynx/volc-assets/liveness/sessions/{session_id}\n\n| 字段 | 说明 |\n|------|------|\n| session_id | 会话 id（创建时返回） |\n| status | `pending` / `succeeded` / `failed` |\n| h5_url | 真人打开的 H5 链接 |\n| id | **`status=succeeded` 时为真人组 id**，用于 import Body |\n| callback_mode | `platform` / `client` |\n\n---\n\n## 3. POST .../sessions/{session_id}/complete（client 模式）\n\n| 字段 | 必填 | 说明 |\n|------|------|------|\n| byted_token | 是 | 火山回调 Query 中的 token |\n| result_code | 是 | 成功为 `10000` |\n\n---\n\n## 4. GET /api/lynx/volc-assets/face-groups\n\n列出真人组。`data.items[].id` 即为真人组 id；`status=verified` 方可 import。\n\n| status | 含义 |\n|--------|------|\n| pending | 未完成认证 |\n| verified | 可 import |\n| failed | 认证失败 |\n\n`GET /face-groups/{id}` 查询单个组，Path `id` = 真人组 id。\n\n---\n\n## 5. POST /api/lynx/volc-assets/import（真人）\n\n| 字段 | 必填 | 说明 |\n|------|------|------|\n| id | **是** | **真人组 id**（session 的 `data.id` 或 face-groups 的 `id`） |\n| url / file_id | 二选一 | 公网 HTTPS URL 或平台 file_id |\n| asset_type | 否 | `Image` 或 `Video`，默认 `Image` |\n| name | 否 | 显示名 |\n| wait_active | 否 | `true` 阻塞至 `Active` |\n\n```bash\ncurl -X POST \"{{baseUrl}}/api/lynx/volc-assets/import\" \\\n  -H \"Authorization: Bearer $API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"id\": \"YOUR_FACE_GROUP_ID\",\n    \"url\": \"https://your-cdn.example.com/portrait.png\",\n    \"asset_type\": \"Image\",\n    \"wait_active\": true\n  }'\n```\n\n素材 status：`pending` → `Processing` → `Active` 或 `Failed`（见 `fail_reason`）。\n\n按真人组筛素材：\n\n```bash\ncurl \"{{baseUrl}}/api/lynx/volc-assets?id=YOUR_FACE_GROUP_ID&group_type=LivenessFace\" \\\n  -H \"Authorization: Bearer $API_KEY\"\n```\n\n---\n\n## 6. 视频生成\n\nimport 成功后使用 `data.asset_ref`（`asset://...`）调用 `POST /v1/videos`，详见 **Seedance 视频** 指南。\n\n---\n\n## 相关\n\n- **Seedance 2.0 虚拟人**（AIGC，无需活体）\n- **Seedance 视频**（`content` + `asset_ref`）\n- **API 参考 → 真人人像库**\n"
+    },
+    {
+      "slug": "claude",
+      "category_slug": "model-guides",
+      "title_zh": "Claude（Anthropic）",
+      "title_en": "Claude (Anthropic)",
+      "sort": 110,
+      "content_zh": "# Claude（Anthropic 兼容）\n\n> **可用性**：Claude 是否出现在你的账户中，以 `GET /v1/models` 为准。  \n> 当前平台标准模型索引（2026-06-07 实测）未包含 Claude；若后续上架，按本文接入即可。\n\n## 接入方式\n\n使用 **Anthropic Messages API**，不是 OpenAI Chat Completions。\n\n| 项目 | 值 |\n|------|-----|\n| Endpoint | `POST /v1/messages` |\n| Base URL | `{{baseUrl}}` |\n\n## 鉴权（二选一）\n\n```http\nAuthorization: Bearer sk-your-api-key\n```\n\n或 Anthropic 原生 Header：\n\n```http\nx-api-key: sk-your-api-key\nanthropic-version: 2023-06-01\n```\n\n## 请求头\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | Header | 二选一 | `Bearer sk-...` |\n| x-api-key | Header | 二选一 | Anthropic SDK 风格 |\n| anthropic-version | Header | 否 | Anthropic SDK 需带，如 `2023-06-01` |\n| Content-Type | Header | 是 | `application/json` |\n\n## Body 参数（application/json）\n\n| 字段 | 类型 | 必填 | 说明 |\n|------|------|------|------|\n| model | string | 是 | Claude model id |\n| max_tokens | integer | 是 | 最大输出 token |\n| messages | array | 是 | `[{ \"role\": \"user\", \"content\": \"...\" }]`，role 为 user 或 assistant |\n| stream | boolean | 否 | SSE 流式，默认 false |\n| system | string | 否 | 系统提示 |\n\n## curl 示例\n\n```bash\ncurl {{baseUrl}}/v1/messages \\\n  -H \"Authorization: Bearer $API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"model\": \"claude-sonnet-4-20250514\",\n    \"max_tokens\": 1024,\n    \"messages\": [{\"role\": \"user\", \"content\": \"Hello\"}]\n  }'\n```\n\n## Anthropic SDK\n\n```python\nimport anthropic\n\nclient = anthropic.Anthropic(\n    api_key=\"sk-...\",\n    base_url=\"{{baseUrl}}\",\n)\nmessage = client.messages.create(\n    model=\"claude-sonnet-4-20250514\",\n    max_tokens=1024,\n    messages=[{\"role\": \"user\", \"content\": \"Hello\"}],\n)\nprint(message.content[0].text)\n```\n\n## 响应结构（非流式）\n\n`type: message` 的 JSON 响应示例：\n\n```json\n{\n  \"id\": \"msg_01ABCxyz\",\n  \"type\": \"message\",\n  \"role\": \"assistant\",\n  \"model\": \"claude-sonnet-4-20250514\",\n  \"content\": [\n    { \"type\": \"text\", \"text\": \"Hello! How can I help you today?\" }\n  ],\n  \"stop_reason\": \"end_turn\",\n  \"usage\": {\n    \"input_tokens\": 12,\n    \"output_tokens\": 15\n  }\n}\n```\n\n业务上读取 `content[]` 中 `type: text` 的 `text` 字段。流式为 SSE 事件（`message_start`、`content_block_delta`、`message_stop` 等）。\n\n## 相关 API 参考\n\n- `POST /v1/messages`（Anthropic 兼容，含完整 Response 数据模型）\n"
+    },
+    {
+      "slug": "get-account-balance",
+      "category_slug": "account",
+      "title_zh": "查询账户余额",
+      "title_en": "查询账户余额",
+      "sort": 10,
+      "content_zh": "# 查询账户余额\n\n**GET** `/v1/account/balance`\n\n\n根据 API Key 查询**账户余额**（非令牌额度）。\n\n- 个人用户：返回 `users.quota`\n- 企业成员（member/viewer）：返回当前账号个人剩余额度（`quota_limit - used_quota`；未分配时为 0）\n- 企业管理员（owner/admin）：返回企业总池剩余额度（`org.quota - org.used_quota`）\n\n`balance_scope` 标明余额口径：`personal`（个人/成员）或 `org_pool`（企业总池）。\n\n**curl**\n\n```bash\ncurl \"{{baseUrl}}/v1/account/balance\" \\\n  -H \"Authorization: Bearer sk-your-api-key\"\n```\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n\n\n## 响应\n\n### 200 — 成功\n\n\n```json\n\n{\n  \"object\": \"account_balance\",\n  \"balance\": 500000,\n  \"balance_display\": 5,\n  \"display_unit\": \"USD\",\n  \"balance_scope\": \"personal\",\n  \"used_quota\": 120000\n}\n\n```\n\n### 401 — Token 无效\n\n\n```json\n\n{\n  \"error\": {\n    \"message\": \"Invalid token\",\n    \"type\": \"invalid_request_error\"\n  }\n}\n\n```\n\n### 403 — 账号已禁用\n"
+    },
+    {
+      "slug": "list-models",
+      "category_slug": "model-list",
+      "title_zh": "列出可用模型",
+      "title_en": "列出可用模型",
+      "sort": 20,
+      "content_zh": "# 列出可用模型\n\n**GET** `/v1/models`\n\n\n返回当前 Token 可调用的 model 列表。`data[].id` 即后续请求 body 中的 `model` 字段。\n\n**curl**\n\n```bash\ncurl \"{{baseUrl}}/v1/models\" \\\n  -H \"Authorization: Bearer sk-your-api-key\"\n```\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n\n\n## 响应\n\n### 200 — 成功（2026-06-07 生产实测）\n\n\n```json\n\n{\n  \"object\": \"list\",\n  \"data\": [\n    {\n      \"id\": \"deepseek-v4-flash\",\n      \"object\": \"model\",\n      \"created\": 1626777600,\n      \"owned_by\": \"custom\",\n      \"supported_endpoint_types\": [\n        \"openai\"\n      ],\n      \"modalities\": \"text\"\n    },\n    {\n      \"id\": \"doubao-seedream-5.0-lite\",\n      \"object\": \"model\",\n      \"modalities\": \"image\"\n    },\n    {\n      \"id\": \"doubao-seedance2.0\",\n      \"object\": \"model\",\n      \"modalities\": \"video\"\n    }\n  ]\n}\n\n```\n\n### 401 — Token 无效\n\n\n```json\n\n{\n  \"error\": {\n    \"message\": \"Invalid token\",\n    \"type\": \"invalid_request_error\"\n  }\n}\n\n```\n"
+    },
+    {
+      "slug": "chat-completions",
+      "category_slug": "chat-openai-chat-completions",
+      "title_zh": "对话补全（OpenAI Chat Completions）",
+      "title_en": "对话补全（OpenAI Chat Completions）",
+      "sort": 30,
+      "content_zh": "# 对话补全（OpenAI Chat Completions）\n\n**POST** `/v1/chat/completions`\n\n\nDeepSeek、GLM、Qwen、Kimi、豆包等 **text** 类 model 的主入口。\n\n| 参数 | 必填 | 说明 |\n|------|------|------|\n| model | 是 | `GET /v1/models` 返回的 id |\n| messages | 是 | `[{ \"role\": \"user\", \"content\": \"...\" }]` |\n| stream | 否 | `true` 时 SSE 流式 |\n| max_tokens | 否 | 最大输出 token |\n\n回复正文：`choices[0].message.content`（部分模型另有 `reasoning_content`）。\n\n**curl**\n\n```bash\ncurl -X POST \"{{baseUrl}}/v1/chat/completions\" \\\n  -H \"Authorization: Bearer sk-your-api-key\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"model\":\"deepseek-v4-flash\",\"messages\":[{\"role\":\"user\",\"content\":\"say hi\"}],\"max_tokens\":20}'\n```\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| Content-Type | header | 是 | POST 请求固定为 `application/json` |\n\n\n## 请求示例\n\n```json\n{\n  \"model\": \"deepseek-v4-flash\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"say hi\"\n    }\n  ],\n  \"max_tokens\": 20\n}\n```\n\n\n## 响应\n\n### 200 — 非流式 JSON（下方为生产实测示例）。流式时为 `text/event-stream`，不在此展开。\n\n\n\n```json\n\n{\n  \"id\": \"chatcmpl-c7c43d85-f836-9fc1-bccf-fc824648d950\",\n  \"object\": \"chat.completion\",\n  \"created\": 1780882705,\n  \"model\": \"deepseek-v4-flash\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"Hi!\",\n        \"reasoning_content\": \"（部分推理模型返回，可忽略）\"\n      },\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 6,\n    \"completion_tokens\": 52,\n    \"total_tokens\": 58\n  }\n}\n\n```\n\n### 401 — Token 无效\n\n\n```json\n\n{\n  \"error\": {\n    \"message\": \"Invalid token\",\n    \"type\": \"invalid_request_error\"\n  }\n}\n\n```\n"
+    },
+    {
+      "slug": "open-airesponses",
+      "category_slug": "chat-openai-responses",
+      "title_zh": "文本生成（OpenAI Responses API）",
+      "title_en": "文本生成（OpenAI Responses API）",
+      "sort": 40,
+      "content_zh": "# 文本生成（OpenAI Responses API）\n\n**POST** `/v1/responses`\n\n\nOpenAI 官方 **Responses** 协议，供 `client.responses.create()` 等客户端使用。\n\n| 参数 | 必填 | 说明 |\n|------|------|------|\n| model | 是 | text 类 model id |\n| input | 否 | 字符串或结构化 input 数组 |\n| stream | 否 | 流式开关 |\n\n**响应**：遵循 [OpenAI Responses API](https://platform.openai.com/docs/api-reference/responses) 官方结构；网关可能对部分 model 做 Chat 转换，**本页不提供未实测的响应字段表**。\n\n**curl**\n\n```bash\ncurl -X POST \"{{baseUrl}}/v1/responses\" \\\n  -H \"Authorization: Bearer sk-your-api-key\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"model\":\"deepseek-v4-flash\",\"input\":\"Hello\"}'\n```\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| Content-Type | header | 是 | POST 请求固定为 `application/json` |\n\n\n## 请求示例\n\n```json\n{\n  \"model\": \"deepseek-v4-flash\",\n  \"input\": \"Hello\"\n}\n```\n\n\n## 响应\n\n### 200 — 成功；JSON 结构见 OpenAI 官方 Responses 文档\n\n### 401 — Token 无效\n\n\n```json\n\n{\n  \"error\": {\n    \"message\": \"Invalid token\",\n    \"type\": \"invalid_request_error\"\n  }\n}\n\n```\n"
+    },
+    {
+      "slug": "anthropic-messages",
+      "category_slug": "chat-anthropic-messages",
+      "title_zh": "Claude Messages（Anthropic 格式）",
+      "title_en": "Claude Messages（Anthropic 格式）",
+      "sort": 50,
+      "content_zh": "# Claude Messages（Anthropic 格式）\n\n**POST** `/v1/messages`\n\n\nAnthropic **Messages API**。仅当 `GET /v1/models` 返回 Claude model 时可用。\n\n鉴权：`Authorization: Bearer sk-...` 或 `x-api-key` + `anthropic-version: 2023-06-01`\n\n| 参数 | 必填 | 说明 |\n|------|------|------|\n| model | 是 | Claude model id |\n| max_tokens | 是 | 最大输出 |\n| messages | 是 | `[{ \"role\": \"user\", \"content\": \"...\" }]` |\n\n**响应**：遵循 [Anthropic Messages API](https://docs.anthropic.com/en/api/messages) 官方结构；**本页不提供未实测的响应字段表**。\n\n**curl**\n\n```bash\ncurl -X POST \"{{baseUrl}}/v1/messages\" \\\n  -H \"Authorization: Bearer sk-your-api-key\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"model\":\"claude-sonnet-4-20250514\",\"max_tokens\":1024,\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}]}'\n```\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| Content-Type | header | 是 | POST 请求固定为 `application/json` |\n| x-api-key | header | 否 | Anthropic 风格鉴权（与 Authorization 二选一） |\n| anthropic-version | header | 否 | Anthropic SDK 版本号 |\n\n\n## 请求示例\n\n```json\n{\n  \"model\": \"claude-sonnet-4-20250514\",\n  \"max_tokens\": 1024,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Hello\"\n    }\n  ]\n}\n```\n\n\n## 响应\n\n### 200 — 成功；JSON 结构见 Anthropic 官方文档\n\n### 401 — Token 无效\n\n\n```json\n\n{\n  \"error\": {\n    \"message\": \"Invalid token\",\n    \"type\": \"invalid_request_error\"\n  }\n}\n\n```\n"
+    },
+    {
+      "slug": "image-generations",
+      "category_slug": "image-generation",
+      "title_zh": "文生图（OpenAI Images）",
+      "title_en": "文生图（OpenAI Images）",
+      "sort": 60,
+      "content_zh": "# 文生图（OpenAI Images）\n\n**POST** `/v1/images/generations`\n\n\nSeedream 系列 **image** 类 model，如 `doubao-seedream-5.0-lite`。\n\n| 参数 | 必填 | 说明 |\n|------|------|------|\n| model | 是 | image 类 model id |\n| prompt | 是 | 图片描述 |\n| size | 否 | 如 `1024x1024` |\n| response_format | 否 | `url` 或 `b64_json` |\n\n**响应**：OpenAI Images 兼容格式，**未在生产逐字段实测，见 OpenAI 官方文档**。\n\n**curl**\n\n```bash\ncurl -X POST \"{{baseUrl}}/v1/images/generations\" \\\n  -H \"Authorization: Bearer sk-your-api-key\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"model\":\"doubao-seedream-5.0-lite\",\"prompt\":\"一只橘猫\",\"size\":\"1024x1024\",\"response_format\":\"url\"}'\n```\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| Content-Type | header | 是 | POST 请求固定为 `application/json` |\n\n\n## 请求示例\n\n```json\n{\n  \"model\": \"doubao-seedream-5.0-lite\",\n  \"prompt\": \"一只在月球上的橘猫，赛博朋克风格\",\n  \"size\": \"1024x1024\",\n  \"response_format\": \"url\"\n}\n```\n\n\n## 响应\n\n### 200 — OpenAI Images 兼容 JSON\n\n\n```json\n\n{\n  \"created\": 1780882800,\n  \"data\": [\n    {\n      \"url\": \"https://example-cdn.volcengine.com/generated/abc123.png\",\n      \"revised_prompt\": \"一只在月球上的橘猫，赛博朋克风格\"\n    }\n  ]\n}\n\n```\n\n### 401 — Token 无效\n\n\n```json\n\n{\n  \"error\": {\n    \"message\": \"Invalid token\",\n    \"type\": \"invalid_request_error\"\n  }\n}\n\n```\n"
+    },
+    {
+      "slug": "create-video",
+      "category_slug": "video-generation-openai-compatible",
+      "title_zh": "创建视频任务",
+      "title_en": "创建视频任务",
+      "sort": 70,
+      "content_zh": "# 创建视频任务\n\n**POST** `/v1/videos`\n\n\n**OpenAI Video API 兼容**（`POST /v1/videos`），Seedance 参数通过 `metadata` 扩展传递。\n\n流程：`POST /v1/videos` → 轮询 `GET /v1/videos/{task_id}`（`status` 至 `completed`）→ `GET /v1/videos/{task_id}/content`\n\n| 参数 | 必填 | 说明 |\n|------|------|------|\n| model | 是 | video 类 model id，如 `doubao-seedance2.0` |\n| prompt | 是 | 视频描述 |\n| metadata.duration | 否 | 时长（秒）；可与顶层 `duration` 等效 |\n| metadata.resolution | 否 | 如 `1080p`（小写 p；`1080P` 网关会规范） |\n| metadata.ratio | 否 | 如 `16:9` |\n| metadata.img_url | 否 | 简单图生视频单图 URL |\n| metadata.content | 否 | Seedance 2.0 多模态内容；私域素材用 `asset://` 见下方 Schema |\n\n文生视频 curl（可正常调用 Seedance 2.0）：\n\n```bash\ncurl -X POST \"{{baseUrl}}/v1/videos\" \\\n  -H \"Authorization: Bearer sk-your-api-key\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"model\":\"doubao-seedance2.0\",\"prompt\":\"一只猫在草地上奔跑\",\"metadata\":{\"duration\":5,\"resolution\":\"1080p\",\"ratio\":\"16:9\"}}'\n```\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| Content-Type | header | 是 | POST 请求固定为 `application/json` |\n\n\n## 请求示例\n\n```json\n{\n  \"model\": \"doubao-seedance2.0\",\n  \"prompt\": \"一只橙色机械猫在未来城市屋顶奔跑，电影感\",\n  \"metadata\": {\n    \"duration\": 5,\n    \"resolution\": \"1080p\",\n    \"ratio\": \"16:9\"\n  }\n}\n```\n\n\n## 响应\n\n### 200 — 任务已创建（OpenAI Video 兼容）\n\n\n```json\n\n{\n  \"id\": \"video_abc123def456\",\n  \"object\": \"video\",\n  \"model\": \"doubao-seedance2.0\",\n  \"status\": \"queued\",\n  \"progress\": 0,\n  \"created_at\": 1780882900\n}\n\n```\n\n### 401 — Token 无效\n\n\n```json\n\n{\n  \"error\": {\n    \"message\": \"Invalid token\",\n    \"type\": \"invalid_request_error\"\n  }\n}\n\n```\n"
+    },
+    {
+      "slug": "get-video-task",
+      "category_slug": "video-generation-openai-compatible",
+      "title_zh": "查询视频任务",
+      "title_en": "查询视频任务",
+      "sort": 80,
+      "content_zh": "# 查询视频任务\n\n**GET** `/v1/videos/{task_id}`\n\n\n轮询任务状态，直到 `status` 为 `completed` 或 `failed`（火山上游为 `succeeded` / `failed`）。\n\n```bash\ncurl \"{{baseUrl}}/v1/videos/{task_id}\" \\\n  -H \"Authorization: Bearer sk-your-api-key\"\n```\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| task_id | path | 是 | 创建视频任务时返回的任务 id |\n\n\n## 响应\n\n### 200 — 任务状态 JSON（OpenAI Video 兼容）\n\n\n```json\n\n{\n  \"id\": \"video_abc123def456\",\n  \"object\": \"video\",\n  \"model\": \"doubao-seedance2.0\",\n  \"status\": \"in_progress\",\n  \"progress\": 45,\n  \"created_at\": 1780882900\n}\n\n```\n\n### 401 — Token 无效\n\n\n```json\n\n{\n  \"error\": {\n    \"message\": \"Invalid token\",\n    \"type\": \"invalid_request_error\"\n  }\n}\n\n```\n"
+    },
+    {
+      "slug": "get-video-content",
+      "category_slug": "video-generation-openai-compatible",
+      "title_zh": "下载视频内容",
+      "title_en": "下载视频内容",
+      "sort": 90,
+      "content_zh": "# 下载视频内容\n\n**GET** `/v1/videos/{task_id}/content`\n\n\n任务 `completed` 后下载视频（二进制流或重定向）。\n\n```bash\ncurl -L \"{{baseUrl}}/v1/videos/{task_id}/content\" \\\n  -H \"Authorization: Bearer sk-your-api-key\" \\\n  -o output.mp4\n```\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| task_id | path | 是 | 创建视频任务时返回的任务 id |\n\n\n## 响应\n\n### 200 — 视频二进制或 302 重定向\n\n### 401 — Token 无效\n\n\n```json\n\n{\n  \"error\": {\n    \"message\": \"Invalid token\",\n    \"type\": \"invalid_request_error\"\n  }\n}\n\n```\n"
+    },
+    {
+      "slug": "create-video-alt",
+      "category_slug": "video-generation-openai-compatible",
+      "title_zh": "创建视频任务（别名路径）",
+      "title_en": "创建视频任务（别名路径）",
+      "sort": 100,
+      "content_zh": "# 创建视频任务（别名路径）\n\n**POST** `/v1/video/generations`\n\n\n与 `POST /v1/videos` 相同。\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| Content-Type | header | 是 | POST 请求固定为 `application/json` |\n\n\n## 请求示例\n\n```json\n{\n  \"model\": \"doubao-seedance2.0\",\n  \"prompt\": \"海浪拍打礁石\",\n  \"metadata\": {\n    \"duration\": 5,\n    \"ratio\": \"16:9\"\n  }\n}\n```\n\n\n## 响应\n\n### 200 — 同 POST /v1/videos\n\n### 401 — Token 无效\n\n\n```json\n\n{\n  \"error\": {\n    \"message\": \"Invalid token\",\n    \"type\": \"invalid_request_error\"\n  }\n}\n\n```\n"
+    },
+    {
+      "slug": "get-video-alt",
+      "category_slug": "video-generation-openai-compatible",
+      "title_zh": "查询视频任务（别名路径）",
+      "title_en": "查询视频任务（别名路径）",
+      "sort": 110,
+      "content_zh": "# 查询视频任务（别名路径）\n\n**GET** `/v1/video/generations/{task_id}`\n\n\n与 `GET /v1/videos/{task_id}` 相同。\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| task_id | path | 是 | 创建视频任务时返回的任务 id |\n\n\n## 响应\n\n### 200\n\n### 401 — Token 无效\n\n\n```json\n\n{\n  \"error\": {\n    \"message\": \"Invalid token\",\n    \"type\": \"invalid_request_error\"\n  }\n}\n\n```\n"
+    },
+    {
+      "slug": "create-liveness-session",
+      "category_slug": "real-person-portrait",
+      "title_zh": "创建真人认证会话",
+      "title_en": "创建真人认证会话",
+      "sort": 120,
+      "content_zh": "# 创建真人认证会话\n\n**POST** `/api/lynx/volc-assets/liveness/sessions`\n\n\n创建真人 H5 活体认证会话，返回 `h5_url` 供终端用户打开。会话有效期约 **120 秒**。\n\n**使用流程**\n1. 调用本接口，将 `data.h5_url` 展示给真人扫码/打开\n2. 真人完成 H5 后，按 `callback_mode` 获取结果：\n   - **platform**（未传 `callback_url`）：平台自动处理，轮询 **GET session** 或监听 `webhook_url`\n   - **client**（传入 `callback_url`）：火山浏览器跳转到您的 https 地址，再调 **POST complete**\n3. `status=succeeded` 后，用 `data.face_group_id` 调用 **POST /volc-assets/import**\n\n```bash\ncurl -X POST \"{{baseUrl}}/api/lynx/volc-assets/liveness/sessions\" \\\n  -H \"Authorization: Bearer sk-your-api-key\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"display_name\":\"模特小美\",\"language\":\"zh\"}'\n```\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| Content-Type | header | 是 | POST 请求固定为 `application/json` |\n\n\n## 请求示例\n\n```json\n{\n  \"display_name\": \"模特小美\",\n  \"language\": \"zh\",\n  \"callback_url\": \"https://your-app.com/liveness/callback\",\n  \"webhook_url\": \"https://your-app.com/hooks/liveness\"\n}\n```\n\n\n## 响应\n\n### 200 — 成功时 data 为 LivenessSessionView\n\n\n```json\n\n{\n  \"success\": true,\n  \"message\": \"\",\n  \"data\": {\n    \"session_id\": \"sess_a1b2c3d4\",\n    \"status\": \"pending\",\n    \"callback_mode\": \"platform\",\n    \"volc_callback_url\": \"{{baseUrl}}/api/lynx/volc-assets/liveness/callback?session_id=sess_a1b2c3d4\",\n    \"h5_url\": \"https://liveness.volcengine.com/h5/...\",\n    \"display_name\": \"模特小美\",\n    \"expires_at\": 1780883120\n  }\n}\n\n```\n\n### 401 — Token 无效\n\n\n```json\n\n{\n  \"success\": false,\n  \"message\": \"未登录或令牌无效\",\n  \"data\": null\n}\n\n```\n\n### 503 — 火山素材 API 未配置\n\n\n```json\n\n{\n  \"success\": false,\n  \"message\": \"素材服务暂不可用，请稍后重试或联系支持\",\n  \"data\": null\n}\n\n```\n"
+    },
+    {
+      "slug": "get-liveness-session",
+      "category_slug": "real-person-portrait",
+      "title_zh": "查询真人认证会话",
+      "title_en": "查询真人认证会话",
+      "sort": 130,
+      "content_zh": "# 查询真人认证会话\n\n**GET** `/api/lynx/volc-assets/liveness/sessions/{session_id}`\n\n\n轮询认证结果。**platform 模式**：火山回调平台后自动落库。**client 模式**：须在调用方 **POST complete** 之后才会变为 `succeeded`。\n\n| status | 含义 |\n|--------|------|\n| pending | 未完成（未 complete 或真人未刷脸） |\n| succeeded | 成功，有 face_group_id |\n| failed | 失败，见 fail_reason |\n| expired | 超时，重新创建会话 |\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| session_id | path | 是 |  |\n\n\n## 响应\n\n### 200\n\n### 401 — Token 无效\n\n\n```json\n\n{\n  \"success\": false,\n  \"message\": \"未登录或令牌无效\",\n  \"data\": null\n}\n\n```\n\n### 404 — 会话不存在\n"
+    },
+    {
+      "slug": "complete-liveness-session",
+      "category_slug": "real-person-portrait",
+      "title_zh": "完成真人认证会话（调用方上报火山回调参数）",
+      "title_en": "完成真人认证会话（调用方上报火山回调参数）",
+      "sort": 140,
+      "content_zh": "# 完成真人认证会话（调用方上报火山回调参数）\n\n**POST** `/api/lynx/volc-assets/liveness/sessions/{session_id}/complete`\n\n\n**client 模式**：真人完成 H5 后，火山将浏览器重定向到创建会话时传入的 `callback_url`，并附带 Query 参数（常见：`bytedToken`/`byted_token`、`resultCode`/`result_code`，以及平台注入的 `session_id`）。**platform 模式无需调用本接口。**\n\n调用方服务端解析上述参数后，调用本接口完成会话绑定；成功时 `data.face_group_id` 可用于 `POST /volc-assets/import`。\n\n`result_code` 为 `10000` 表示火山侧认证成功。\n\n```bash\ncurl -X POST \"{{baseUrl}}/api/lynx/volc-assets/liveness/sessions/{session_id}/complete\" \\\n  -H \"Authorization: Bearer sk-your-api-key\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"byted_token\":\"xxx\",\"result_code\":\"10000\"}'\n```\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| Content-Type | header | 是 | POST 请求固定为 `application/json` |\n| session_id | path | 是 |  |\n\n\n## 请求示例\n\n```json\n{\n  \"byted_token\": \"from-volc-callback-query\",\n  \"result_code\": \"10000\"\n}\n```\n\n\n## 响应\n\n### 200 — 成功时 data 含 face_group_id\n\n### 401 — Token 无效\n\n\n```json\n\n{\n  \"success\": false,\n  \"message\": \"未登录或令牌无效\",\n  \"data\": null\n}\n\n```\n\n### 404 — 会话不存在\n"
+    },
+    {
+      "slug": "list-face-groups",
+      "category_slug": "real-person-portrait",
+      "title_zh": "列出真人组",
+      "title_en": "列出真人组",
+      "sort": 150,
+      "content_zh": "# 列出真人组\n\n**GET** `/api/lynx/volc-assets/face-groups`\n\n\n列出当前 Token 用户下所有真人组（H5 认证成功后自动创建）。入库素材前确认 `status=verified`，取 `face_group_id` 用于 import。\n\n响应 `data.items[].face_group_id` 即 import 所需的 Lynx UUID（非火山 group_id）。\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| page | query | 否 |  |\n| page_size | query | 否 |  |\n| status | query | 否 | 真人组认证状态 |\n\n\n## 响应\n\n### 200\n\n### 401 — Token 无效\n\n\n```json\n\n{\n  \"success\": false,\n  \"message\": \"未登录或令牌无效\",\n  \"data\": null\n}\n\n```\n"
+    },
+    {
+      "slug": "get-face-group",
+      "category_slug": "real-person-portrait",
+      "title_zh": "获取真人组详情",
+      "title_en": "获取真人组详情",
+      "sort": 160,
+      "content_zh": "# 获取真人组详情\n\n**GET** `/api/lynx/volc-assets/face-groups/{face_group_id}`\n\n\n按 Lynx `face_group_id` 查询单人组。`status` 为 `verified` 后方可 import 同人素材。\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| face_group_id | path | 是 |  |\n\n\n## 响应\n\n### 200\n\n### 401 — Token 无效\n\n\n```json\n\n{\n  \"success\": false,\n  \"message\": \"未登录或令牌无效\",\n  \"data\": null\n}\n\n```\n\n### 404 — 真人组不存在\n"
+    },
+    {
+      "slug": "delete-face-group",
+      "category_slug": "real-person-portrait",
+      "title_zh": "删除真人组",
+      "title_en": "删除真人组",
+      "sort": 170,
+      "content_zh": "# 删除真人组\n\n**DELETE** `/api/lynx/volc-assets/face-groups/{face_group_id}`\n\n\n先删除火山侧组内素材与 LivenessFace 组，并删除组内全部素材记录。\nPath 参数为 Lynx `face_group_id`（非火山 group_id）。\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| face_group_id | path | 是 |  |\n\n\n## 响应\n\n### 200\n\n\n```json\n\n{\n  \"success\": true,\n  \"message\": \"\",\n  \"data\": {\n    \"face_group_id\": \"uuid\"\n  }\n}\n\n```\n\n### 401 — Token 无效\n\n\n```json\n\n{\n  \"success\": false,\n  \"message\": \"未登录或令牌无效\",\n  \"data\": null\n}\n\n```\n\n### 404 — 真人组不存在\n"
+    },
+    {
+      "slug": "list-volc-assets",
+      "category_slug": "virtual-avatar-assets",
+      "title_zh": "列出素材",
+      "title_en": "列出素材",
+      "sort": 180,
+      "content_zh": "# 列出素材\n\n**GET** `/api/lynx/volc-assets`\n\n\n分页列出当前 Token 可见素材。虚拟人推荐 `scope=mine` + `group_type=AIGC`；可按 `group_id` 筛某一 AIGC 组。\n\n响应 `data.items[]` 为 AssetView；生成视频请使用 `asset_ref`（非 id）。\n\n| Query | 枚举/默认 | 说明 |\n|-------|-----------|------|\n| scope | all / mine / official，默认 all | all=官方+我的；mine=仅我的；official=仅官方 |\n| group_type | AIGC / LivenessFace | 虚拟人填 AIGC |\n| group_id | — | AIGC 火山组 id（POST /groups 返回） |\n| status | pending / Processing / Active / Failed | 精确匹配，区分大小写 |\n| asset_type | Image / Video | 精确匹配，区分大小写 |\n\n```bash\ncurl \"{{baseUrl}}/api/lynx/volc-assets?page=1&page_size=20\" \\\n  -H \"Authorization: Bearer sk-your-api-key\"\n```\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| page | query | 否 | 页码，从 1 开始 |\n| page_size | query | 否 | 每页条数，最大 100 |\n| scope | query | 否 | all=官方+我的（默认）；mine=仅我的；official=仅官方 |\n| asset_type | query | 否 | 素材类型（火山 AssetType，区分大小写） |\n| status | query | 否 | 素材状态（区分大小写；Processing、Active、Failed 首字母大写） |\n| group_type | query | 否 | 素材组类型 |\n| group_id | query | 否 | 火山侧 AIGC 素材组 id（POST /volc-assets/groups 返回的 group_id） |\n| face_group_id | query | 否 | Lynx 真人组 id |\n\n\n## 响应\n\n### 200 — 成功（2026-06-07 生产实测）\n\n\n```json\n\n{\n  \"success\": true,\n  \"message\": \"\",\n  \"data\": {\n    \"items\": [],\n    \"total\": 0,\n    \"page\": 1,\n    \"page_size\": 20\n  }\n}\n\n```\n\n### 401 — Token 无效\n\n\n```json\n\n{\n  \"success\": false,\n  \"message\": \"未登录或令牌无效\",\n  \"data\": null\n}\n\n```\n"
+    },
+    {
+      "slug": "create-volc-asset",
+      "category_slug": "virtual-avatar-assets",
+      "title_zh": "创建素材",
+      "title_en": "创建素材",
+      "sort": 190,
+      "content_zh": "# 创建素材\n\n**POST** `/api/lynx/volc-assets`\n\n\n与 import 类似，登记公网 URL。需平台已配置火山素材 API（否则 503）。\n\n```bash\ncurl -X POST \"{{baseUrl}}/api/lynx/volc-assets\" \\\n  -H \"Authorization: Bearer sk-your-api-key\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"url\":\"https://example.com/ref.mp4\",\"asset_type\":\"Video\",\"name\":\"参考视频\"}'\n```\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| Content-Type | header | 是 | POST 请求固定为 `application/json` |\n\n\n## 请求示例\n\n```json\n{\n  \"url\": \"https://example.com/ref.mp4\",\n  \"asset_type\": \"Video\",\n  \"name\": \"参考视频\"\n}\n```\n\n\n## 响应\n\n### 200 — 成功时 data 为 AssetView\n\n### 401 — Token 无效\n\n\n```json\n\n{\n  \"success\": false,\n  \"message\": \"未登录或令牌无效\",\n  \"data\": null\n}\n\n```\n\n### 503 — 火山素材 API 未配置（需重编部署 API 镜像）\n\n\n```json\n\n{\n  \"success\": false,\n  \"message\": \"素材服务暂不可用，请稍后重试或联系支持\",\n  \"data\": null\n}\n\n```\n"
+    },
+    {
+      "slug": "import-volc-asset",
+      "category_slug": "virtual-avatar-assets",
+      "title_zh": "导入素材（推荐）",
+      "title_en": "导入素材（推荐）",
+      "sort": 200,
+      "content_zh": "# 导入素材（推荐）\n\n**POST** `/api/lynx/volc-assets/import`\n\n\n**真人 / 虚拟共用本接口**（同一后端、同一路径）。用 **公网 HTTPS URL** 或 `file_id` 登记素材，可选 `wait_active: true` 等待 Active。\n\n登记公网素材 URL 或已上传 `file_id`，创建素材并可选等待审核通过（Active）。\n\n**虚拟人（AIGC）流程**：`url`/`file_id` 二选一 → 可选 `group_id`（须为本账号已创建/使用过的组，见 GET /groups）→ 取 `data.asset_ref` 用于视频生成。\n\n**真人人像**：须先完成 H5 认证，Body 必填 `face_group_id`（真人组 status=verified）；详见「真人人像库」目录下本接口副本。\n\n| 字段 | 虚拟人 | 真人人像 | 说明 |\n|------|--------|----------|------|\n| url / file_id | 二选一必填 | 二选一必填 | 公网 HTTPS URL 或平台 file_id（须 public_read） |\n| face_group_id | 不传 | **必填** | 真人组 id，来自 GET session / GET face-groups |\n| group_id | 可选 | 不传 | AIGC 火山组 id；须属当前账号；省略则用默认组 |\n| asset_type | 可选 | 可选 | Image 或 Video，默认 Image |\n| wait_active | 可选 | 可选 | true 阻塞至 Active 或 Failed |\n\n```bash\ncurl -X POST \"{{baseUrl}}/api/lynx/volc-assets/import\" \\\n  -H \"Authorization: Bearer sk-your-api-key\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"url\":\"https://your-cdn.example.com/avatar-ref.mp4\",\"asset_type\":\"Video\",\"name\":\"虚拟人参考\",\"wait_active\":true}'\n```\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| Content-Type | header | 是 | POST 请求固定为 `application/json` |\n\n\n## 请求示例\n\n```json\n{\n  \"url\": \"https://your-cdn.example.com/avatar-ref.mp4\",\n  \"asset_type\": \"Video\",\n  \"name\": \"虚拟人参考\",\n  \"wait_active\": true\n}\n```\n\n\n## 响应\n\n### 200 — 成功时 data 为 AssetView\n\n\n```json\n\n{\n  \"success\": true,\n  \"message\": \"\",\n  \"data\": {\n    \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"scope\": \"user\",\n    \"asset_ref\": \"asset://asset-20260318035710-abc123\",\n    \"name\": \"虚拟人参考\",\n    \"asset_type\": \"Video\",\n    \"status\": \"Active\",\n    \"source_url\": \"https://your-cdn.example.com/avatar-ref.mp4\",\n    \"created_at\": 1780883000\n  }\n}\n\n```\n\n### 401 — Token 无效\n\n\n```json\n\n{\n  \"success\": false,\n  \"message\": \"未登录或令牌无效\",\n  \"data\": null\n}\n\n```\n\n### 503 — 火山素材 API 未配置\n\n\n```json\n\n{\n  \"success\": false,\n  \"message\": \"素材服务暂不可用，请稍后重试或联系支持\",\n  \"data\": null\n}\n\n```\n"
+    },
+    {
+      "slug": "list-volc-groups",
+      "category_slug": "virtual-avatar-assets",
+      "title_zh": "列出 AIGC 素材组",
+      "title_en": "列出 AIGC 素材组",
+      "sort": 210,
+      "content_zh": "# 列出 AIGC 素材组\n\n**GET** `/api/lynx/volc-assets/groups`\n\n\n列出当前 Token 用户下已登记的 **AIGC 虚拟人** 素材组（不含真人人像组，真人组见 `GET /face-groups`）。\n\n未传 `group_id` 的 import 会进入 **最早创建** 的默认组。每次 `POST /groups` 创建成功后均会写入本地映射。\n\n```bash\ncurl \"{{baseUrl}}/api/lynx/volc-assets/groups?page=1&page_size=20\" \\\n  -H \"Authorization: Bearer sk-your-api-key\"\n```\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| page | query | 否 |  |\n| page_size | query | 否 |  |\n\n\n## 响应\n\n### 200 — 成功\n\n\n```json\n\n{\n  \"success\": true,\n  \"message\": \"\",\n  \"data\": {\n    \"items\": [\n      {\n        \"group_id\": \"grp-xxxx\",\n        \"name\": \"my-group\",\n        \"asset_count\": 3,\n        \"created_at\": 1700000000\n      }\n    ],\n    \"total\": 1,\n    \"page\": 1,\n    \"page_size\": 20\n  }\n}\n\n```\n\n### 401 — Token 无效\n\n\n```json\n\n{\n  \"success\": false,\n  \"message\": \"未登录或令牌无效\",\n  \"data\": null\n}\n\n```\n"
+    },
+    {
+      "slug": "create-volc-group",
+      "category_slug": "virtual-avatar-assets",
+      "title_zh": "创建素材组（仅 AIGC）",
+      "title_en": "创建素材组（仅 AIGC）",
+      "sort": 220,
+      "content_zh": "# 创建素材组（仅 AIGC）\n\n**POST** `/api/lynx/volc-assets/groups`\n\n\n仅用于 **AIGC 虚拟人** 素材组。真人人像须使用 `POST /volc-assets/liveness/sessions` 完成认证后自动创建组。\n\n```bash\ncurl -X POST \"{{baseUrl}}/api/lynx/volc-assets/groups\" \\\n  -H \"Authorization: Bearer sk-your-api-key\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"name\":\"my-group\",\"group_type\":\"AIGC\"}'\n```\n\n成功时 `data.group_id` 为火山侧组 id，并写入本地组映射（可 `GET /groups` 列出）。\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| Content-Type | header | 是 | POST 请求固定为 `application/json` |\n\n\n## 请求示例\n\n```json\n{\n  \"name\": \"my-group\",\n  \"description\": \"optional\",\n  \"group_type\": \"AIGC\"\n}\n```\n\n\n## 响应\n\n### 200 — 成功\n\n\n```json\n\n{\n  \"success\": true,\n  \"message\": \"\",\n  \"data\": {\n    \"group_id\": \"grp-xxxx\"\n  }\n}\n\n```\n\n### 503 — 火山素材 API 未配置\n\n\n```json\n\n{\n  \"success\": false,\n  \"message\": \"素材服务暂不可用，请稍后重试或联系支持\",\n  \"data\": null\n}\n\n```\n"
+    },
+    {
+      "slug": "delete-volc-group",
+      "category_slug": "virtual-avatar-assets",
+      "title_zh": "删除 AIGC 素材组",
+      "title_en": "删除 AIGC 素材组",
+      "sort": 230,
+      "content_zh": "# 删除 AIGC 素材组\n\n**DELETE** `/api/lynx/volc-assets/groups/{group_id}`\n\n\n先删除火山侧组内素材与组本身，并删除组内全部素材记录。\nPath 参数 `group_id` 为 **火山侧** id（与 POST groups 返回的 `data.group_id` 一致）。\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| group_id | path | 是 |  |\n\n\n## 响应\n\n### 200 — 成功\n\n\n```json\n\n{\n  \"success\": true,\n  \"message\": \"\",\n  \"data\": {\n    \"group_id\": \"grp-xxxx\"\n  }\n}\n\n```\n\n### 404 — 组不存在或无权访问\n"
+    },
+    {
+      "slug": "get-volc-asset",
+      "category_slug": "virtual-avatar-assets",
+      "title_zh": "获取素材详情",
+      "title_en": "获取素材详情",
+      "sort": 240,
+      "content_zh": "# 获取素材详情\n\n**GET** `/api/lynx/volc-assets/{id}`\n\n\n**真人 / 虚拟共用本接口**。`sync=true` 时从火山同步最新状态。\n\n```bash\ncurl \"{{baseUrl}}/api/lynx/volc-assets/{id}?sync=true\" \\\n  -H \"Authorization: Bearer sk-your-api-key\"\n```\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| id | path | 是 | 素材记录 id（Lynx 侧 UUID，非火山 asset_id） |\n| sync | query | 否 | 为 true 或 1 时从火山同步最新 status |\n\n\n## 响应\n\n### 200 — 成功时 data 为 AssetView\n\n### 404 — 素材不存在（实测）\n\n\n```json\n\n{\n  \"success\": false,\n  \"message\": \"素材不存在\",\n  \"data\": null\n}\n\n```\n"
+    },
+    {
+      "slug": "delete-volc-asset",
+      "category_slug": "virtual-avatar-assets",
+      "title_zh": "删除素材",
+      "title_en": "删除素材",
+      "sort": 250,
+      "content_zh": "# 删除素材\n\n**DELETE** `/api/lynx/volc-assets/{id}`\n\n\n真人 / 虚拟共用本接口。先调用火山 `DeleteAsset`，成功后再本地软删；上游失败则不删本地。\n`status=Failed` 时 `fail_reason` / `message` 透传火山 `GetAsset.Result.Error`（如合规审核「素材可能侵权」）。\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| id | path | 是 | 素材记录 id（Lynx 侧 UUID，非火山 asset_id） |\n\n\n## 响应\n\n### 200 — 成功时 data.id 为已删记录 id\n\n\n```json\n\n{\n  \"success\": true,\n  \"message\": \"\",\n  \"data\": {\n    \"id\": \"uuid\"\n  }\n}\n\n```\n\n### 404\n\n\n```json\n\n{\n  \"success\": false,\n  \"message\": \"素材不存在\",\n  \"data\": null\n}\n\n```\n"
+    },
+    {
+      "slug": "wait-volc-asset",
+      "category_slug": "virtual-avatar-assets",
+      "title_zh": "等待素材 Active",
+      "title_en": "等待素材 Active",
+      "sort": 260,
+      "content_zh": "# 等待素材 Active\n\n**POST** `/api/lynx/volc-assets/{id}/wait`\n\n\n**真人 / 虚拟共用本接口**。阻塞轮询直到素材 Active 或超时。\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token。控制台「令牌管理」创建，格式 `Bearer sk-...` |\n| id | path | 是 | 素材记录 id（Lynx 侧 UUID，非火山 asset_id） |\n\n\n## 响应\n\n### 200 — 成功时 data 为 AssetView\n\n### 503 — 火山素材 API 未配置\n"
+    },
+    {
+      "slug": "liveness-face-import-asset",
+      "category_slug": "real-person-portrait",
+      "title_zh": "导入同人参考素材",
+      "title_en": "导入同人参考素材",
+      "sort": 270,
+      "content_zh": "# 导入同人参考素材\n\n**POST** `/api/lynx/volc-assets/import`\n\n\n与虚拟人共用 `POST /api/lynx/volc-assets/import`。\n\n**流程**：创建活体会话 → 真人完成 H5 → 取 `face_group_id` → 调本接口 → 用 `data.asset_ref` 生成视频。\n\n`url` 与 `file_id` 二选一；`asset_type` 为 `Image` 或 `Video`（区分大小写，默认 Image）。\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token，格式 Bearer sk-... |\n| Content-Type | header | 是 |  |\n\n\n## 请求示例\n\n```json\n{\n  \"face_group_id\": \"8c927458-0b91-4b0e-9c90-50b8aa7de9ed\",\n  \"url\": \"https://your-cdn.example.com/full-body.jpg\",\n  \"asset_type\": \"Image\",\n  \"name\": \"全身参考\",\n  \"wait_active\": true\n}\n```\n\n\n## 响应\n\n### 200 — 成功\n\n### 401 — 未授权\n"
+    },
+    {
+      "slug": "liveness-face-list-assets",
+      "category_slug": "real-person-portrait",
+      "title_zh": "列出真人参考素材",
+      "title_en": "列出真人参考素材",
+      "sort": 280,
+      "content_zh": "# 列出真人参考素材\n\n**GET** `/api/lynx/volc-assets`\n\n\n与虚拟人共用 `GET /api/lynx/volc-assets`。\n\n推荐 Query：`scope=mine`、`group_type=LivenessFace`、`face_group_id={认证返回 id}`、`status=Active`。\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token，格式 Bearer sk-... |\n| page | query | 否 |  |\n| page_size | query | 否 |  |\n| scope | query | 否 |  |\n| group_type | query | 否 |  |\n| face_group_id | query | 否 |  |\n| status | query | 否 |  |\n| asset_type | query | 否 |  |\n\n\n## 响应\n\n### 200\n\n### 401 — 未授权\n"
+    },
+    {
+      "slug": "liveness-face-get-asset",
+      "category_slug": "real-person-portrait",
+      "title_zh": "获取真人素材详情",
+      "title_en": "获取真人素材详情",
+      "sort": 290,
+      "content_zh": "# 获取真人素材详情\n\n**GET** `/api/lynx/volc-assets/{id}`\n\n\n`id` 为 import 返回的 `data.id`。Query `sync=true` 或 `sync=1` 时从上游同步最新 status。\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token，格式 Bearer sk-... |\n| id | path | 是 |  |\n| sync | query | 否 | true 或 1 时同步上游状态 |\n\n\n## 响应\n\n### 200\n\n### 404 — 素材不存在\n"
+    },
+    {
+      "slug": "liveness-face-delete-asset",
+      "category_slug": "real-person-portrait",
+      "title_zh": "删除真人参考素材",
+      "title_en": "删除真人参考素材",
+      "sort": 300,
+      "content_zh": "# 删除真人参考素材\n\n**DELETE** `/api/lynx/volc-assets/{id}`\n\n\n先删上游素材，再删本地记录；`status=Failed` 时见 `fail_reason`。\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token，格式 Bearer sk-... |\n| id | path | 是 |  |\n\n\n## 响应\n\n### 200 — 成功\n\n### 404 — 素材不存在\n"
+    },
+    {
+      "slug": "liveness-face-wait-asset",
+      "category_slug": "real-person-portrait",
+      "title_zh": "等待真人素材 Active",
+      "title_en": "等待真人素材 Active",
+      "sort": 310,
+      "content_zh": "# 等待真人素材 Active\n\n**POST** `/api/lynx/volc-assets/{id}/wait`\n\n\n阻塞轮询至 status=Active 或 Failed/超时；import 时也可设 wait_active:true。\n\n\n## 请求参数\n\n| 参数 | 位置 | 必填 | 说明 |\n|------|------|------|------|\n| Authorization | header | 是 | API Token，格式 Bearer sk-... |\n| id | path | 是 |  |\n\n\n## 响应\n\n### 200\n"
+    }
+  ]
+}

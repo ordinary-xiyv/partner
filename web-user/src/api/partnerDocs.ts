@@ -61,9 +61,9 @@ async function requestJson<T>(path: string, signal?: AbortSignal): Promise<Partn
     return { outcome: 'ok', data: body.data };
   } catch {
     /*
-     * 中断（切页/切语种）也走这里。调用方拿到 'error' 会降级到主站链路，
-     * 但那次请求本身已被 abort —— 降级请求会立刻被下一次 effect 覆盖，
-     * 不会产生可见的闪动。
+     * 中断（切页/切语种）也走这里。调用方拿到 'error' 会当成「本站没有这篇」
+     * 处理（主站回落已移除）。被 abort 的那次请求会立刻被下一次 effect 覆盖，
+     * 所以不会把「切页」误显示成「文章不存在」。
      */
     return { outcome: 'error', data: null };
   }

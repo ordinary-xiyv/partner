@@ -22,6 +22,7 @@ import {
   EditOutlined,
   FileTextOutlined,
   FolderOutlined,
+  ImportOutlined,
   LoadingOutlined,
   PlusOutlined,
   ReloadOutlined,
@@ -41,6 +42,7 @@ import {
   deleteDocArticle,
   deleteDocCategory,
   fetchDocTree,
+  importDocSeed,
   updateDocArticle,
   updateDocCategory,
   validateDocSlug,
@@ -338,6 +340,64 @@ export default function Docs() {
    * 后端是级联删（子分类 + 文章一起删），如果只问「确定删除吗」，
    * 用户点完才发现连带删了十几篇文章，没有挽回余地。
    */
+  /*
+   * 导入内置默认文档。
+   *
+   * 为什么要有这个入口：新站点的文档表是空的，后台打开就是一片空白，
+   * 只能从零手写分类和文章。而这套模板（入门 / 模型指南 / API 参考，45 篇）
+   * 本来就是为这个产品写的，每个商户重复劳动没有意义。
+   *
+   * 默认走 skip（只补缺、不动已有内容）。已有内容时再问一次要不要覆盖 ——
+   * 「恢复默认」不能顺手把用户改过的正文冲掉，那是数据丢失。
+   */
+  const [seedImporting, setSeedImporting] = useState(false);
+
+  const runSeedImport = async (mode: 'skip' | 'overwrite') => {
+    setSeedImporting(true);
+    try {
+      const res = await importDocSeed(mode);
+      const s = res.summary;
+      const created = s.categories_created + s.articles_created;
+      const updated = s.categories_updated + s.articles_updated;
+      if (created === 0 && updated === 0) {
+        notifyApiSuccess('文档已是最新，没有需要导入的内容');
+      } else {
+        notifyApiSuccess(
+          `导入完成：新增 ${s.categories_created} 个分类、${s.articles_created} 篇文章` +
+            (updated > 0 ? `，更新 ${updated} 项` : ''),
+        );
+      }
+      await load();
+    } catch (err) {
+      notifyApiError(err, '导入默认文档失败');
+    } finally {
+      setSeedImporting(false);
+    }
+  };
+
+  const confirmSeedImport = () => {
+    /*
+     * 已有内容时必须让用户明确选模式。
+     * 直接调 skip 会让人以为「恢复了默认」其实什么都没变；
+     * 直接调 overwrite 则可能覆盖掉刚改好的正文。
+     */
+    if (categories.length === 0 && articles.length === 0) {
+      void runSeedImport('skip');
+      return;
+    }
+    Modal.confirm({
+      title: '导入默认文档',
+      content:
+        '当前站点已有文档。选择「只补缺失」不会动现有内容；' +
+        '选择「覆盖同标识内容」会用模板重置入门、模型指南、API 参考里已有的文章。' +
+        '两种方式都不会删除你自己新建的分类和文章。',
+      okText: '只补缺失',
+      cancelText: '覆盖同标识内容',
+      onOk: () => void runSeedImport('skip'),
+      onCancel: () => void runSeedImport('overwrite'),
+    });
+  };
+
   const removeCategory = async (category: PartnerDocCategory) => {
     const childCats = categories.filter((c) => c.parent_id === category.id).length;
     const childArts = articles.filter((a) => a.category_id === category.id).length;
@@ -381,10 +441,26 @@ export default function Docs() {
             <Button icon={<ReloadOutlined />} onClick={() => void load()}>
               刷新
             </Button>
+            {/*
+             * 已有文档时是次要按钮（常态），一个都没有时提到主按钮位置 ——
+             * 空站点的第一诉求就是「有点内容可编辑」，不该藏在角落。
+             */}
+            <Button
+              icon={<ImportOutlined />}
+              loading={seedImporting}
+              type={categories.length === 0 && articles.length === 0 ? 'primary' : 'default'}
+              onClick={confirmSeedImport}
+            >
+              导入默认文档
+            </Button>
             <Button icon={<FolderOutlined />} onClick={openNewCategory}>
               新建分类
             </Button>
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => openNewArticle()}>
+            <Button
+              type={categories.length === 0 && articles.length === 0 ? 'default' : 'primary'}
+              icon={<PlusOutlined />}
+              onClick={() => openNewArticle()}
+            >
               新建文章
             </Button>
           </Space>
@@ -424,7 +500,16 @@ export default function Docs() {
               description="还没有任何文档"
               style={{ margin: '24px 0' }}
             >
-              <Button type="primary" size="small" onClick={openNewCategory}>
+              <Button
+                type="primary"
+                size="small"
+                icon={<ImportOutlined />}
+                loading={seedImporting}
+                onClick={confirmSeedImport}
+              >
+                导入默认文档（45 篇）
+              </Button>
+              <Button size="small" style={{ marginTop: 8 }} onClick={openNewCategory}>
                 新建第一个分类
               </Button>
             </Empty>

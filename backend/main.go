@@ -131,6 +131,14 @@ func buildRouter() *gin.Engine {
 	ready.PUT("/docs/articles/:id", partner.AdminDocArticleUpdateAPI)
 	ready.DELETE("/docs/articles/:id", partner.AdminDocArticleDeleteAPI)
 	/*
+	 * 导入内置默认文档（入门 / 模型指南 / API 参考，45 篇）。
+	 *
+	 * 新商户的文档表是空的，没有这个接口就只能从零手写分类和文章。
+	 * 幂等：mode=skip（默认）只补缺失，mode=overwrite 才覆盖同 slug 的内容，
+	 * 两种情况都不会删除商户自己建的东西。
+	 */
+	ready.POST("/docs/import/seed", partner.AdminDocSeedImportAPI)
+	/*
 	 * 客户站按站点身份读品牌 —— 唯一一条不需要登录的 /api/partner 接口。
 	 *
 	 * 必须挂在 p（只做 no-store 头）而不是 auth 组：客户站页面是匿名访问的，
