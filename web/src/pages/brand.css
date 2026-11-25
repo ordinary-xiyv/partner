@@ -1,73 +1,133 @@
 /* ==========================================================================
-   品牌设置页
-   只做布局，不重定义颜色 / 字号 / 圆角 —— 一律用全局 token，
-   和后台其它页面共用一套视觉。这里没有任何硬编码色值。
+   品牌设置页 —— 严格 1:1 复刻 .workbuddy/prototype/brand-settings.html
+   ==========================================================================
+
+   ★ 这份文件的做法和之前不同，必须先说清楚，否则后来改的人会走回老路：
+
+   之前是「拿 antd 默认值当基底，发现差几 px 就补一条覆盖」。结果是永远差
+   一截 —— 因为 antd 的行高是 21px、label 高度 22px、Form.Item 有 24px
+   下边距、Button 36px…… 十几个默认值各自把版面撑开一点，叠加起来整页就散了。
+
+   现在是「原型的数值就是唯一真相」。下面每个数都从原型 CSS 抄过来，
+   antd 默认值一律显式覆盖，不留「差不多」的余地。每条注明原型出处。
+
+   ★ 一个结构性前提：
+   本页在 AppShell 里，.lynx-content 自带 padding: 24px（中屏 16 / 小屏 12），
+   而原型 .layout 是 padding: 18px 28px 64px。不抵消那 24px，内容就永远比
+   原型往里缩；再加上 shell 的 max-width:1600 + margin:auto，整块会被推到
+   中间 —— 看起来就是「居中了」。
+   办法：.brand-page 用负 margin 吃掉 shell 的 padding，自己接管间距。
+   三档断点必须与 shell.css 对齐，否则小屏会多缩或少缩。
    ========================================================================== */
 
-/* ---------- 吸顶操作栏 ----------
- * 原来「保存」在表单最底部，页面拉到 2000px 之外，改完得一路滚回去找。
- * 吸附在 shell 顶栏（--header-height）下方，任何时候都能保存。
- *
- * 背景必须是不透明的：它下面有表单在滚，半透明会让两段文字叠在一起。
- * 因为和 --bg-page 同色，静止时它「看不见」，只有内容滚到下面才显出边界。
- */
+/* ---------- 抵消 shell 内边距，接管页面间距 ---------- */
 .brand-page {
-  /* 操作栏高度。右栏吸顶的偏移量要用它，抽成变量免得两处对不上。 */
-  --brand-bar-h: 75px;
+  /* 操作栏高度：18 + 26(标题) + 3 + 19(副标题) + 16 = 82，取 88 留余量，
+   * 与原型 .topbar 实测高度一致 */
+  --brand-bar-h: 88px;
 
-  /* 客服二维码的边长，也是客服区左列的列宽。
-   *
-   * 两处同一个值是有意的：方块和它上面那列必须等宽，否则「方图 + 等宽按钮」
-   * 这一组就会左右错位。放在这里由 .brand-page 下发，移动端也不用改写 ——
-   * 手机上列宽变成整屏时它还是一个小方图，不会跟着撑满。 */
+  /* 客服二维码边长 = 客服区左列列宽。两处同源，见 .brand-cs-cols */
   --brand-qr-size: 96px;
+
+  /* 浅色下改白的块：输入框 / 色值徽章 / 域名行 / 风格卡。
+     深色下仍是 --bg-inset(#111113)，比卡片深一档 = 凹陷。
+     浅色下覆盖成白色 —— 「凹陷」在浅色上读不出来，白卡上压一块 #f4f4f5
+     只会像脏了，用户明确要求改白。
+     风格卡是共享组件（在 home-style-picker.css），它写的是
+     var(--brand-flat-bg, var(--bg-inset))，靠 fallback 在别处退回全局值。
+     ★ 上传框 / 首字预览条没有迁到这条，仍是 --bg-inset（用户没要求改）。 */
+  --brand-flat-bg: var(--bg-inset);
+
+  /* ★ 行高必须显式给。
+   *
+   * 原型 body 是 font-size:13px / line-height:1.55 → 20.15px。
+   * 后台的 antd 把 body 行高设成 1.615（13×1.615≈21px），
+   * 每行多 0.85px，一屏几十行叠起来，卡片就比原型高出十几像素
+   * （实测第一张卡 260 vs 原型 243）。这里直接钉死 1.55。
+   */
+  line-height: 1.55;
+
+  /* ★ 只抵消 shell 的「左右」内边距，不动上下。
+   *
+   * 上下不能负：操作栏要吸附在顶栏下方，往上顶会跑到顶栏底下去；
+   * 底部负 margin 会把 64px 的下留白也吃掉。
+   * 左右必须负：shell 给 24px，原型给 28px，不抵消就永远差 4px。
+   */
+  margin: 0 -24px;
 }
 
+/* 浅色：输入框 / 色值徽章 / 域名行 / 风格卡改白，形状完全由 1px 边框承担。
+   ★ 这是刻意偏离原型的一处：原型浅色 --bg-inset 是 #f4f4f5，
+     用户明确要求改白。以后对着原型核对发现「对不上」，原因在这里。 */
+html[theme-mode='light'] .brand-page {
+  --brand-flat-bg: var(--bg-card);
+}
+
+@media (max-width: 1023px) {
+  .brand-page {
+    margin: 0 -16px;
+  }
+}
+
+@media (max-width: 767px) {
+  .brand-page {
+    margin: 0 -12px;
+  }
+}
+
+/* ==========================================================================
+   吸顶操作栏  ← 原型 .topbar
+   ========================================================================== */
 .brand-bar {
   position: sticky;
+  /* 原型是 top:0（它是最顶层）。这里在 shell 顶栏之下，让开 56px */
   top: var(--header-height);
   z-index: 30;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px 24px;
-  padding: 14px 0 12px;
+  gap: 24px;
+  padding: 18px 28px 16px;
+  /* 原型：88% 不透明 + blur(14px)。先写不透明兜底 */
   background: var(--bg-page);
+  background: color-mix(in srgb, var(--bg-page) 88%, transparent);
+  backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border-default);
 }
 
+/* ← 原型 .topbar__title */
 .brand-bar__title {
   margin: 0;
   font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.55;
   color: var(--text-primary);
 }
 
+/* ← 原型 .topbar__sub */
 .brand-bar__sub {
   margin: 3px 0 0;
   font-size: 12.5px;
-  line-height: 1.5;
+  line-height: 1.55;
   color: var(--text-tertiary);
 }
 
+/* ← 原型 .topbar__actions */
 .brand-bar__actions {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  padding-top: 2px;
 }
 
-/* 「有未保存的改动」。只在真改动时出现，不改动时不占位 ——
- * 常驻一个灰点会让人以为坏了，而忽隐忽现的字会让右边的按钮左右横跳，
- * 所以这里用 visibility 保留宽度。
- */
+/* ← 原型 .dirty —— 用 visibility 保留宽度，避免按钮左右横跳 */
 .brand-dirty {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  margin-right: 4px;
   font-size: 12px;
   color: var(--accent-text);
   white-space: nowrap;
@@ -87,45 +147,76 @@
   flex-shrink: 0;
 }
 
-/* ---------- 主体两栏 ---------- */
+/* ==========================================================================
+   主体两栏  ← 原型 .layout / .col-form / .col-side
+   ========================================================================== */
 .brand-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 372px;
   gap: 18px;
   align-items: start;
-  max-width: 1360px;
-  width: 100%;
-  margin: 0 auto;
+  /* 原型 .layout 四条，一条不改 */
+  padding: 18px 28px 64px;
+  max-width: 1320px;
+  /* ★ 没有 margin:auto。原型靠 max-width 截断后自然靠左 */
 }
 
+/* ← 原型 .col-form：卡片之间的间隙就是分组，不靠分割线 */
 .brand-col-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   min-width: 0;
 }
 
-/* 右栏吸顶：改左边表单时预览一直看得见。
- *
- * 偏移必须让开两块：shell 顶栏 56px + 本页操作栏。操作栏实测高 75px，
- * 加起来 131px。原来写 84px（只算了操作栏），滚下去之后预览卡会被
- * 操作栏盖掉上面一截 —— 实测 sideTop=85 < barBottom=131。
- *
- * 用 calc 把两个值都写出来，将来操作栏高度变了只改一个变量。
+/* ★ 卡片外套着一层 antd <Form>，它自己是 display:block。
+ * .brand-col-form 的 gap 只作用在「Form 这一整块」上，五张卡片在 Form
+ * 内部仍然紧贴（实测间距全是 0）。必须把这层也变成 flex 容器。
  */
+.brand-col-form > .ant-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* ← 原型 .col-side */
 .brand-col-side {
   position: sticky;
   top: calc(var(--header-height) + var(--brand-bar-h) + 8px);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   min-width: 0;
-  /* 内容比视口高时不能让它在自己内部再滚，否则两层滚动条打架 */
   max-height: calc(100vh - var(--header-height) - var(--brand-bar-h) - 16px);
   overflow-y: auto;
 }
 
-/* ---------- 卡片头 ---------- */
+/* ==========================================================================
+   卡片  ← 原型 .card
+   （PagePanel 是共享组件，覆盖全部限定在 .brand-page 下，不外溢）
+   ========================================================================== */
+.brand-page .lynx-page-panel--padded {
+  padding: 16px 18px 18px;
+}
+
+.brand-page .lynx-page-panel {
+  border-radius: 14px;
+  /* 原型 --shadow-card 是两套，不是一套：
+   *   深色 0 1px 2px rgba(0, 0, 0, 0.4)
+   *   浅色 0 1px 2px rgba(15, 23, 42, 0.05)
+   *
+   * 一开始只抄了深色那条。浅色 #f9fafc 上压 40% 的黑影会明显发灰，
+   * 像卡片底下渗了一片脏污；原型浅色版是几乎看不见的极轻投影。
+   */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+html[theme-mode='light'] .brand-page .lynx-page-panel {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+/* ← 原型 .card__head */
 .brand-card-head {
   display: flex;
   align-items: center;
@@ -134,43 +225,109 @@
   margin-bottom: 14px;
 }
 
+/* ← 原型 .card__title */
 .brand-card-title {
-  font-size: 14px;
-  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  /* 原型 13.5×1.55 = 20.925。不写会被 antd 的 21px 顶掉，
+   * 每张卡因此多 0.075px，五张叠起来仍能看出偏高 */
+  line-height: 1.55;
   color: var(--text-primary);
-  line-height: 1.4;
 }
 
+/* ← 原型 .card__note */
 .brand-card-note {
   font-size: 12px;
+  font-weight: 400;
+  line-height: 1.55;
   color: var(--text-tertiary);
   text-align: right;
 }
 
-/* ---------- 12 栅格 ----------
- * 按语义分宽，不再所有字段都铺满整行：
- * 品牌名 / 浏览器标题 7，首字标记 / 接口基地址 5，条款隐私备案各 4。
- */
+/* ==========================================================================
+   12 栅格  ← 原型 .grid
+   ========================================================================== */
 .brand-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 14px 12px;
 }
 
+.brand-s3 { grid-column: span 3; }
 .brand-s4 { grid-column: span 4; }
 .brand-s5 { grid-column: span 5; }
 .brand-s6 { grid-column: span 6; }
 .brand-s7 { grid-column: span 7; }
+.brand-s8 { grid-column: span 8; }
 .brand-s12 { grid-column: span 12; }
 
-/* antd 的 Form.Item 自带 margin-bottom: 24px，在 grid 里会和 gap 叠加成
- * 近 40px 的行距。统一清零，只由 gap 控制节奏。
- */
-.brand-grid .ant-form-item {
+/* ==========================================================================
+   表单字段：antd Form.Item 压平到原型 .field / .field__label / .field__hint
+   ==========================================================================
+   antd 比原型多两层，默认值也都不同，逐项压平：
+
+     .ant-form-item          margin-bottom 24px     → 0（由 grid gap 管）
+     .ant-form-item-label    padding-bottom 8px     → 0
+     label                   height 22px / 14px/400 → auto / 12px/500
+     .ant-form-item-extra    margin-top 0 / 13px    → 5px / 11.5px
+     冒号                    中文环境会加            → 去掉
+   ========================================================================== */
+.brand-grid .ant-form-item,
+.brand-cs-fields .ant-form-item {
   margin-bottom: 0;
 }
 
-/* ---------- 字段标签里的问号 ---------- */
+.brand-page .ant-form-item-label {
+  padding-bottom: 0;
+  /* 原型 .field__label 自带 margin-bottom: 6px，就是这一条 */
+  margin-bottom: 6px;
+  line-height: 1.55;
+}
+
+.brand-page .ant-form-item-label > label {
+  height: auto;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+  /* ★ 原型 .field__label 是 flex 块级元素，占满整行宽度；
+   * antd 的 label 是 inline-flex，只占内容宽。宽度差异会让
+   * 「说明文字换行位置」跟着变，这里撑满。
+   */
+  width: 100%;
+}
+
+/* antd 在 label 外层还包了一个 .ant-form-item-label > label::after 的冒号，
+ * 以及一个自带的 :not(.ant-form-item-required)::before 星号位。
+ * 冒号已去掉；这里把 label 的 display 也对齐原型。
+ */
+.brand-page .ant-form-item-label > label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.brand-page .ant-form-item-label > label::after {
+  display: none;
+}
+
+.brand-page .ant-form-item-extra {
+  margin-top: 5px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+  /* ★ antd 给 extra 加了 min-height: 24px（为了让单行说明和图标对齐），
+   * 原型 .field__hint 只有 17.25px 高。多出的 6.75px 会直接把每张卡撑高。
+   */
+  min-height: 0;
+}
+
+/* 字段标签里的问号 ← 原型 .info */
 .brand-label {
   display: inline-flex;
   align-items: center;
@@ -178,24 +335,69 @@
 }
 
 .brand-info {
-  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 50%;
+  border: 1px solid var(--border-hover);
   color: var(--text-tertiary);
   cursor: help;
-  transition: color 0.14s ease;
+  flex-shrink: 0;
+  transition: color 0.14s ease, border-color 0.14s ease;
 }
 
 .brand-info:hover {
-  color: var(--text-secondary);
+  color: var(--text-primary);
+  border-color: var(--text-tertiary);
 }
 
-/* ---------- 首字标记：输入 → 效果 ----------
- * 原来是一串平铺的「输入框 + 方块 + 一句灰字」，三样东西没有关系感。
- * 现在做成一条：窄输入框 → 箭号 → 客户站页头的真实样子（方块 + 品牌名）。
- *
- * 输入框那个 Form.Item 是 noStyle 的，所以这一行由 flex 直接排；
- * antd 的 .ant-form-item 还留着一个 margin-bottom，这里一并清掉，
- * 否则预览条会和输入框错开几像素。
- */
+/* ==========================================================================
+   输入框  ← 原型 input[type="text"]
+   ==========================================================================
+   原型：height 32 / padding 0 10px / radius 6 / border 1px / bg --bg-inset
+   antd：没有 height（32px 靠上下各 4.5px padding 撑出来）、底色是 --bg-card
+
+   高度必须写死，否则一改 padding 就塌到 23px（实测过）。
+   底色走 --brand-flat-bg，见文件头 .brand-page 里的说明。
+   ========================================================================== */
+.brand-col-form .ant-input,
+.brand-col-form .ant-input-affix-wrapper {
+  background: var(--brand-flat-bg);
+  height: 32px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-primary);
+  transition: border-color 0.14s ease;
+}
+
+.brand-col-form .ant-input:hover,
+.brand-col-form .ant-input-affix-wrapper:hover {
+  border-color: var(--border-hover);
+}
+
+.brand-col-form .ant-input:focus,
+.brand-col-form .ant-input-focused,
+.brand-col-form .ant-input-affix-wrapper-focused {
+  border-color: var(--accent-primary);
+  box-shadow: none;
+}
+
+/* 多行输入保留上下内边距 */
+.brand-col-form textarea.ant-input {
+  height: auto;
+  padding: 6px 10px;
+}
+
+/* ==========================================================================
+   首字标记：输入 → 效果  ← 原型 .mark-row / .mark-preview
+   ========================================================================== */
 .brand-mark-row {
   display: flex;
   align-items: center;
@@ -207,6 +409,16 @@
   margin-bottom: 0;
 }
 
+/* ← 原型 input.input--char：72px / 居中 / 15px / 600
+ * 这一格填的是「一个字」，15px 加粗让它和旁边那排普通输入框区分开。 */
+.brand-page .brand-mark-input {
+  width: 72px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* ← 原型 .mark-row__arrow */
 .brand-mark-arrow {
   flex-shrink: 0;
   font-size: 11px;
@@ -214,21 +426,30 @@
   user-select: none;
 }
 
+/* ← 原型 .mark-preview */
 .brand-mark-preview {
   display: flex;
   align-items: center;
   gap: 7px;
   height: 32px;
   min-width: 0;
-  /* 不写 flex:1。撑满整列时右边会空出一大块，看着像个没填的输入框，
-   * 读不出「这是预览」。按内容收紧，名字过长才截断。 */
+  /* 不收 flex:1 —— 撑满整列时右边空一大块，读起来像没填的输入框 */
   flex: 0 1 auto;
   padding: 0 9px 0 4px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-default);
-  background: var(--bg-elevated);
+  background: var(--bg-inset);
 }
 
+/* ← 原型 .mark-preview .tile */
+.brand-mark-preview .brand-mark-tile {
+  width: 24px;
+  height: 24px;
+  font-size: 11px;
+  border-radius: 6px;
+}
+
+/* ← 原型 .mark-preview__name */
 .brand-mark-preview__name {
   min-width: 0;
   font-size: 12px;
@@ -238,14 +459,12 @@
   text-overflow: ellipsis;
 }
 
-/* 主色方块 + 首字。用于首字标记预览和图片未上传时的占位 ——
- * 两者是同一个东西，抽成一条规则，改一处两边同步。
- */
+/* 主色方块 + 首字。首字预览与图片空态共用，改一处两边同步 */
 .brand-mark-tile {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1;
   flex-shrink: 0;
@@ -253,11 +472,16 @@
   overflow: hidden;
 }
 
-/* ---------- 标识：Logo / 图标左右并排 ---------- */
+/* ==========================================================================
+   标识：Logo / 图标左右并排  ← 原型 .assets / .asset
+   ========================================================================== */
 .brand-assets {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0;
+  /* 必须 stretch（默认值）。写 start 会让每列只有自身内容高度，
+   * 下面 .brand-asset__body 的 align-self: stretch 就没了参照，
+   * 两侧「上传」按钮会差一行。 */
+  align-items: stretch;
 }
 
 .brand-asset {
@@ -268,41 +492,63 @@
   padding-right: 22px;
 }
 
-/* 第二列左侧一条线：两列各管一摊，不靠留白硬撑 */
+/* 第二列左侧 1px 分隔 —— 两列各管一摊，不靠留白硬撑 */
 .brand-asset + .brand-asset {
   border-left: 1px solid var(--border-default);
   padding-left: 22px;
   padding-right: 0;
 }
 
+/* ← 原型 .assets .tile--logo / .tile--favicon 统一成 64px
+ * 原来 88 / 56 挨在一起看会显得不齐；两个都是「传一张方形图」，
+ * 视觉权重本就该一样。只覆盖 .brand-assets 作用域内的，
+ * 不动别处（侧栏迷你预览）的尺寸。 */
+.brand-assets .brand-upload__box--square {
+  width: 64px;
+  height: 64px;
+  font-size: 25px;
+  border-radius: 13px;
+}
+
+/* ← 原型 .asset__body */
 .brand-asset__body {
   display: flex;
   flex-direction: column;
   align-self: stretch;
   min-width: 0;
-  gap: 5px;
+  padding-top: 2px;
 }
 
+/* ← 原型 .asset__name */
 .brand-asset__name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-size: 12px;
   font-weight: 500;
+  line-height: 1.55;
   color: var(--text-secondary);
-  line-height: 1.5;
+  margin-bottom: 5px;
 }
 
+/* ← 原型 .asset__hint */
 .brand-asset__hint {
   font-size: 11.5px;
-  line-height: 1.55;
+  line-height: 1.5;
   color: var(--text-tertiary);
 }
 
-/* 按钮贴底：两列说明文字行数不同，不这么做两个「上传」会一高一低 */
+/* ← 原型 .asset__actions：按钮推到最底，两列说明行数不同也能同基线 */
 .brand-asset__actions {
+  display: flex;
+  gap: 6px;
   margin-top: auto;
-  padding-top: 6px;
+  padding-top: 7px;
 }
 
-/* ---------- 上传控件 ---------- */
+/* ==========================================================================
+   上传控件
+   ========================================================================== */
 .brand-upload {
   display: flex;
   align-items: flex-start;
@@ -310,20 +556,14 @@
   flex-wrap: wrap;
 }
 
-/* 竖排：二维码那种「方框 + 等宽按钮」。
- *
- * 整列宽度锁死成 --brand-qr-size，而不是跟着外层容器 stretch。
- * 桌面端客服区左列正好也是这个宽度，看起来是撑满；窄屏左列变成整屏宽时，
- * 它仍然是 96px 一个小方块 —— 不需要写断点兜。
- *
- * 踩过的坑：一开始让方块 width:100% + aspect-ratio:1，手机上列宽变整屏
- * （约 560px）后方块被画成占满屏幕的巨型方块，比整张卡片还高。
- * 同一个值既当列宽又当方块边长，两处同源，就不会再走散。
- */
+/* 竖排：二维码。整列宽度锁死成 --brand-qr-size，不跟外层容器 stretch。
+ * 桌面端它正好等于客服区左列宽；窄屏左列变整屏时仍是 96px，不用写断点。
+ * 踩过的坑：曾用 width:100% + aspect-ratio:1，手机上列宽变 ~560px 后
+ * 方块被画成占满屏幕的巨型方块。 */
 .brand-upload--column {
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
+  gap: 6px;
   width: var(--brand-qr-size);
 }
 
@@ -333,20 +573,19 @@
   justify-content: center;
   overflow: hidden;
   flex-shrink: 0;
-  background: var(--bg-elevated);
+  background: var(--bg-inset);
   border: 1px solid var(--border-default);
 }
 
-/* 竖排的方图。正方形靠宽高等值保证，不用 aspect-ratio —— 后者一碰到
- * 外层宽度变化就会把高度也带跑。
- */
+/* 方图：正方形靠宽高等值保证，不用 aspect-ratio
+ * （后者一碰外层宽度变化就把高度带跑）。 */
 .brand-upload__box--square {
   width: var(--brand-qr-size);
   height: var(--brand-qr-size);
   border-radius: 10px;
 }
 
-/* 未上传：虚线框，和「已上传的实线框」区分开 */
+/* ← 原型 .qr-empty：未上传用虚线，和「已上传的实线」区分开 */
 .brand-upload__box--empty {
   border-style: dashed;
   border-color: var(--border-hover);
@@ -358,15 +597,13 @@
   object-fit: contain;
 }
 
-/* 竖排布局（二维码）里按钮要和方块同宽。
- *
- * 这条从按钮往上一层层都要撑开，少一层都无效 —— 实测踩过：
- *   .ant-space        inline-flex，宽度跟着内容
- *   .ant-space-item   同上
- *   .ant-upload       Upload 组件自己包的一层，display:block 但宽度随内容
- *   Button            inline-flex，width:100% 的基准是 .ant-upload
- * 只给按钮写 100%，它 100% 的是那个 63px 的 .ant-upload，看着像没生效。
- */
+/* 竖排（二维码）里按钮要和方块同宽。
+ * 从按钮往上一层层都得撑开，少一层都无效 —— 实测踩过：
+ *   .ant-space      inline-flex，宽度跟内容
+ *   .ant-space-item 同上
+ *   .ant-upload     Upload 自己包的一层，display:block 但宽度随内容
+ *   Button          inline-flex，width:100% 的基准是 .ant-upload
+ * 只给按钮写 100%，它 100% 的是那个 63px 的 .ant-upload，看着像没生效。 */
 .brand-upload--column .ant-space,
 .brand-upload--column .ant-space-item,
 .brand-upload--column .ant-upload {
@@ -392,20 +629,126 @@
   transition: width 0.2s;
 }
 
-/* ---------- 品牌色 ---------- */
+/* ==========================================================================
+   按钮  ← 原型 .btn / .btn--primary / .btn--icon / .mini-btn
+   ==========================================================================
+   原型三档：
+     .btn        32px 高 / 13px / 500 / padding 0 14px
+     .btn--icon  32×32 方形 / 无边框
+     .mini-btn   26px 高 / 12px / padding 0 10px / radius 5
+   antd 默认 36px / 400 字重 / padding 0 15px，全部覆盖。
+   ========================================================================== */
+.brand-page .ant-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: none;
+}
+
+/* ← 原型 .btn--primary：白字 + 600 */
+.brand-page .ant-btn-primary {
+  color: #fff;
+  font-weight: 600;
+}
+
+.brand-page .ant-btn-primary:hover {
+  filter: brightness(1.08);
+}
+
+/* ← 原型 .btn--quiet：撤销是无边框文字按钮 */
+.brand-page .ant-btn:not(.ant-btn-primary):not(.ant-btn-icon-only) {
+  background: transparent;
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.brand-page .ant-btn:not(.ant-btn-primary):not(.ant-btn-icon-only):hover {
+  background: var(--bg-hover);
+}
+
+/* ← 原型 .btn--icon：方形图标按钮 */
+.brand-page .ant-btn-icon-only {
+  width: 32px;
+  padding: 0;
+  border-color: transparent;
+  color: var(--text-secondary);
+}
+
+.brand-page .ant-btn-icon-only:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.brand-page .ant-btn-icon-only .anticon {
+  transition: transform 0.18s ease;
+}
+
+.brand-page .ant-btn-icon-only:active .anticon {
+  transform: rotate(-40deg);
+}
+
+/* ← 原型 .mini-btn：标识区 / 客服区的小按钮 */
+.brand-page .brand-upload__btn.ant-btn-sm,
+.brand-page .ant-btn-sm {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+/* 二维码列的按钮：原型 .cs-qr .mini-btn { width:100%; height:28px } */
+.brand-upload--column .brand-upload__btn {
+  height: 28px;
+}
+
+/* ==========================================================================
+   品牌色  ← 原型 .color-row / .swatch-input / .hex-badge / .swatches
+   ========================================================================== */
 .brand-color-row {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 10px;
 }
 
+/* ← 原型 .swatch-input：34×34 / radius 8 / 带描边 */
+.brand-color-row .ant-color-picker-trigger {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid var(--border-hover);
+  overflow: hidden;
+}
+
+/* ← 原型 .hex-badge：等宽 / 32px 高 / 深底 / 带边框 */
+.brand-hex {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  background: var(--brand-flat-bg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  text-transform: uppercase;
+}
+
+/* ← 原型 .swatches button：22×22 / radius 6 */
 .brand-swatch {
   width: 22px;
   height: 22px;
-  border-radius: var(--radius-sm);
   padding: 0;
+  border-radius: 6px;
   cursor: pointer;
   flex-shrink: 0;
   transition: transform 0.12s ease;
@@ -415,15 +758,20 @@
   transform: scale(1.12);
 }
 
-/* ---------- 客服：左上传 / 右输入 ----------
- * 原来四个 input 两行、二维码压在最后一条横线上，像是补充说明而不是
- * 一个平行字段。现在二维码独占左列，四个 input 在右列 2×2。
- */
+/* ==========================================================================
+   客服：左上传 / 右输入  ← 原型 .cs-cols / .cs-qr / .cs-fields
+   ========================================================================== */
 .brand-cs-cols {
   display: grid;
   grid-template-columns: var(--brand-qr-size) minmax(0, 1fr);
   gap: 22px;
   align-items: start;
+}
+
+/* ← 原型 .cs-qr .field__label { margin-bottom: 0 }
+ * label 自带的 6px 会和 gap 叠成 12px，虚线框就比右侧 input 低一截 */
+.brand-cs-cols .brand-asset__name {
+  margin-bottom: 0;
 }
 
 .brand-cs-fields {
@@ -433,25 +781,36 @@
   min-width: 0;
 }
 
-.brand-cs-fields .ant-form-item {
-  margin-bottom: 0;
-}
-
-/* ---------- 页脚 ---------- */
+/* ==========================================================================
+   页脚开关 / 提示文字
+   ========================================================================== */
+/* ← 原型 .toggle__text */
 .brand-footer-switch {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   font-size: 12px;
-  color: var(--text-secondary);
   font-weight: 400;
+  line-height: 1.55;
+  color: var(--text-secondary);
 }
 
-/* ---------- 右栏 ---------- */
+/* ← 原型 .field__hint */
+.brand-hint {
+  margin-top: 5px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}
+
+/* ==========================================================================
+   右栏：实时预览 / 我的域名
+   ========================================================================== */
 .brand-preview-state {
   font-size: 12px;
-  color: var(--text-tertiary);
   font-weight: 400;
+  line-height: 1.55;
+  color: var(--text-tertiary);
 }
 
 .brand-preview-state[data-dirty='true'] {
@@ -465,7 +824,7 @@
   flex-wrap: wrap;
   padding: 9px 12px;
   border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
+  background: var(--brand-flat-bg);
   border: 1px solid var(--border-default);
 }
 
@@ -477,6 +836,7 @@
 .brand-domain__host {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12.5px;
+  letter-spacing: -0.01em;
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -485,18 +845,14 @@
 
 .brand-domain__meta {
   font-size: 11px;
+  line-height: 1.5;
   color: var(--text-tertiary);
 }
 
-.brand-hint {
-  font-size: 12px;
-  line-height: 1.7;
-  color: var(--text-tertiary);
-}
+/* ==========================================================================
+   响应式  ← 原型 @media 1180 / 720
+   ========================================================================== */
 
-/* ---------- 响应式 ---------- */
-
-/* 右栏放下方：窄屏时预览在表单下面，改完能立刻看到，不用来回滚 */
 @media (max-width: 1180px) {
   .brand-layout {
     grid-template-columns: minmax(0, 1fr);
@@ -504,6 +860,8 @@
 
   .brand-col-side {
     position: static;
+    max-height: none;
+    overflow: visible;
   }
 }
 
@@ -511,16 +869,25 @@
   .brand-bar {
     flex-direction: column;
     gap: 12px;
+    padding: 14px 16px 12px;
   }
 
   .brand-bar__actions {
     width: 100%;
+    padding-top: 0;
   }
 
+  .brand-layout {
+    padding: 14px 16px 48px;
+  }
+
+  /* 字段全部单列：两列并排在手机上每格不到 150px，输不进内容 */
+  .brand-s3,
   .brand-s4,
   .brand-s5,
   .brand-s6,
-  .brand-s7 {
+  .brand-s7,
+  .brand-s8 {
     grid-column: span 12;
   }
 

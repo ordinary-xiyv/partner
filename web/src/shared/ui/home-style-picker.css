@@ -1,0 +1,154 @@
+/* 首页风格选择器
+ *
+ * 尺寸严格对齐品牌设置页原型 .styles / .style-card / .style-card__thumb：
+ *   两列等宽、gap 10、上方留 14px
+ *   缩略图 72px 高、padding 10/12、底部分隔线
+ *   名称 12.5px/600，描述 11.5px 三级色、行高 1.5
+ *   卡片内边距 9px 12px 11px
+ *
+ * 原来用 repeat(auto-fit, minmax(230px,1fr)) + 16:10 大缩略图 +
+ * 三条 bullet，单卡 359px 高。原型只有 132px —— 两张卡占掉大半屏。
+ */
+
+.home-style-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.home-style-card {
+  display: block;
+  padding: 0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  /* 带 fallback：这是共享组件，脱离品牌页（没有 --brand-flat-bg 的作用域）时
+     仍要退回全局 --bg-inset，不能变成透明。
+     在品牌页里，浅色会被 --brand-flat-bg 改写成白色（用户要求，偏离原型）。 */
+  background: var(--brand-flat-bg, var(--bg-inset));
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  font: inherit;
+  color: var(--text-primary);
+  transition: border-color 0.14s ease;
+}
+
+.home-style-card:hover {
+  border-color: var(--border-hover);
+}
+
+/* 选中态：主色边框 + 1px 同色光晕。
+ * 不用 2px 粗边框 —— 那会把内容区挤窄 2px，切来切去时缩略图会左右跳动。
+ */
+.home-style-card[aria-pressed='true'] {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 1px var(--accent-primary);
+}
+
+.home-style-card:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ---------- 缩略图 ---------- */
+.home-style-card__thumb {
+  height: 72px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+/* 纸感编辑：米白纸面 */
+.home-style-card__thumb.is-editorial {
+  background: #f3efe7;
+}
+
+.home-style-card__thumb.is-editorial .l1 {
+  width: 62%;
+  height: 7px;
+  background: #26221c;
+  border-radius: 1px;
+}
+
+.home-style-card__thumb.is-editorial .l2 {
+  width: 84%;
+  height: 3px;
+  background: rgba(38, 34, 28, 0.28);
+  border-radius: 1px;
+}
+
+.home-style-card__thumb.is-editorial .rule {
+  width: 26px;
+  height: 2px;
+  margin-top: 2px;
+}
+
+/* 终端网格：细网格底 + 主色辉光条 */
+.home-style-card__thumb.is-terminal {
+  background-color: #0c0c0e;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+  background-size: 12px 12px;
+}
+
+.home-style-card__thumb.is-terminal .l1 {
+  width: 58%;
+  height: 4px;
+  border-radius: 1px;
+}
+
+.home-style-card__thumb.is-terminal .l2 {
+  width: 78%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 1px;
+}
+
+/* ---------- 文字区 ---------- */
+.home-style-card__meta {
+  padding: 9px 12px 11px;
+}
+
+.home-style-card__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.home-style-card__desc {
+  margin-top: 2px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}
+
+/* 「最稳」/「当前」小胶囊 */
+.home-style-card__pill {
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border-hover);
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+  letter-spacing: 0;
+}
+
+.home-style-card__pill.is-on {
+  border-color: var(--accent-primary);
+  color: var(--accent-text);
+}
+
+/* 窄屏退回单列：两列并排时缩略图会窄到看不出区别 */
+@media (max-width: 720px) {
+  .home-style-grid {
+    grid-template-columns: 1fr;
+  }
+}

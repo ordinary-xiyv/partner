@@ -729,9 +729,10 @@ export default function Brand() {
                     <div className="brand-mark-row">
                       <Form.Item name="short_name" noStyle>
                         <Input
+                          className="brand-mark-input"
                           placeholder="云"
                           maxLength={1}
-                          style={{ width: 72, textAlign: 'center', flexShrink: 0 }}
+                          style={{ width: 72, flexShrink: 0 }}
                         />
                       </Form.Item>
                       <span className="brand-mark-arrow">→</span>
@@ -910,12 +911,18 @@ export default function Brand() {
               </div>
 
               <div className="brand-color-row">
+                {/*
+                  原型里色值是一个独立徽章：等宽字体、32px 高、深底、带边框，
+                  和方块分开摆。antd ColorPicker 的 showText 是把色值塞进
+                  触发器内部（结果高度只有 21px、没有底色），形不成徽章。
+                  所以关掉 showText，自己画一个 —— 视觉才对得上原型。
+                */}
                 <ColorPicker
                   value={primary}
                   onChangeComplete={(c) => setDraft((d) => ({ ...d, primary_color: c.toHexString() }))}
-                  showText
                   size="middle"
                 />
+                <span className="brand-hex">{primary.toUpperCase()}</span>
                 <Space size={6} wrap>
                   {PRESET_COLORS.map((p) => {
                     const active = primary.toLowerCase() === p.hex;
@@ -929,9 +936,15 @@ export default function Brand() {
                           className="brand-swatch"
                           style={{
                             background: p.hex,
-                            border: active
-                              ? '2px solid var(--text-primary)'
-                              : '1px solid var(--border-default)',
+                            /* 选中态用外扩光环，不是加粗边框 ——
+                             * 粗边框会把 22px 的色块挤小，颜色看着变浅；
+                             * 光环画在框外，色块面积不变，选中与否一眼可辨。
+                             * 两层 box-shadow：先垫一圈卡片底色断开，再画一圈主色。
+                             */
+                            border: '1px solid var(--border-default)',
+                            boxShadow: active
+                              ? '0 0 0 2px var(--bg-card), 0 0 0 3.5px var(--text-primary)'
+                              : undefined,
                           }}
                         />
                       </Tooltip>
@@ -1028,9 +1041,9 @@ export default function Brand() {
                 </div>
               </div>
 
-              <div className="brand-hint" style={{ marginTop: 12 }}>
-                清空某一项并保存，表示不显示那一项。
-              </div>
+              {/* 原型 .field__hint 的 margin-top 是 5px，这里不能再加。
+               * 之前写内联 12px，比原型多 7px，页脚卡因此比原型高 11px。 */}
+              <div className="brand-hint">清空某一项并保存，表示不显示那一项。</div>
             </PagePanel>
 
             {/* ── 客服 ──

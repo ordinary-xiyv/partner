@@ -10,6 +10,11 @@
   --bg-hover: #1f1f23;
   --bg-page: #09090b;
   --bg-inset-panel: var(--bg-hover);
+  /* --bg-inset：凹陷区底色（输入框、预览框、色值徽章这类「卡里挖下去一块」的地方）。
+     语义和 --bg-elevated 相反 —— elevated 是浮起来，inset 是沉下去。
+     两套主题里它都比 --bg-card 深一档，所以视觉上确实是凹的。
+     设计原型 brand-settings.html 用的是这个名字，对齐后对照原型抄样式不用再做映射。 */
+  --bg-inset: #111113;
   --border-default: rgba(255, 255, 255, 0.08);
   --border-hover: rgba(255, 255, 255, 0.16);
   --text-primary: #fafafa;
@@ -137,6 +142,8 @@ body[theme-mode='light'] {
   --bg-hover: #f0f0f1;
   --bg-page: #f9fafc;
   --bg-inset-panel: #f8fafc;
+  /* 浅色下 inset 比卡片(#ffffff)深一档，凹陷感靠这一档亮度差 */
+  --bg-inset: #f4f4f5;
   --border-default: rgba(0, 0, 0, 0.1);
   --border-hover: rgba(0, 0, 0, 0.2);
   --text-primary: #18181b;

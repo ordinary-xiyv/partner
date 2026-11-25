@@ -4,7 +4,10 @@
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   overflow: hidden;
-  background: var(--bg-card);
+  /* ← 原型 .preview-frame 用 bg-inset：整块预览是「卡里挖下去的凹槽」，
+     顶栏再从凹槽里浮起来一层。以前这里写的是 bg-card、顶栏写 inset，
+     正好反了 —— 顶栏变成凹槽，像浏览器窗口上沿塌了一块。 */
+  background: var(--bg-inset);
 }
 
 .lynx-brand-preview__chrome {
@@ -12,7 +15,8 @@
   align-items: center;
   gap: 5px;
   padding: 8px 12px;
-  background: var(--bg-elevated);
+  /* ← 原型 .preview-chrome 用 bg-card，比外框亮一档 */
+  background: var(--bg-card);
   border-bottom: 1px solid var(--border-default);
 }
 
@@ -42,7 +46,8 @@
   width: 116px;
   flex-shrink: 0;
   padding: 12px 10px;
-  background: var(--bg-base);
+  /* 原型 .preview-side 不设底色，靠外框的 inset 透上来，两侧才是一整块画布。
+     原先给了 bg-base（比 inset 再深一档），侧栏像被单独挖了个洞。 */
   border-right: 1px solid var(--border-default);
   display: flex;
   flex-direction: column;
@@ -94,7 +99,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background: var(--bg-page);
+  /* 同上：原型 .preview-main 不设底色 */
 }
 
 .lynx-brand-preview__title {
@@ -163,7 +168,7 @@
   flex-wrap: wrap;
   padding: 7px 12px;
   border-top: 1px solid var(--border-default);
-  background: var(--bg-elevated);
+  background: var(--bg-inset);
   font-size: 10.5px;
   color: var(--text-tertiary);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
