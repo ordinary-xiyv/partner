@@ -268,6 +268,30 @@ export function resolvePartnerFavicon(brand: PartnerSiteBrand | null): string | 
 }
 
 /**
+ * 品牌首字 —— 没有 logo / favicon 时用来画「品牌色方块 + 一个字」。
+ *
+ * 取值顺序刻意和后端、伙伴后台预览（web/src/shared/ui/BrandLogo.tsx）保持一致：
+ * short_name 是商户专门为「方形小标」准备的缩写（一个字/一个字母），
+ * name 是完整名称，从中取首字通常还能看但不一定是想要的字。所以 short_name 优先。
+ *
+ * ★ 为什么抽成函数而不是各处自己 slice：这个首字现在有**两个消费方** ——
+ *   页头的方块（Header.tsx）和浏览器标签图标（StatusContext 的 favicon 兜底）。
+ *   两处各写一遍「short || full 取第一个字」，只要有一处改动（比如加个
+ *   「英文名转大写」），页头方块和标签图标就会显示不同的字，而这种不一致
+ *   极难被发现（一个在页面上、一个在标签栏上）。收敛到这一处。
+ *
+ * ★ 用 Array.from 而不是 slice(0, 1)：slice 按 UTF-16 码元切，
+ *   遇到 emoji（🙂）或扩展区汉字会把代理对切成半个字符，渲染出方块乱码。
+ *   Array.from 按码点切，一个字符就是一个字符。
+ */
+export function resolvePartnerMarkInitial(brand: PartnerSiteBrand | null): string {
+  if (!brand) return '';
+  const short = (brand.short_name ?? '').trim();
+  const full = (brand.name ?? '').trim();
+  return Array.from(short || full)[0] ?? '';
+}
+
+/**
  * 伙伴页脚版权 → 客户站 SiteAppearance 上的四个槽位。
  *
  * 三态语义（见 PartnerSiteFooter 的注释）在这一层落实：

@@ -15,7 +15,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { canAccessLogSummaries } from '../utils/permission';
 import { getSiteLogoResolve, setSiteLogoResolve } from '../utils/siteLogoResolveCache';
 import { resolveThemedHeaderLogoUrl } from '../types';
-import { resolvePartnerLogo } from '../utils/partnerBrand';
+import { resolvePartnerLogo, resolvePartnerMarkInitial } from '../utils/partnerBrand';
 import { useTheme } from '../contexts/ThemeContext';
 import { selectableClass, isHeaderNavItemActive } from '../ui/selectableNav';
 import { getDocsAppHref, getDocsHomeUrl, resolveDocLang } from '../config/docs';
@@ -80,9 +80,40 @@ export default function Header({
   const showThemeSwitcher = siteAppearance.layout_config.show_theme_switcher;
   const showLanguageSwitcher = siteAppearance.layout_config.show_language_switcher;
 
+  /*
+   * 顶部导航白名单 —— 目前为空，即页头不显示任何一级菜单。
+   *
+   * 背景：这些菜单不是写死在前端的，而是由服务端 `lc_site_footer.header_config`
+   * 下发（`/api/lynx/branding/site`）。线上库里 6 个菜单的 visible 全是 true：
+   * models / app-plaza / chat / enterprise / docs / pricing。
+   *
+   * 为什么不在数据库里把它们置 false：那张表是**全站单例**（id=1，没有
+   * merchant_id / site_id），改库会把平台自营站和管理后台的导航一起改掉，
+   * 而这里只需要客户站自己的页头变干净。所以过滤放在前端这一层。
+   *
+   * 为什么全部去掉：客户站的一级功能都在侧栏（工作台 / 模型与开发 /
+   * 体验中心 / 计费中心），顶栏再放一遍属于重复；应用广场下拉里只有一个
+   * visible=false 的 TTS 链接（渲染时会因空子项被整个丢掉）；文档和模型
+   * 广场侧栏都有入口。留着只占位置。
+   *
+   * 要恢复某一项，把它的 id 加进这个数组即可，例如 ['chat'] 只留操作台。
+   * 可用的 id：models / app-plaza / chat / enterprise / docs / pricing。
+   *
+   * 注意：这里只影响**页头显示**，不改变路由可达性。路由白名单在
+   * utils/siteAppearanceRouteAccess.ts，由 header_config 的 visible 决定。
+   * 直接输 URL 仍能访问 /models、/docs 等页面。若需要连路由一起关，
+   * 得改那一处，别以为清空这个数组就全关了。
+   */
+  const HEADER_NAV_ALLOWED_IDS: readonly string[] = [];
+
   const NAV_ITEMS: NavItem[] = React.useMemo(
     () => (siteAppearance.header_config.enabled
-      ? resolveHeaderNavItems(siteAppearance.header_config.items, locale)
+      ? resolveHeaderNavItems(
+          siteAppearance.header_config.items.filter(
+            (item) => HEADER_NAV_ALLOWED_IDS.includes(item.id),
+          ),
+          locale,
+        )
       : []),
     [siteAppearance.header_config.enabled, siteAppearance.header_config.items, locale],
   );
@@ -142,52 +173,37 @@ export default function Header({
   const showLogoImage = Boolean(remoteLogoSrc && !statusLoading && !logoBroken);
 
   /*
-   * Logo 的原始宽高比。
-   *
-   * 为什么要记这个：页头 logo 高度锁死 32px，宽度按比例走。于是
-   *
-   *   · 横版 logo（4~5:1）→ 渲染宽 130~150px，视觉上撑得住页头左段
-   *   · 方形图标（1:1）    → 渲染宽只有 32px，旁边一大片空白，
-   *                          看起来「孤零零贴在左边」
-   *
-   * 这不是图片质量问题，是横向分量不足。实测：横版墨迹宽 134.8px、
-   * 方形墨迹宽 24.5px，差 5.5 倍，而高度几乎一样（18.6 vs 17.8）。
-   * 所以单纯调 CSS 尺寸救不了方形图 —— 把 32px 放大到 40px 也只多 6px 宽。
-   *
-   * 解法是补宽度而不是放大：宽高比低于阈值时，在图右侧并排品牌名文字
-   * （见下面的 needsWordmark）。这是 SaaS 页头的通行做法，而且对任意
-   * 尺寸上传都成立 —— 商户传方图、传长图、传带留白的图，最终宽度都够。
-   *
-   * 用 null 表示「还没测出来」：首次渲染时图片尚未 load，此时不补文字，
-   * 避免先闪一下品牌名再变回纯图。
-   */
-  const [logoAspect, setLogoAspect] = React.useState<number | null>(null);
-
-  /*
-   * 低于这个宽高比就判定为「图标型」，需要品牌名补足横向宽度。
-   *
-   * 3.2 对应渲染宽度约 102px（32 × 3.2）。取这个值是因为：
-   *   · 常见横版 wordmark 都在 3.5:1 以上（本例 4.7:1 → 150px）
-   *   · 1:1~3:1 的图渲染出来 32~96px，在页头里明显偏窄
-   * 宁可多补一点：字体是 17px 的常规字重，补上去就是正常字标，不会难看；
-   * 反过来漏补的话，就是一整个空槽。
-   */
-  const ICON_LOGO_ASPECT_MAX = 3.2;
-
-  const needsWordmark = logoAspect !== null && logoAspect < ICON_LOGO_ASPECT_MAX;
-
-  /*
    * 并排显示的品牌名。
    *
-   * 白标站用伙伴填的完整品牌名（不是 short_name —— 那是给方形小标用的
-   * 一两个字缩写，放在页头上读起来像残缺）。非白标站退到 i18n 的
-   * {{brandName}}，它已经被 StatusContext 按平台配置插过值了。
+   * ★ 判定规则（2026-11-25 改）：
+   *
+   *   有 logo 图  → 显示品牌名
+   *   只有首字方块 → 显示品牌名
+   *   没有品牌名   → 不显示（没东西可显示）
+   *
+   * 也就是说：**唯一的开关是「有没有品牌名」，跟 logo 宽高比无关。**
+   *
+   * 之前不是这样。旧实现靠量 logo 的宽高比决定要不要补字（低于 3.2 才补），
+   * 带来两个问题：
+   *   1. 走首字方块分支时压根没有 <img>，量不出宽高比 → 永远不补字。
+   *      明明配了品牌名，页头却只有一个孤零零的方块。
+   *   2. 横版 logo（4:1 以上）因为宽高比超阈值也不补字，判定对图片尺寸
+   *      过于敏感，同一个品牌换张 logo 表现就变，难以预期。
+   *
+   * 现在统一按「有没有名字」决定，行为稳定、可预期。窄图标旁边有名字本来
+   * 也是 SaaS 页头的通行做法；宽版横 logo 再跟一个品牌名也不难看。
+   *
+   * 取值来源：
+   *   · 白标站（绑了站点的经销商）→ 只认伙伴填的 name，没有就空。
+   *     绝不能回落到平台品牌名，那是白标漏底 —— 经销商站挂平台名字
+   *     会让人以为这站是平台自己运营的。
+   *   · 非白标站 → i18n 的 {{brandName}}，已由 StatusContext 按平台配置
+   *     插过值；如果平台也没配，这里拿到的就是空串，同样不显示。
    */
   const wordmarkText = React.useMemo(() => {
-    if (!needsWordmark) return '';
-    const partnerName = (partnerBrand?.name ?? '').trim();
-    return partnerName || t('header.systemName');
-  }, [needsWordmark, partnerBrand, t]);
+    if (isWhiteLabelSite) return (partnerBrand?.name ?? '').trim();
+    return t('header.systemName').trim();
+  }, [isWhiteLabelSite, partnerBrand, t]);
 
   /*
    * 没配 logo（或图破了）时画「品牌色方块 + 首字」。
@@ -196,18 +212,29 @@ export default function Header({
    * 取 short_name 首字，没有就取品牌名首字。两侧不一致过一段时间 ——
    * 后台预览画了方块首字，客户站只留 148px 空白，商户会以为上传失败了。
    *
-   * 取值顺序刻意和后端保持一致：short_name 是商户专门为「方形小标」准备的
-   * 缩写（一个汉字/一个字母），品牌名是完整名称，首字取出来通常是
-   * 「王」「L」这种还能看但不一定想要的字。所以 short_name 优先。
+   * 取值规则本身抽到了 utils/partnerBrand 的 resolvePartnerMarkInitial，
+   * 因为浏览器标签图标（首字 favicon）也要用同一个字。两处各写一遍
+   * slice(0,1) 的话，改动一处就会出现「页头是 Q、标签页是王」这种
+   * 极难发现的不一致。
    */
-  const brandInitial = React.useMemo(() => {
-    if (!isWhiteLabelSite) return '';
-    const short = (partnerBrand?.short_name ?? '').trim();
-    const full = (partnerBrand?.name ?? '').trim();
-    return (short || full).slice(0, 1);
-  }, [isWhiteLabelSite, partnerBrand]);
+  const brandInitial = React.useMemo(
+    () => (isWhiteLabelSite ? resolvePartnerMarkInitial(partnerBrand) : ''),
+    [isWhiteLabelSite, partnerBrand],
+  );
 
   const showLogoFallback = !showLogoImage && Boolean(brandInitial);
+
+  /*
+   * 页头左侧是否真的画出了「品牌标识」（logo 图 或 首字方块）。
+   *
+   * 品牌名就挂在它后面：有标识 + 有名字 → 一起显示；两者缺一就不显示名字。
+   * 这样就不会出现「只有一个孤零零的方块」或者「一个名字孤零零挂着、
+   * 旁边没有图形」的观感。
+   *
+   * 注意 statusLoading：首屏状态没回来之前 showLogoImage 是 false、
+   * brandInitial 也是空，两者都假，这一帧不会画任何东西（也不会闪一下名字）。
+   */
+  const hasBrandMark = showLogoImage || showLogoFallback;
 
   const handleLogoError = () => {
     if (!remoteLogoSrc) return;
@@ -215,20 +242,24 @@ export default function Header({
     setSiteLogoResolve(remoteLogoSrc, 'broken');
   };
 
-  const handleLogoLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
+  /*
+   * 只保留「记录这张图能不能加载成功」这一件事。
+   *
+   * 这里原来还有一整块「量 logo 宽高比」的逻辑（logoAspect state +
+   * measuredLogoSrcRef + measureLogoAspect + logoImgRef + 一个清理 effect），
+   * 目的是「图太窄就补品牌名」。2026-11-25 按产品要求改成
+   * 「有 logo 就显示品牌名，有首字也显示，没品牌名才不显示」，
+   * 判定与图片尺寸彻底无关，那套测量代码已无消费方，整块删除。
+   *
+   * 顺带除掉的隐患：那套逻辑靠 <img onLoad> 写宽高比，而浏览器缓存命中时
+   * load 事件早于 useEffect 触发，导致「刷新一次品牌名就消失」。
+   * 现在不再依赖图片加载时序，这个问题从根上没有了。
+   */
+  const handleLogoLoad = () => {
     if (remoteLogoSrc) {
       setSiteLogoResolve(remoteLogoSrc, 'remote');
     }
-    const img = event.currentTarget;
-    if (img.naturalHeight > 0) {
-      setLogoAspect(img.naturalWidth / img.naturalHeight);
-    }
   };
-
-  /* 换图后旧的比例立刻失效，否则新图会先按旧比例决定要不要补品牌名 */
-  React.useEffect(() => {
-    setLogoAspect(null);
-  }, [remoteLogoSrc]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -406,23 +437,23 @@ export default function Header({
     >
       <div className="app-header-capsule">
       <div className="header-bar app-header-bar">
-        {/* ── 左侧：Logo ──
+        {/* ── 左侧：Logo + 品牌名 ──
             slot 始终挂载，但它按内容收缩（min-width: 32px 兜底），不再占固定
             宽度 —— 早期版本是 flex: 0 0 148px，理由是「导航位置按它推算」，
             但那个推算变量从未被任何样式消费，导航实际由 flex 流决定。固定
             宽度的唯一效果是让正方形 logo 右边白留 116px。
 
-            三分支，互斥：
+            logo 三分支，互斥：
               · 有图      → <img>，高度锁 32px、宽度按比例
               · 无图/图破 → 品牌色方块 + 首字（与伙伴后台 BrandLogo 同规则）
               · 都没有    → 空槽，靠 min-width 撑住 32px 不塌陷
 
-            另外，图太窄（方形图标）时在图右侧并排品牌名，补足横向分量 ——
-            详见 needsWordmark 的注释。 */}
+            品牌名与 logo 并列，**只要 logo 或首字显示了、且有品牌名就显示**，
+            不看图片宽高比。规则见上面 wordmarkText 的注释。 */}
         <Link to="/" className="app-header-logo" aria-label={t('header.systemName')}>
           <span
             className={
-              needsWordmark && wordmarkText
+              hasBrandMark && wordmarkText
                 ? 'app-header-logo__slot app-header-logo__slot--wordmark'
                 : 'app-header-logo__slot'
             }
@@ -441,7 +472,7 @@ export default function Header({
                 {brandInitial}
               </span>
             ) : null}
-            {showLogoImage && needsWordmark && wordmarkText ? (
+            {hasBrandMark && wordmarkText ? (
               <span className="app-header-logo__wordmark">{wordmarkText}</span>
             ) : null}
           </span>

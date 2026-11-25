@@ -4,7 +4,7 @@ import { setCurrencyGlobal } from '../utils';
 import type { StatusInfo, LynxSiteFooterConfig, LynxSiteLogoPublic, SiteLogosThemed } from '../types';
 import type { SiteAppearance } from '../types/siteAppearance';
 import { applySiteBrandInterpolation, syncDocumentTitleFromBrand } from '../i18n/siteBrandInterpolation';
-import { applySiteFavicon, resolveSiteFaviconUrl } from '../utils/siteFavicon';
+import { applySiteFavicon, applySiteInitialFavicon, resolveSiteFaviconUrl } from '../utils/siteFavicon';
 import {
   readStoredSiteBrand,
   SITE_BRAND_CHANGED_EVENT,
@@ -18,6 +18,7 @@ import { buildDefaultSiteAppearance } from '../config/defaultSiteAppearance';
 import { mergeSiteAppearance } from '../utils/mergeSiteAppearance';
 import {
   resolvePartnerFavicon,
+  resolvePartnerMarkInitial,
   resolvePartnerPageTitle,
   resolvePartnerPrimaryColor,
 } from '../utils/partnerBrand';
@@ -25,6 +26,7 @@ import { setBrandPageTitleOverride, setBrandPrimaryColorOverride } from '../them
 import i18n from '../i18n';
 import { getDocsHomeUrl, resolveDocLang } from '../config/docs';
 import { usePartnerSiteBrand, type PartnerSiteBrand } from '../hooks/usePartnerSiteBrand';
+import { useTheme } from './ThemeContext';
 import { setDocBaseUrlOverride, setDocBrandNameOverride } from '../features/doccenter/doccenterService';
 
 interface LynxConfig {
@@ -155,6 +157,25 @@ export function StatusProvider({ children }: { children: React.ReactNode }) {
    */
   const partnerBrandRef = useRef<PartnerSiteBrand | null>(null);
   partnerBrandRef.current = partnerBrand;
+
+  /*
+   * 当前明暗模式（ref 版）。
+   *
+   * 只被 favicon 的首字图标用：那个图标的底色是品牌主色，而平台默认主色
+   * 亮/暗两套不同（#6d51fe / #8b73ff）。切主题后图标得跟着重画，否则
+   * 会出现「整站变浅色了，标签图标还是深色版那个紫」。
+   *
+   * 为什么读 ref 而不是把 resolved 塞进依赖数组：applyFaviconDecision 是
+   * 个 useCallback([]) 的空依赖函数（理由见它上面的注释 —— 它会被定时器
+   * 和多个 effect 复用，依赖一变整个重算链就跟着抖）。用 ref 传值可以让
+   * 它在被调用时读到最新模式，同时保持身份稳定。
+   *
+   * ThemeProvider 在 StatusProvider 外层（见 main.tsx），所以这里能拿到。
+   */
+  const { resolved: themeResolved } = useTheme();
+  const themeResolvedRef = useRef(themeResolved);
+  themeResolvedRef.current = themeResolved;
+
   const [siteAppearance, setSiteAppearance] = useState<SiteAppearance>(() => {
     const defaults = buildAppearanceDefaults();
     return mergeSiteAppearance(defaults, { local: readStoredSiteAppearance() });
@@ -193,7 +214,7 @@ export function StatusProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   /**
-   * favicon 的唯一决策点 —— 平台图标先铺，伙伴图标再覆盖，经销商则清空。
+   * favicon 的唯一决策点 —— 平台图标先铺，伙伴图标再覆盖，没配就画首字。
    *
    * ★ 为什么必须收敛成一个函数：平台 favicon 是在 fetchAll 里「无条件」
    *   应用的（`applySiteFavicon(平台第一张)`），而伙伴品牌是另一个并行请求。
@@ -202,30 +223,52 @@ export function StatusProvider({ children }: { children: React.ReactNode }) {
    *     · 伙伴侧清空后，8 分钟轮询又跑到 fetchAll 把平台图重新贴回来
    *   所以「最终该显示哪张」只允许在这里算一次。
    *
-   * 取值规则（经销商永远不继承平台图，用户明确要求）：
-   *   · 伙伴配了 favicon_url               → 伙伴那张
-   *   · 经销商（is_self_operated === false）→ 没有就清掉，标签页不显示图标
-   *   · 自营 / 第三态 undefined            → 没有就用平台那张
+   * 取值顺序（2026-11-25 加入第三档「首字图标」）：
    *
-   * ★ 第三态为什么按自营算：前端和伙伴后端是两个独立部署物。如果
-   *   缺字段就按经销商清图标，那在「前端已发、后端还是旧版」这个窗口里，
-   *   **平台自营主站的标签页图标会突然消失**。宁可让经销商在旧后端下
-   *   多继承一张图（一升级就好），也不让主站破相。
+   *   1. 伙伴配了 favicon_url           → 伙伴那张
+   *   2. 伙伴没配 + 经销商（false）      → **首字图标**（绝不继承平台那张）
+   *   3. 伙伴没配 + 自营 / 第三态        → 平台那张；平台也没有 → 首字图标
+   *   4. 完全没有伙伴品牌（非白标站）    → 老行为，平台有就用、没有就清空
+   *
+   * ★ 第 2、3 档为什么要退到首字图标，而不是「清空」：
+   *   商户在后台填了品牌名、没传标签图标，标签页就是一片空白（经销商）
+   *   或者挂着平台的旧图（自营）。而页头已经画了「品牌色方块 + 首字」，
+   *   标签页跟页头长得一样才是正常的。首字图标由 utils/siteFavicon 用
+   *   canvas 现画成 data URL，不走网络。
+   *
+   * ★ 第 4 档为什么不也套首字：非白标站没有「伙伴品牌名」这个概念，
+   *   页头显示的是 i18n 的 {{brandName}}（可能随语言变），拿它首字当
+   *   图标会随语言切换换字，反而比空白更奇怪。这一档完全维持原状。
    */
   const applyFaviconDecision = useCallback(
     (platformFavicons: LynxSiteLogoPublic[]) => {
       const partner = partnerBrandRef.current;
+      const mode = themeResolvedRef.current;
       const partnerFavicon = resolvePartnerFavicon(partner);
       if (partnerFavicon) {
         applySiteFavicon(partnerFavicon);
         return;
       }
-      if (partner?.is_self_operated === false) {
-        // 经销商没配 → 清空，绝不留平台那张
-        applySiteFavicon(undefined);
+
+      if (partner) {
+        /* 伙伴有品牌、没传图标 —— 首字图标由 applySiteInitialFavicon 内部处理空值 */
+        const initial = resolvePartnerMarkInitial(partner);
+        if (partner.is_self_operated === false) {
+          // 经销商：平台的对象存储标识/图片一律不继承，只画自己的首字
+          applySiteInitialFavicon(initial, mode);
+          return;
+        }
+        // 自营 / 后端没下发：平台有图先用平台的，没有才退到首字
+        const platform = resolveSiteFaviconUrl(platformFavicons);
+        if (platform.url) {
+          applySiteFavicon(platform.url, platform.contentType);
+          return;
+        }
+        applySiteInitialFavicon(initial, mode);
         return;
       }
-      // 自营 / 后端没下发 → 用平台那张（可能也没有）
+
+      // 没有伙伴品牌：维持「平台有就用、没有就清空」
       const platform = resolveSiteFaviconUrl(platformFavicons);
       applySiteFavicon(platform.url, platform.contentType);
     },
@@ -458,6 +501,23 @@ export function StatusProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     recomputeAppearance();
   }, [partnerBrand, recomputeAppearance]);
+
+  /*
+   * 明暗模式变了 → 重算一次 favicon。
+   *
+   * 只有「首字图标」会受影响（图标的底色是品牌色，而平台默认色亮/暗两套
+   * 不同）；伙伴传了真图时 applyFaviconDecision 会走 applySiteFavicon，
+   * 那边有 url 缓存键挡着，不会重复解码。
+   *
+   * ★ 为什么必须显式加这个 effect：StatusProvider 在 ThemeProvider 的子树里，
+   *   子 effect 先于父 effect 执行 —— 切主题那一刻本组件的 effect 读到的
+   *   documentElement.theme-mode 还是旧值，图标会停在上一个配色上不更新。
+   *   所以这里把 latest 的 resolved 传进决策函数（见 applyFaviconDecision
+   *   里的 themeResolvedRef），而不是让它自己去读 DOM。
+   */
+  useEffect(() => {
+    applyFaviconDecision(siteFaviconsRef.current);
+  }, [themeResolved, applyFaviconDecision]);
 
   const contextValue = useMemo(
     () => ({
