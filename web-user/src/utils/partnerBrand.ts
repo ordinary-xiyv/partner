@@ -107,25 +107,32 @@ export function partnerBrandToCustomerService(
   isSelfOperated?: boolean,
 ): CustomerServiceConfig {
   /*
-   * 只有「明确是经销商」才摘平台字段。
+   * 经销商的「什么都不继承」：把平台单例里带平台身份的东西全摘掉。
    *
-   * base 里装的是平台单例（lc_site_footer.customer_service_config），库里实际内容是：
-   *   { enabled:true, show_contact:true, show_feedback:true,
-   *     qr_code_file_id:"c082cdbd-...", feedback_url:"https://<平台飞书>/..." }
-   * 直接 return base 等于把这套平台数据原样挂到经销商站点上。
+   * ★ 早先这里只清了 qr_code_file_id，保留了 qr_code_url —— 那是个真漏洞。
+   *   原来的理由写的是「平台那张库里只有 file_id、没有 url，所以图片暂时
+   *   不会显示」，但线上实测 /api/lynx/branding/site 返回的是：
+   *     { qr_code_file_id: "cd67e772-...",
+   *       qr_code_url: "https://<对象存储>/...last-frame.jpg?X-Tos-..." }
+   *   url 是有的，而且渲染层（CustomerServiceFloat）只读 url。
+   *   于是「经销商什么都没配」时浮窗照样弹出平台那张图 —— 就是那张
+   *   卡通人物头像被当成客服二维码显示出来。
    *
-   * 眼下渲染层只读 qr_code_url（平台那张库里只有 file_id、没有 url，
-   * normalizeCustomerServiceConfig 也只认 url，所以图片暂时不会显示），看着「没事」；
-   * 但 file_id 是**平台的对象存储标识**，留在经销商站点上就是定时炸弹 ——
-   * 将来任何一处读 file_id 去换签名 URL 的代码，都会把平台那张图
-   * 当成经销商自己的图渲染出来。
+   * 所以现在：file_id 和 url 一起清。经销商看到的二维码只能来自
+   * brand_support.qr_code_url（它自己在伙伴后台上传的那张）。
    *
-   * 所以经销商分支统一走 stripPlatformService：保留「浮窗要不要开」这类
-   * 无归属的开关，摘掉带平台身份的字段。
+   * ★ enabled 也一并置 false。
+   *   平台 base 里 enabled 是 true（平台自己开着浮窗），经销商继承了它就会
+   *   出现「浮窗开着、里面什么都没有」的空壳 —— 只有一个联系人图标，
+   *   点开一片空白。经销商没配联系方式时，浮窗根本不该出现。
+   *   show_contact 保持 base 的值（它是「面板里显示不显示联系 tab」的开关，
+   *   不是身份信息，且 enabled=false 时整块都不渲染，留着无害）。
    */
   const stripPlatformService = (cfg: CustomerServiceConfig): CustomerServiceConfig => ({
     ...cfg,
+    enabled: false,
     qr_code_file_id: '',
+    qr_code_url: undefined,
   });
 
   /** true = 自营；false = 经销商；undefined = 后端没下发，按老行为放行 */
@@ -156,21 +163,33 @@ export function partnerBrandToCustomerService(
       ...(qrCode ? { qr_code_url: qrCode } : {}),
     };
   }
+  /*
+   * 经销商分支：**以平台值为底，但只保留无归属的开关，有身份的字段全部覆盖。**
+   *
+   * 显式写每一个字段（而不是靠条件展开省略）是因为「省略」在对象展开里
+   * 等于「保留 base 的值」—— 漏写一个字段就是把平台的数据放过去了。
+   * 上面就栽在这里：只清了 file_id，url 从 base 带了过来。
+   *
+   * enabled / show_contact 置 true 是对的：能走到这里说明商户确实填了
+   * 联系方式或自己的二维码（见上面的 hasAny），浮窗本来就该开。
+   * 真正需要防的是「什么都没填」那条路径，它在上面走 fallback()，
+   * 那里的 stripPlatformService 会把 enabled 置 false。
+   */
   return {
     ...base,
     enabled: true,
     show_contact: true,
     qr_code_url: qrCode || undefined,
     /*
-     * 经销商分支里 file_id 一律清空，不管有没有自己的二维码。
+     * file_id 一律清空，不管有没有自己的二维码。
      *
      * 原因：base 里的 qr_code_file_id 是**平台**的（lc_site_footer 是单例），
-     * 留在经销商身上就等于「经销商站点记着平台的 file_id」。当前没有渲染方
-     * 读它（浮窗只用 URL），但这是个定时炸弹 —— 将来任何一处读 file_id
-     * 的代码都会把平台那张图当成经销商的。
+     * 留在经销商身上就等于「经销商站点记着平台的 file_id」。哪怕当前没有
+     * 渲染方读它，将来任何一处「按 file_id 换签名 URL」的代码都会把平台
+     * 那张图当成经销商自己的。
      *
      * 经销商自己的二维码地址就在 qr_code_url 里，够用了；file_id 是平台侧
-     * 那套「按 file_id 换签名 URL」机制的产物，不适用于经销商的自有 URL。
+     * 那套机制的产物，不适用于经销商的自有 URL。
      *
      * 自营分支不能这样清 —— 平台自己的 file_id 必须原样保留，
      * 否则平台侧下次读配置会以为二维码被删了。

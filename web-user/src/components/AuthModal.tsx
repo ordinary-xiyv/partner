@@ -1965,7 +1965,7 @@ function AuthBrandPanel() {
 
 export function AuthPage({ tab }: { tab: 'login' | 'register' }) {
   const { t } = useTranslation();
-  const { siteAppearance, loading: appearanceLoading } = useStatus();
+  const { siteAppearance, partnerBrand, loading: appearanceLoading } = useStatus();
   const { locale } = useLocale();
   const { resolved: resolvedTheme, primaryColor } = useTheme();
   // 媒体原始宽高比（就绪后由 AuthLoginMedia 上报）；null = 尚未测得
@@ -1983,7 +1983,7 @@ export function AuthPage({ tab }: { tab: 'login' | 'register' }) {
   );
 
   /*
-   * 登录页左栏媒体：**只用图片，视频一律当作没配**。
+   * 登录页左栏媒体：**经销商一律不显示，自营站（平台自己）才用平台的。**
    *
    * 视频那条链路是历史遗留。它挂在平台侧的站点外观（login_media_config）上，
    * 由平台运维在 lynxtonapi 后台上传，**伙伴后台（本仓库 web）没有对应的
@@ -1993,16 +1993,29 @@ export function AuthPage({ tab }: { tab: 'login' | 'register' }) {
    * 所以这里做一次收口：服务端就算下发 type='video'，也按 none 处理，
    * 左栏回落到纯 CSS 品牌区（AuthBrandPanel）。
    *
+   * ★ 图片同样不能给经销商。
+   *
+   * 之前这里「保留图片」，理由是「一张静态图即使商户改不了也不构成干扰」。
+   * 这条理由站不住：那张图是**平台（灵通云 tokens）的资产**，挂在经销商的
+   * 域名和登录页上，访客会以为这个站是平台开的。这和「经销商继承了平台的
+   * 客服二维码 / favicon」是同一类问题，不能因为它是静态图就放过。
+   *
+   * 判据与全站一致：只有平台站（is_self_operated === true）才用平台的图片；
+   * 经销商（false）与第三态（undefined，旧版后端没下发）都当没有 ——
+   * 这里和别处不同：别处第三态按自营放行是为了保住主站，但这里放行的
+   * 代价是「经销商登录页出现平台宣传图」，而漏掉的代价只是「平台站的
+   * 登录页暂时没有配图」—— 平台站自己本来就很少配这张图，且升级后立刻恢复。
+   * 权衡下来这里选择收紧。
+   *
    * 为什么不直接把服务端那条记录改掉：login_media_config 落在 lynxtonapi
    * 的库表里，本仓库只读；而且同一条记录可能还被主站自己的登录页用着。
    * 收在渲染层，既立刻生效，又不影响别人。
-   *
-   * 图片保留：同样是平台侧配置，但它不会「动起来」，一张静态图即使商户
-   * 改不了也不构成干扰，日后给伙伴后台补上传入口时直接就能用。
    */
   const loginMediaConfig: AuthLoginMediaConfig = (() => {
     const raw = siteAppearance?.login_media_config;
     if (!raw || raw.type !== 'image') return { type: 'none' };
+    // 只有平台站能用平台的登录页配图；经销商与未知站点一律不用
+    if (partnerBrand?.is_self_operated !== true) return { type: 'none' };
     return {
       type: 'image',
       image_url: raw.image_url,

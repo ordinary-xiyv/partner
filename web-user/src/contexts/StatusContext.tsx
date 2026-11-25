@@ -161,6 +161,14 @@ export function StatusProvider({ children }: { children: React.ReactNode }) {
   });
   const [siteLogosThemed, setSiteLogosThemed] = useState<SiteLogosThemed>({ light: null, dark: null });
   const [siteFavicons, setSiteFavicons] = useState<LynxSiteLogoPublic[]>([]);
+  /**
+   * 平台 favicon 列表的 ref 版。
+   *
+   * applyFaviconDecision 会被 fetchAll、recomputeAppearance、定时器多处调用，
+   * 而这些地方拿到的都是首次渲染的闭包 —— 直接读 siteFavicons 会永远是空数组。
+   * 用 ref 保证读到的总是最新一份。
+   */
+  const siteFaviconsRef = useRef<LynxSiteLogoPublic[]>([]);
   const [siteBrand, setSiteBrand] = useState<StoredSiteBrand>(() => readStoredSiteBrand());
   const [loading, setLoading] = useState(true);
 
@@ -183,6 +191,46 @@ export function StatusProvider({ children }: { children: React.ReactNode }) {
     setSiteFooter(appearanceToFooter(appearance));
     syncBrandFromAppearance(appearance, setSiteBrand);
   }, []);
+
+  /**
+   * favicon 的唯一决策点 —— 平台图标先铺，伙伴图标再覆盖，经销商则清空。
+   *
+   * ★ 为什么必须收敛成一个函数：平台 favicon 是在 fetchAll 里「无条件」
+   *   应用的（`applySiteFavicon(平台第一张)`），而伙伴品牌是另一个并行请求。
+   *   两边各自调 applySiteFavicon 会互相踩：
+   *     · 平台后到 → 把伙伴配的图标盖掉
+   *     · 伙伴侧清空后，8 分钟轮询又跑到 fetchAll 把平台图重新贴回来
+   *   所以「最终该显示哪张」只允许在这里算一次。
+   *
+   * 取值规则（经销商永远不继承平台图，用户明确要求）：
+   *   · 伙伴配了 favicon_url               → 伙伴那张
+   *   · 经销商（is_self_operated === false）→ 没有就清掉，标签页不显示图标
+   *   · 自营 / 第三态 undefined            → 没有就用平台那张
+   *
+   * ★ 第三态为什么按自营算：前端和伙伴后端是两个独立部署物。如果
+   *   缺字段就按经销商清图标，那在「前端已发、后端还是旧版」这个窗口里，
+   *   **平台自营主站的标签页图标会突然消失**。宁可让经销商在旧后端下
+   *   多继承一张图（一升级就好），也不让主站破相。
+   */
+  const applyFaviconDecision = useCallback(
+    (platformFavicons: LynxSiteLogoPublic[]) => {
+      const partner = partnerBrandRef.current;
+      const partnerFavicon = resolvePartnerFavicon(partner);
+      if (partnerFavicon) {
+        applySiteFavicon(partnerFavicon);
+        return;
+      }
+      if (partner?.is_self_operated === false) {
+        // 经销商没配 → 清空，绝不留平台那张
+        applySiteFavicon(undefined);
+        return;
+      }
+      // 自营 / 后端没下发 → 用平台那张（可能也没有）
+      const platform = resolveSiteFaviconUrl(platformFavicons);
+      applySiteFavicon(platform.url, platform.contentType);
+    },
+    [],
+  );
 
   /**
    * 唯一的「重算外观」入口。
@@ -230,17 +278,17 @@ export function StatusProvider({ children }: { children: React.ReactNode }) {
     syncDocumentTitleFromBrand();
 
     /*
-     * favicon：伙伴配了就用伙伴的，否则回退平台的。
+     * favicon 跟着外观一起重算。
      *
-     * 平台侧是列表（取前 3 条挑第一条），伙伴侧只有一个 favicon_url ——
-     * 后者是「这个商户明确指定要用这张」，优先级高于平台运营配的那套。
-     * 伙伴没配时不动：平台那套已由 resolveSiteFaviconUrl 应用过，
-     * 这里再调 applySiteFavicon(undefined) 反而会把平台图标清掉。
+     * 这里不再自己判断「伙伴有没有配」—— 取值规则全在 applyFaviconDecision 里，
+     * 由它决定用伙伴的、用平台的、还是一张都不显示。两处各判断一遍必然会
+     * 分叉，之前就是「伙伴没配就什么都不做」，结果平台那张二维码图永远
+     * 留在经销商站点的标签页上。
+     *
+     * 平台 favicon 列表用 state 里的最新一份：fetchAll 拉到后会 setSiteFavicons，
+     * 这个函数被 useEffect 依赖着 partnerBrand，所以两边谁后到都会重算一次。
      */
-    const partnerFavicon = resolvePartnerFavicon(partner);
-    if (partnerFavicon) {
-      applySiteFavicon(partnerFavicon);
-    }
+    applyFaviconDecision(siteFaviconsRef.current);
 
     /*
      * 接口基地址 + 品牌名：注入给文档服务。
@@ -263,7 +311,7 @@ export function StatusProvider({ children }: { children: React.ReactNode }) {
     setDocBrandNameOverride(
       (partner?.name || '').trim() || (partner?.short_name || '').trim(),
     );
-  }, [applyAppearance]);
+  }, [applyAppearance, applyFaviconDecision]);
 
   useEffect(() => {
     const defaults = buildAppearanceDefaults();
@@ -364,11 +412,17 @@ export function StatusProvider({ children }: { children: React.ReactNode }) {
       }
 
       /*
-       * 平台 favicon 先应用，再由 recomputeAppearance 决定要不要用伙伴的覆盖。
-       * 顺序不能反：先应用伙伴的会被这里的平台值盖掉。
+       * 平台 favicon 先记下来，最终应用交给 applyFaviconDecision。
+       *
+       * 这里**不能**直接 applySiteFavicon(平台那张) 了。原来的写法是无条件铺
+       * 平台图标，再由 recomputeAppearance 判断要不要用伙伴的覆盖 —— 于是
+       * 「经销商没配 favicon」这种情况没有任何一处会去清它，平台那张图
+       * （实测是一张二维码）就一直挂在经销商站点的标签页上。
+       *
+       * 现在只更新 ref，由决策函数统一算「最终该显示哪张」。
        */
-      const faviconResolved = resolveSiteFaviconUrl(nextFavicons);
-      applySiteFavicon(faviconResolved.url, faviconResolved.contentType);
+      siteFaviconsRef.current = nextFavicons;
+      applyFaviconDecision(nextFavicons);
 
       recomputeAppearance();
     } catch {
@@ -377,7 +431,7 @@ export function StatusProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     }
     return result;
-  }, [recomputeAppearance]);
+  }, [recomputeAppearance, applyFaviconDecision]);
 
   useEffect(() => {
     fetchAll();
