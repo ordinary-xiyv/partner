@@ -44,6 +44,7 @@ import {
   mockUsageLogs,
   mockUsageSummary,
 } from './mock/seed';
+import { mockTenants } from './mock/tenant';
 
 /** mock 延迟，模拟真实网络，便于验证 loading 态 */
 function delay<T>(data: T, ms = 260): Promise<T> {
@@ -865,15 +866,16 @@ export async function fetchDealerBrand(): Promise<TenantBrand> {
   return toTenantBrand(res);
 }
 
-/** mock 模式下的品牌内存态（真实模式下不用） */
-let mockBrand: TenantBrand = {
-  dealer_id: mockDealerProfile.id,
-  slug: mockDealerProfile.merchant_code,
-  name: mockDealerProfile.display_name,
-  primary_color: '#6d51fe',
-  page_title: mockDealerProfile.display_name,
-  domains: [],
-};
+/**
+ * mock 模式下的品牌内存态（真实模式下不用）。
+ *
+ * 字段必须补齐。原来只有 name / primary_color / page_title 三项，
+ * 品牌页打开后 short_name、api_base_url、support、landing 全是 undefined，
+ * 首字标记显示「品」、页脚和客服一片空白 —— 看起来像页面坏了，
+ * 实际是假数据没给全。直接拿 mock/tenant.ts 里那份完整数据当起点，
+ * 它本来就是为「验证白标视觉」准备的，字段是齐的。
+ */
+let mockBrand: TenantBrand = { ...mockTenants[0] };
 
 /**
  * 保存品牌配置。

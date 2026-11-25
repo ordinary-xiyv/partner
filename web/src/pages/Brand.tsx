@@ -1,37 +1,31 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button,
-  Col,
   ColorPicker,
-  Divider,
   Form,
   Input,
-  Row,
   Space,
   Switch,
   Tag,
   Tooltip,
-  Typography,
   Upload,
 } from 'antd';
 import {
   CheckCircleFilled,
   ExclamationCircleFilled,
   ExportOutlined,
+  InfoCircleOutlined,
   LoadingOutlined,
   ReloadOutlined,
   SaveOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
 import {
-  AppPageHeader,
-  BrandLogo,
   BrandPreview,
   HomeStylePicker,
   PagePanel,
   PageStack,
   UseMockNotice,
-  DEFAULT_HOME_STYLE,
   dealerApi,
   formatTime,
   notifyApiError,
@@ -47,8 +41,7 @@ import type {
   TenantSupport,
 } from '@lynx/shared';
 import type { BrandImageTarget } from '@lynx/shared';
-
-const { Text } = Typography;
+import './brand.css';
 
 /** 常用品牌色：经销商大多不想调色盘，给几个稳妥的起点 */
 const PRESET_COLORS = [
@@ -406,7 +399,6 @@ export default function Brand() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [checking, setChecking] = useState<string>('');
-  const [remountKey, setRemountKey] = useState(0);
 
   /**
    * 上传状态单独维护，不塞进 Form。
@@ -440,6 +432,27 @@ export default function Brand() {
   }, [load]);
 
   /**
+   * brand 换了之后，把新值灌回表单。
+   *
+   * 为什么不能只靠 initialValues：它只在「首次挂载 / key 变化」时读一次。
+   * 「重新加载」的流程是 load() → setBrand(新值)，此时 Form 早就挂载完了，
+   * initialValues 不会被重新读取 —— 表现为点重新加载后 prompt 消失、
+   * 但输入框里还是刚才手改的内容（实测确认过）。
+   *
+   * 三个调用点都要这层同步：
+   *   · 进页面首次加载
+   *   · 点「重新加载」
+   *   · 保存成功后 setBrand(next)
+   *
+   * 用 setFieldsValue 而不是 resetFields：这里要把「服务端最新值」写进去，
+   * 而 resetFields 用的是 initialValues（挂载时那一刻的快照，可能是旧的）。
+   */
+  useEffect(() => {
+    if (!brand) return;
+    form.setFieldsValue(toFormValues(brand));
+  }, [brand, form]);
+
+  /**
    * 预览用的合成品牌：原始值 + 草稿覆盖。
    * 单独维护一个对象，避免把「还没保存的值」直接写进 brand 状态——
    * 那样一旦保存失败，页面上看起来已经是新值了，会误导经销商以为改成功了。
@@ -469,7 +482,14 @@ export default function Brand() {
       const next = await dealerApi.updateDealerBrand(patch);
       setBrand(next);
       setDraft({});
-      setRemountKey((k) => k + 1);
+      /*
+       * 不再 setRemountKey。
+       *
+       * 它原本的作用是「重挂 Form 让 initialValues 生效」，但那个机制本身
+       * 就不成立（详见 handleRevert 的注释）。现在由上面那个 [brand] effect
+       * 统一把 brand 灌回表单，保存/重新加载/首加载三条路径走同一套，
+       * 少一个状态变量也少一条要维护的分支。
+       */
       notifyApiSuccess('品牌配置已保存，客户站即刻生效');
     } catch (err) {
       notifyApiError(err, '保存失败');
@@ -495,7 +515,6 @@ export default function Brand() {
   if (loading && !brand) {
     return (
       <PageStack gap={20}>
-        <AppPageHeader title="品牌设置" subtitle="配置你的客户在专属域名下看到的形象" />
         <PagePanel padded>
           <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-tertiary)' }}>
             <LoadingOutlined style={{ fontSize: 20, marginBottom: 10, display: 'block' }} />
@@ -506,109 +525,169 @@ export default function Brand() {
     );
   }
 
+  /**
+   * 是否还有没保存的改动。
+   *
+   * 判据是 draft 是否为空。所有会写库的字段（文字、页脚、客服、主色、
+   * 首页风格）在变动时都会往 draft 里写一条，所以它能代表「改过东西」。
+   * 图片是个例外：上传即落库，onUploaded 会把对应键从 draft 里摘掉。
+   */
+  const dirty = Object.keys(draft).length > 0;
+  const primary = previewBrand?.primary_color || '#6d51fe';
+  const markInitial = resolveMarkInitial(previewBrand);
+
+  /**
+   * 撤销：丢掉草稿，并把表单退回 initialValues。
+   *
+   * ★ 这里必须显式 resetFields()，只靠 setRemountKey 是不够的。
+   *
+   * 原来只写了 setDraft({}) + setRemountKey(k+1)，以为改 key 会重挂 Form、
+   * initialValues 就会重新生效。实测不成立：useForm() 返回的是同一个 form
+   * 实例，React 重挂 DOM 不会清空它的 store，字段还是改过的值 ——
+   * 表现为「点了撤销，提示消失了，但输入框里还是我刚填的内容」。
+   *
+   * resetFields() 会把这批字段恢复成 initialValues（也就是 toFormValues(brand)），
+   * 这才是「撤销」该有的行为。
+   */
+  const handleRevert = () => {
+    setDraft({});
+    form.resetFields();
+  };
+
   return (
-    <PageStack gap={20}>
-      <AppPageHeader
-        title="品牌设置"
-        subtitle="配置你的客户在专属域名下看到的形象"
-        actions={
-          <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>
-            重新加载
+    <div className="brand-page">
+      {/* ---------- 吸顶操作栏 ----------
+          原来「保存」在表单最底部，长表单要滚两千多像素才够得着。
+          现在吸附在 shell 顶栏下方，随时可保存，并且显示改动状态。 */}
+      <div className="brand-bar">
+        <div>
+          <h1 className="brand-bar__title">品牌设置</h1>
+          <p className="brand-bar__sub">配置你的客户在专属域名下看到的形象</p>
+        </div>
+        <div className="brand-bar__actions">
+          <span className="brand-dirty" data-on={dirty ? 'true' : 'false'}>
+            有未保存的改动
+          </span>
+          {/* 重新加载：重新拉一次品牌配置。
+              做成图标按钮 —— 它和保存/撤销不是一类操作（这是拉数据，不是编辑），
+              不该长得一样重。title + aria-label 都给，图标按钮不能只有图形。 */}
+          <Tooltip title="重新加载">
+            <Button
+              type="text"
+              icon={<ReloadOutlined />}
+              onClick={() => void load()}
+              loading={loading}
+              aria-label="重新加载"
+            />
+          </Tooltip>
+          <Button onClick={handleRevert} disabled={saving}>
+            撤销
           </Button>
-        }
-      />
+          <Button
+            type="primary"
+            icon={<SaveOutlined />}
+            loading={saving}
+            onClick={() => form.submit()}
+          >
+            保存
+          </Button>
+        </div>
+      </div>
 
       <UseMockNotice />
 
-      <Row gutter={[16, 16]}>
-        {/* ---------- 左：表单 ---------- */}
-        <Col xs={24} xl={14}>
-          <PagePanel padded>
-            <div className="lynx-section-title">基础信息</div>
-            <Form
-              key={remountKey}
-              form={form}
-              layout="vertical"
-              requiredMark={false}
-              initialValues={brand ? toFormValues(brand) : undefined}
-              onFinish={handleSave}
-              onValuesChange={(changed: Partial<FormValues>) => {
-                // 只把「影响预览」的字段同步进草稿
-                const next: TenantBrandUpdatePayload = {};
-                if (changed.name !== undefined) {
-                  next.name = changed.name;
-                  next.short_name = (changed.short_name || changed.name).trim().slice(0, 1);
-                }
-                if (changed.short_name !== undefined) next.short_name = changed.short_name;
-                if (changed.page_title !== undefined) next.page_title = changed.page_title;
-                if (changed.api_base_url !== undefined) next.api_base_url = changed.api_base_url;
-                if (changed.logo_url !== undefined) next.logo_url = changed.logo_url;
-                if (changed.favicon_url !== undefined) next.favicon_url = changed.favicon_url;
-                /*
-                 * 页脚五项也要进草稿。
-                 *
-                 * 原来这里只管「影响预览」的字段，页脚不在列 —— 而右侧的
-                 * 「未保存 / 与线上一致」标签是看 Object.keys(draft) 的，
-                 * 于是拨动「显示页脚」开关或改了版权文字之后，标签仍然写着
-                 * 「与线上一致」。用户据此以为自己没改动，就不会去保存；
-                 * 真去点了保存又撞上「没有改动，无需保存」，两处提示互相矛盾。
-                 *
-                 * 页脚确实不进预览面板（预览只画品牌名/logo/主色那一块），
-                 * 但「有没有未保存改动」是全局判断，不该因为「不影响预览」
-                 * 就漏掉。写进 draft.landing.footer 即可，buildPatch 仍然
-                 * 从 Form values 取最终值，draft 在这里只承担「标记有改动」。
-                 */
-                const footerKeys: Array<keyof FormValues> = [
-                  'footer_enabled',
-                  'footer_copyright_text',
-                  'footer_terms_label',
-                  'footer_privacy_label',
-                  'footer_beian_label',
-                ];
-                if (footerKeys.some((k) => changed[k] !== undefined)) {
-                  next.landing = {
-                    ...(draft.landing ?? brand?.landing ?? {}),
-                    footer: {
-                      ...(draft.landing?.footer ?? brand?.landing?.footer ?? {}),
-                      ...(changed.footer_enabled !== undefined
-                        ? { enabled: changed.footer_enabled }
-                        : {}),
-                      ...(changed.footer_copyright_text !== undefined
-                        ? { copyright_text: changed.footer_copyright_text }
-                        : {}),
-                      ...(changed.footer_terms_label !== undefined
-                        ? { terms_label: changed.footer_terms_label }
-                        : {}),
-                      ...(changed.footer_privacy_label !== undefined
-                        ? { privacy_label: changed.footer_privacy_label }
-                        : {}),
-                      ...(changed.footer_beian_label !== undefined
-                        ? { beian_label: changed.footer_beian_label }
-                        : {}),
-                    },
-                  };
-                }
-                const supportKeys: Array<keyof FormValues> = [
-                  'support_email',
-                  'support_phone',
-                  'support_wechat',
-                  'support_note',
-                ];
-                const supportChanged = supportKeys.filter((k) => changed[k] !== undefined);
-                if (supportChanged.length) {
-                  next.support = {
-                    ...(draft.support ?? {}),
-                    ...(changed.support_email !== undefined ? { email: changed.support_email } : {}),
-                    ...(changed.support_phone !== undefined ? { phone: changed.support_phone } : {}),
-                    ...(changed.support_wechat !== undefined ? { wechat: changed.support_wechat } : {}),
-                    ...(changed.support_note !== undefined ? { note: changed.support_note } : {}),
-                  };
-                }
-                setDraft((d) => ({ ...d, ...next }));
-              }}
-            >
-              <Row gutter={12}>
-                <Col xs={24} sm={14}>
+      <div className="brand-layout">
+        {/* ══════════ 左：表单 ══════════ */}
+        <div className="brand-col-form">
+          <Form
+            form={form}
+            layout="vertical"
+            requiredMark={false}
+            initialValues={brand ? toFormValues(brand) : undefined}
+            onFinish={handleSave}
+            onValuesChange={(changed: Partial<FormValues>) => {
+              // 只把「影响预览」的字段同步进草稿
+              const next: TenantBrandUpdatePayload = {};
+              if (changed.name !== undefined) {
+                next.name = changed.name;
+                next.short_name = (changed.short_name || changed.name).trim().slice(0, 1);
+              }
+              if (changed.short_name !== undefined) next.short_name = changed.short_name;
+              if (changed.page_title !== undefined) next.page_title = changed.page_title;
+              if (changed.api_base_url !== undefined) next.api_base_url = changed.api_base_url;
+              if (changed.logo_url !== undefined) next.logo_url = changed.logo_url;
+              if (changed.favicon_url !== undefined) next.favicon_url = changed.favicon_url;
+              /*
+               * 页脚五项也要进草稿。
+               *
+               * 原来这里只管「影响预览」的字段，页脚不在列 —— 而右侧的
+               * 「未保存 / 与线上一致」标签是看 Object.keys(draft) 的，
+               * 于是拨动「显示页脚」开关或改了版权文字之后，标签仍然写着
+               * 「与线上一致」。用户据此以为自己没改动，就不会去保存；
+               * 真去点了保存又撞上「没有改动，无需保存」，两处提示互相矛盾。
+               *
+               * 页脚确实不进预览面板（预览只画品牌名/logo/主色那一块），
+               * 但「有没有未保存改动」是全局判断，不该因为「不影响预览」
+               * 就漏掉。写进 draft.landing.footer 即可，buildPatch 仍然
+               * 从 Form values 取最终值，draft 在这里只承担「标记有改动」。
+               */
+              const footerKeys: Array<keyof FormValues> = [
+                'footer_enabled',
+                'footer_copyright_text',
+                'footer_terms_label',
+                'footer_privacy_label',
+                'footer_beian_label',
+              ];
+              if (footerKeys.some((k) => changed[k] !== undefined)) {
+                next.landing = {
+                  ...(draft.landing ?? brand?.landing ?? {}),
+                  footer: {
+                    ...(draft.landing?.footer ?? brand?.landing?.footer ?? {}),
+                    ...(changed.footer_enabled !== undefined
+                      ? { enabled: changed.footer_enabled }
+                      : {}),
+                    ...(changed.footer_copyright_text !== undefined
+                      ? { copyright_text: changed.footer_copyright_text }
+                      : {}),
+                    ...(changed.footer_terms_label !== undefined
+                      ? { terms_label: changed.footer_terms_label }
+                      : {}),
+                    ...(changed.footer_privacy_label !== undefined
+                      ? { privacy_label: changed.footer_privacy_label }
+                      : {}),
+                    ...(changed.footer_beian_label !== undefined
+                      ? { beian_label: changed.footer_beian_label }
+                      : {}),
+                  },
+                };
+              }
+              const supportKeys: Array<keyof FormValues> = [
+                'support_email',
+                'support_phone',
+                'support_wechat',
+                'support_note',
+              ];
+              const supportChanged = supportKeys.filter((k) => changed[k] !== undefined);
+              if (supportChanged.length) {
+                next.support = {
+                  ...(draft.support ?? {}),
+                  ...(changed.support_email !== undefined ? { email: changed.support_email } : {}),
+                  ...(changed.support_phone !== undefined ? { phone: changed.support_phone } : {}),
+                  ...(changed.support_wechat !== undefined ? { wechat: changed.support_wechat } : {}),
+                  ...(changed.support_note !== undefined ? { note: changed.support_note } : {}),
+                };
+              }
+              setDraft((d) => ({ ...d, ...next }));
+            }}
+          >
+            {/* ── 身份 ── */}
+            <PagePanel padded>
+              <div className="brand-card-head">
+                <span className="brand-card-title">身份</span>
+              </div>
+
+              <div className="brand-grid">
+                <div className="brand-s7">
                   <Form.Item
                     name="name"
                     label="品牌名"
@@ -616,81 +695,151 @@ export default function Brand() {
                       { required: true, message: '请输入品牌名' },
                       { max: 24, message: '建议不超过 24 个字，侧栏空间有限' },
                     ]}
-                    extra="显示在你的客户控制台侧栏、登录页与浏览器标题"
+                    extra="显示在侧栏、登录页与浏览器标题"
                   >
                     <Input placeholder="如：云启智能" />
                   </Form.Item>
-                </Col>
-                <Col xs={24} sm={10}>
+                </div>
+
+                <div className="brand-s5">
+                  {/*
+                    首字标记。
+
+                    原来这里是「输入框 + 另一个叫『实际效果』的方格」，
+                    等于给同一个方块起了两个名字，中间还夹一句灰字。
+                    现在并成一条：窄输入框 → 箭号 → 客户站页头的真实样子。
+                    让商户一眼看出这个字最后长在哪，而不是孤立地看一个方块。
+
+                    结构上外层 Form.Item 只负责「标签 + 说明 + 校验」，
+                    真正绑定字段的是里面那个 noStyle 的 —— 这样输入框、箭号、
+                    预览条才能排在同一行。用负 margin 去硬凑是错的：
+                    换主题或改字号就会错位。
+                  */}
                   <Form.Item
-                    name="short_name"
-                    label="首字标记"
-                    extra="没配 logo 时用它，留空取品牌名首字"
+                    label={
+                      <span className="brand-label">
+                        首字标记
+                        <Tooltip title="客户站侧栏、浏览器标签图标都用这个字。没配 logo 时它就是你的图形标记。">
+                          <InfoCircleOutlined className="brand-info" />
+                        </Tooltip>
+                      </span>
+                    }
+                    extra="留空则自动取品牌名首字"
                   >
-                    <Input placeholder="如：云" maxLength={1} />
+                    <div className="brand-mark-row">
+                      <Form.Item name="short_name" noStyle>
+                        <Input
+                          placeholder="云"
+                          maxLength={1}
+                          style={{ width: 72, textAlign: 'center', flexShrink: 0 }}
+                        />
+                      </Form.Item>
+                      <span className="brand-mark-arrow">→</span>
+                      <div className="brand-mark-preview">
+                        <span
+                          className="brand-mark-tile"
+                          style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: 6,
+                            fontSize: 11,
+                            background: primary,
+                            color: readableOnPrimary(primary),
+                          }}
+                        >
+                          {markInitial}
+                        </span>
+                        <span className="brand-mark-preview__name">
+                          {previewBrand?.name || '品牌名'}
+                        </span>
+                      </div>
+                    </div>
                   </Form.Item>
-                </Col>
-              </Row>
+                </div>
 
-              <Form.Item
-                name="page_title"
-                label="浏览器标题"
-                rules={[{ required: true, message: '请输入浏览器标题' }]}
-                extra="显示在浏览器标签页，建议带上品牌名"
-              >
-                <Input placeholder="如：云启智能 · API 控制台" maxLength={60} />
-              </Form.Item>
+                <div className="brand-s7">
+                  <Form.Item
+                    name="page_title"
+                    label="浏览器标题"
+                    rules={[{ required: true, message: '请输入浏览器标题' }]}
+                    extra="显示在浏览器标签页"
+                  >
+                    <Input placeholder="如：云启智能 · API 控制台" maxLength={60} />
+                  </Form.Item>
+                </div>
 
-              {/*
-                接口基地址。
+                <div className="brand-s5">
+                  {/*
+                    接口基地址。
 
-                校验规则与后端 brandBaseURLPattern 对齐：留空合法，非空必须是
-                http/https 绝对地址。前端先拦一道，用户不用等提交才知道填错了。
+                    校验规则与后端 brandBaseURLPattern 对齐：留空合法，非空必须是
+                    http/https 绝对地址。前端先拦一道，用户不用等提交才知道填错了。
 
-                为什么非要 http(s)：这一格会直接拼进首页的 curl / Python 示例，
-                用户照着复制。漏协议会拼出相对路径（看着对、复制出去是错的），
-                伪协议（javascript: / data:）拼进代码块有注入风险。
+                    为什么非要 http(s)：这一格会直接拼进首页的 curl / Python 示例，
+                    用户照着复制。漏协议会拼出相对路径（看着对、复制出去是错的），
+                    伪协议（javascript: / data:）拼进代码块有注入风险。
 
-                文案里「留空则用平台默认地址」是旧说法，已经不准了 —— 现在留空
-                回落到访客当前访问的域名，不再指回主站。这一点必须说清楚，
-                否则分销商会以为留空就等于走主站，反而去填一个错的地址。
-              */}
-              <Form.Item
-                name="api_base_url"
-                label="接口基地址"
-                extra="首页代码示例与接入文档会展示这个地址；留空则使用当前站点自己的域名"
-                rules={[
-                  {
-                    validator: async (_, value?: string) => {
-                      const raw = (value ?? '').trim();
-                      if (!raw) return; // 留空合法
-                      if (!/^https?:\/\/[a-zA-Z0-9]/.test(raw)) {
-                        throw new Error('请填写以 http:// 或 https:// 开头的完整地址');
-                      }
-                      if (/\s/.test(raw)) {
-                        throw new Error('地址中间不能有空格');
-                      }
-                    },
-                  },
-                ]}
-              >
-                <Input placeholder="https://api.your-domain.com/v1" maxLength={253} />
-              </Form.Item>
+                    留空回落到访客当前访问的域名，不再指回主站 —— 这一点必须说清楚，
+                    否则分销商会以为留空就等于走主站，反而去填一个错的地址。
+                  */}
+                  <Form.Item
+                    name="api_base_url"
+                    label={
+                      <span className="brand-label">
+                        接口基地址
+                        <Tooltip title="首页代码示例与接入文档会展示这个地址。留空则使用访客当前访问的域名。">
+                          <InfoCircleOutlined className="brand-info" />
+                        </Tooltip>
+                      </span>
+                    }
+                    rules={[
+                      {
+                        validator: async (_, value?: string) => {
+                          const raw = (value ?? '').trim();
+                          if (!raw) return; // 留空合法
+                          if (!/^https?:\/\/[a-zA-Z0-9]/.test(raw)) {
+                            throw new Error('请填写以 http:// 或 https:// 开头的完整地址');
+                          }
+                          if (/\s/.test(raw)) {
+                            throw new Error('地址中间不能有空格');
+                          }
+                        },
+                      },
+                    ]}
+                  >
+                    <Input
+                      placeholder="https://api.your-domain.com/v1"
+                      maxLength={253}
+                      style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12.5 }}
+                    />
+                  </Form.Item>
+                </div>
+              </div>
+            </PagePanel>
 
-              <Divider style={{ margin: '4px 0 16px' }} />
+            {/* ── 标识 ── */}
+            <PagePanel padded>
+              <div className="brand-card-head">
+                <span className="brand-card-title">标识</span>
+                <span className="brand-card-note">图片上传后立即生效，无需保存</span>
+              </div>
 
-              <div className="lynx-section-title">Logo 与站点图标</div>
               {/*
                 上传是 multipart 提交给伙伴后端，由后端写入对象存储并把地址落库。
                 不直传的原因：共用的那个 bucket 没开 CORS，浏览器跨域 PUT 会在
                 预检阶段被拦（详见 backend/internal/partner/partner_brand_upload.go）。
               */}
-              <Form.Item label="Logo" extra="建议正方形、透明底，小于 512KB。留空则用「品牌色方块 + 首字」">
+              <div className="brand-assets">
                 <BrandImagePicker
                   value={previewBrand?.logo_url}
                   target="logo_url"
                   uploading={uploading === 'logo_url'}
                   progress={uploadProgress}
+                  size={64}
+                  radius={14}
+                  title="Logo"
+                  hint="正方形、透明底，小于 512KB。留空则用「品牌色方块 + 首字」，不会出现破图。"
+                  fallback={{ initial: markInitial, color: primary }}
                   onChange={(url) => {
                     form?.setFieldValue('logo_url', url);
                     setDraft((d) => ({ ...d, logo_url: url }));
@@ -721,15 +870,17 @@ export default function Brand() {
                   onUploadingChange={(active) => setUploading(active ? 'logo_url' : '')}
                   onProgress={setUploadProgress}
                 />
-              </Form.Item>
 
-              <Form.Item label="浏览器标签图标" extra="浏览器标签页上的小图标。留空则由平台按品牌色生成">
                 <BrandImagePicker
                   value={previewBrand?.favicon_url}
                   target="favicon_url"
                   uploading={uploading === 'favicon_url'}
                   progress={uploadProgress}
-                  compact
+                  size={64}
+                  radius={14}
+                  title="浏览器标签图标"
+                  hint="浏览器标签页上的小图标。留空则按品牌色生成首字图标。"
+                  fallback={{ initial: markInitial, color: primary }}
                   onChange={(url) => {
                     form?.setFieldValue('favicon_url', url);
                     setDraft((d) => ({ ...d, favicon_url: url }));
@@ -746,87 +897,61 @@ export default function Brand() {
                   onUploadingChange={(active) => setUploading(active ? 'favicon_url' : '')}
                   onProgress={setUploadProgress}
                 />
-              </Form.Item>
+              </div>
+            </PagePanel>
 
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 14,
-                  marginBottom: 16,
-                  flexWrap: 'wrap',
-                  padding: '10px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'var(--bg-elevated)',
-                  border: '1px solid var(--border-default)',
-                }}
-              >
-                <BrandLogo
-                  name={previewBrand?.name || '品牌'}
-                  shortName={previewBrand?.short_name}
-                  logoUrl={previewBrand?.logo_url}
-                  size={44}
-                  radius={12}
-                />
-                <Text style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.7 }}>
-                  左边是当前 logo 的实际效果。图片加载失败时会回退成
-                  「品牌色方块 + 首字」，不会出现破图。
-                </Text>
+            {/* ── 颜色与首页 ──
+                品牌色和首页风格合成一张卡：风格缩略图本来就用主色渲染，
+                分成两块时看不出两者联动关系。 */}
+            <PagePanel padded>
+              <div className="brand-card-head">
+                <span className="brand-card-title">颜色与首页</span>
+                <span className="brand-card-note">缩略图用你当前的主色渲染</span>
               </div>
 
-              <Divider style={{ margin: '4px 0 16px' }} />
-
-              <div className="lynx-section-title">品牌色</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
+              <div className="brand-color-row">
                 <ColorPicker
-                  value={previewBrand?.primary_color ?? '#6d51fe'}
+                  value={primary}
                   onChangeComplete={(c) => setDraft((d) => ({ ...d, primary_color: c.toHexString() }))}
                   showText
                   size="middle"
                 />
                 <Space size={6} wrap>
-                  {PRESET_COLORS.map((p) => (
-                    <Tooltip title={p.name} key={p.hex}>
-                      <button
-                        type="button"
-                        aria-label={p.name}
-                        onClick={() => setDraft((d) => ({ ...d, primary_color: p.hex }))}
-                        style={{
-                          width: 22,
-                          height: 22,
-                          borderRadius: 6,
-                          border:
-                            previewBrand?.primary_color?.toLowerCase() === p.hex
+                  {PRESET_COLORS.map((p) => {
+                    const active = primary.toLowerCase() === p.hex;
+                    return (
+                      <Tooltip title={p.name} key={p.hex}>
+                        <button
+                          type="button"
+                          aria-label={p.name}
+                          aria-pressed={active}
+                          onClick={() => setDraft((d) => ({ ...d, primary_color: p.hex }))}
+                          className="brand-swatch"
+                          style={{
+                            background: p.hex,
+                            border: active
                               ? '2px solid var(--text-primary)'
                               : '1px solid var(--border-default)',
-                          background: p.hex,
-                          cursor: 'pointer',
-                          padding: 0,
-                        }}
-                      />
-                    </Tooltip>
-                  ))}
+                          }}
+                        />
+                      </Tooltip>
+                    );
+                  })}
                 </Space>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.7, marginBottom: 16 }}>
-                品牌色会用在按钮、链接、选中态和侧栏高亮上。
+              <div className="brand-hint" style={{ marginBottom: 14 }}>
+                用在按钮、链接、选中态与侧栏高亮上。
               </div>
 
-              <Divider style={{ margin: '4px 0 16px' }} />
-
-              <div className="lynx-section-title">首页风格</div>
               {/*
                 选择结果不放在 Form 里，而是走 draft：
                 landing 是一个 jsonb 对象，塞进 antd Form 的字段会让
-                「撤销改动」和 remountKey 的重置逻辑都要特殊处理一遍。
+                「撤销」和「重新加载」的还原逻辑都要为它特殊处理一遍。
                 走 draft 与 logo 上传同一套机制，行为更一致。
               */}
-              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.7, marginBottom: 12 }}>
-                你的客户站首页有两套版式可选。选定后保存，客户站刷新即生效；明暗模式跟随访客自己的系统设置，两套版式都支持。
-              </div>
               <HomeStylePicker
                 value={parseHomeStyle(draft.landing?.layout_style ?? brand?.landing?.layout_style)}
-                previewColor={previewBrand?.primary_color ?? '#6d51fe'}
+                previewColor={primary}
                 disabled={saving || loading}
                 onChange={(next: HomeStyle) =>
                   setDraft((d) => ({
@@ -835,275 +960,264 @@ export default function Brand() {
                   }))
                 }
               />
-              <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.7 }}>
-                缩略图用的是你当前设置的主色，所以看到的就是实际效果。
+              <div className="brand-hint" style={{ marginTop: 10 }}>
+                保存后客户站刷新即生效。明暗模式跟随访客自己的系统设置。
+              </div>
+            </PagePanel>
+
+            {/* ── 页脚 ──
+                对应客户站每页最底部的一行。原来写死的是平台公司名和备案号，
+                分销商的客户站在自己域名下挂平台的版权，等于给别人打广告。 */}
+            <PagePanel padded>
+              <div className="brand-card-head">
+                <span className="brand-card-title">页脚</span>
+                <span className="brand-footer-switch">
+                  显示页脚
+                  <Form.Item name="footer_enabled" valuePropName="checked" noStyle>
+                    <Switch size="small" />
+                  </Form.Item>
+                </span>
               </div>
 
-              <Divider style={{ margin: '4px 0 16px' }} />
+              <div className="brand-grid">
+                <div className="brand-s12">
+                  <Form.Item
+                    name="footer_copyright_text"
+                    label="版权文字"
+                    rules={[{ max: 200, message: '不超过 200 个字' }]}
+                  >
+                    <Input placeholder="© 2026 你的公司 版权所有" />
+                  </Form.Item>
+                </div>
 
-              <div className="lynx-section-title">页脚版权</div>
-              {/*
-                这一段对应客户站页面最底部的一行。原来那一行写死的是平台的
-                公司名和备案号，分销商的客户站在自己域名下挂着平台的版权，
-                等于在给别人打广告 —— 所以改成这里可配。
-              */}
-              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.7, marginBottom: 12 }}>
-                这一行显示在每个页面最底部。留空则使用默认文案；把某一项删干净（输入框清空并保存）表示不显示那一项。
-              </div>
-              <Form.Item name="footer_enabled" label="显示页脚" valuePropName="checked">
-                <Switch checkedChildren="显示" unCheckedChildren="隐藏" />
-              </Form.Item>
-              <Form.Item
-                name="footer_copyright_text"
-                label="版权文字"
-                rules={[{ max: 200, message: '不超过 200 个字' }]}
-              >
-                <Input placeholder="© 2026 你的公司 版权所有" />
-              </Form.Item>
-              <Row gutter={12}>
-                <Col xs={24} sm={8}>
-                  <Form.Item name="footer_terms_label" label="条款文字" rules={[{ max: 64, message: '不超过 64 个字' }]}>
+                <div className="brand-s4">
+                  <Form.Item
+                    name="footer_terms_label"
+                    label="条款文字"
+                    rules={[{ max: 64, message: '不超过 64 个字' }]}
+                  >
                     <Input placeholder="网站条款" />
                   </Form.Item>
-                </Col>
-                <Col xs={24} sm={8}>
-                  <Form.Item name="footer_privacy_label" label="隐私文字" rules={[{ max: 64, message: '不超过 64 个字' }]}>
+                </div>
+
+                <div className="brand-s4">
+                  <Form.Item
+                    name="footer_privacy_label"
+                    label="隐私文字"
+                    rules={[{ max: 64, message: '不超过 64 个字' }]}
+                  >
                     <Input placeholder="隐私政策声明" />
                   </Form.Item>
-                </Col>
-                <Col xs={24} sm={8}>
-                  <Form.Item name="footer_beian_label" label="备案号" rules={[{ max: 64, message: '不超过 64 个字' }]}>
+                </div>
+
+                <div className="brand-s4">
+                  <Form.Item
+                    name="footer_beian_label"
+                    label={
+                      <span className="brand-label">
+                        备案号
+                        <Tooltip title="只在中文界面显示。ICP 备案只对中国大陆站点有要求，其它语种不展示。">
+                          <InfoCircleOutlined className="brand-info" />
+                        </Tooltip>
+                      </span>
+                    }
+                    rules={[{ max: 64, message: '不超过 64 个字' }]}
+                  >
                     <Input placeholder="浙ICP备xxxxxxxx号-1" />
                   </Form.Item>
-                </Col>
-              </Row>
-              <div style={{ fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.7, marginBottom: 16 }}>
-                备案号只在中文界面显示，其它语种不展示（ICP 备案只对中国大陆站点有要求）。
+                </div>
               </div>
 
-              <Divider style={{ margin: '4px 0 16px' }} />
+              <div className="brand-hint" style={{ marginTop: 12 }}>
+                清空某一项并保存，表示不显示那一项。
+              </div>
+            </PagePanel>
 
-              <div className="lynx-section-title">客服联系方式</div>
-              <Row gutter={12}>
-                <Col xs={24} sm={12}>
+            {/* ── 客服 ──
+                左列二维码、右列四个文字联系方式。原来二维码被压在最后一行的
+                横条里，像是补充说明而不是一个平行字段。 */}
+            <PagePanel padded>
+              <div className="brand-card-head">
+                <span className="brand-card-title">客服</span>
+                <span className="brand-card-note">客户站右下角浮窗里展示</span>
+              </div>
+
+              <div className="brand-cs-cols">
+                <div>
+                  <div className="brand-asset__name" style={{ marginBottom: 5 }}>
+                    <span className="brand-label">
+                      二维码
+                      <Tooltip title="显示在客户站右下角客服浮窗里。不上传则不展示二维码，只显示右侧的文字联系方式。">
+                        <InfoCircleOutlined className="brand-info" />
+                      </Tooltip>
+                    </span>
+                  </div>
+                  {/*
+                    这一格**不是表单字段** —— 它没有 name、不走 initialValues，
+                    上传成功就由后端直接落库。理由和 logo 相同：图片传的是二进制，
+                    先传完再等用户点保存，中间那段「已经传上去了但还没生效」的状态
+                    很难解释。
+                  */}
+                  <BrandImagePicker
+                    variant="qr"
+                    value={previewBrand?.support?.qr_code_url}
+                    target="support_qr"
+                    uploading={uploading === 'support_qr'}
+                    progress={uploadProgress}
+                    onChange={(url) => {
+                      /*
+                       * 「移除」走这里。
+                       *
+                       * 和 logo 不同，二维码不在 Form 里，所以没有 form.setFieldValue
+                       * 要同步；它只能通过 support 这层走 patch。
+                       *
+                       * 直接写空串而不是 delete：buildPatch 用「draft.support 里有没有
+                       * qr_code_url」判断用户是否真的清空过。写成 undefined 会被当成
+                       * 「没碰过」，点了移除却不生效。
+                       */
+                      setDraft((d) => ({
+                        ...d,
+                        support: { ...(d.support ?? brand?.support ?? {}), qr_code_url: url },
+                      }));
+                    }}
+                    onUploaded={(next) => {
+                      setBrand(next);
+                      /*
+                       * 只清草稿里的 qr_code_url，不动 support 的其它键。
+                       *
+                       * 上传接口已经把地址写进库了，这个键不再算「未保存的改动」，
+                       * 留着会一直显示「未保存」标签。但同一个 support 对象里可能
+                       * 还有用户刚改、尚未保存的邮箱/电话 —— 把整个 support 删掉会
+                       * 让预览瞬间回退成旧值，看起来像改动丢了。
+                       */
+                      setDraft((d) => {
+                        if (!d.support) return d;
+                        const { qr_code_url: _ignored, ...restSupport } = d.support;
+                        return {
+                          ...d,
+                          support: Object.keys(restSupport).length > 0 ? restSupport : undefined,
+                        };
+                      });
+                    }}
+                    onUploadingChange={(active) => setUploading(active ? 'support_qr' : '')}
+                    onProgress={setUploadProgress}
+                  />
+                </div>
+
+                <div className="brand-cs-fields">
                   <Form.Item name="support_email" label="邮箱">
                     <Input placeholder="support@your-domain.com" />
                   </Form.Item>
-                </Col>
-                <Col xs={24} sm={12}>
                   <Form.Item name="support_phone" label="电话">
                     <Input placeholder="400-000-0000" />
                   </Form.Item>
-                </Col>
-                <Col xs={24} sm={12}>
                   <Form.Item name="support_wechat" label="微信 / 企业微信">
                     <Input placeholder="your-wechat-id" />
                   </Form.Item>
-                </Col>
-                <Col xs={24} sm={12}>
                   <Form.Item name="support_note" label="服务时间说明">
                     <Input placeholder="工作日 9:00 - 21:00" maxLength={30} />
                   </Form.Item>
-                </Col>
-              </Row>
-
-              {/*
-                客服二维码。
-                ................
-                放在 Form.Item 里是为了跟上面四格视觉对齐（同一套标签排版），
-                但这一格**不是表单字段** —— 它没有 name、不走 initialValues，
-                上传成功就由后端直接落库。理由和 logo 相同：图片传的是二进制，
-                先传完再等用户点保存，中间那段「已经传上去了但还没生效」的状态很难解释。
-              */}
-              <Form.Item
-                label="客服二维码"
-                extra="客户站右下角客服浮窗里展示的二维码图。不上传则不显示二维码，只显示上面的文字联系方式"
-              >
-                <BrandImagePicker
-                  value={previewBrand?.support?.qr_code_url}
-                  target="support_qr"
-                  uploading={uploading === 'support_qr'}
-                  progress={uploadProgress}
-                  compact
-                  onChange={(url) => {
-                    /*
-                     * 「移除」走这里。
-                     *
-                     * 和 logo 不同，二维码不在 Form 里，所以没有 form.setFieldValue
-                     * 要同步；它只能通过 support 这层走 patch。
-                     *
-                     * 直接写空串而不是 delete：buildPatch 用「draft.support 里有没有
-                     * qr_code_url」判断用户是否真的清空过。写成 undefined 会被当成
-                     * 「没碰过」，点了移除却不生效。
-                     */
-                    setDraft((d) => ({
-                      ...d,
-                      support: { ...(d.support ?? brand?.support ?? {}), qr_code_url: url },
-                    }));
-                  }}
-                  onUploaded={(next) => {
-                    setBrand(next);
-                    /*
-                     * 只清草稿里的 qr_code_url，不动 support 的其它键。
-                     *
-                     * 上传接口已经把地址写进库了，这个键不再算「未保存的改动」，
-                     * 留着会一直显示「未保存」标签。但同一个 support 对象里可能
-                     * 还有用户刚改、尚未保存的邮箱/电话 —— 把整个 support 删掉会
-                     * 让预览瞬间回退成旧值，看起来像改动丢了。
-                     */
-                    setDraft((d) => {
-                      if (!d.support) return d;
-                      const { qr_code_url: _ignored, ...restSupport } = d.support;
-                      return {
-                        ...d,
-                        support: Object.keys(restSupport).length > 0 ? restSupport : undefined,
-                      };
-                    });
-                  }}
-                  onUploadingChange={(active) => setUploading(active ? 'support_qr' : '')}
-                  onProgress={setUploadProgress}
-                />
-              </Form.Item>
-
-              <Space>
-                <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={saving}>
-                  保存配置
-                </Button>
-                <Button
-                  onClick={() => {
-                    setDraft({});
-                    setRemountKey((k) => k + 1);
-                  }}
-                  disabled={saving}
-                >
-                  撤销改动
-                </Button>
-              </Space>
-            </Form>
-          </PagePanel>
-        </Col>
-
-        {/* ---------- 右：预览 + 域名 ---------- */}
-        <Col xs={24} xl={10}>
-          <PageStack gap={16}>
-            <PagePanel padded>
-              <div className="lynx-section-title">
-                <span>实时预览</span>
-                {Object.keys(draft).length > 0 ? (
-                  <Tag color="processing" style={{ margin: 0, fontSize: 11 }}>
-                    未保存
-                  </Tag>
-                ) : (
-                  <Text style={{ fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 400 }}>
-                    与线上一致
-                  </Text>
-                )}
-              </div>
-              {previewBrand ? <BrandPreview brand={previewBrand} /> : null}
-              <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.7 }}>
-                按钮文字色会根据主色自动选择黑或白（
-                <Text style={{ fontSize: 12, fontFamily: 'ui-monospace, monospace' }}>
-                  {previewBrand ? readableOnPrimary(previewBrand.primary_color) : '-'}
-                </Text>
-                ），避免浅色主色上出现白字看不清。
+                </div>
               </div>
             </PagePanel>
+          </Form>
+        </div>
 
-            <PagePanel padded>
-              <div className="lynx-section-title">
-                <span>我的域名</span>
-                <Text style={{ fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 400 }}>
-                  只读
-                </Text>
+        {/* ══════════ 右：预览 + 域名 ══════════ */}
+        <aside className="brand-col-side">
+          <PagePanel padded>
+            <div className="brand-card-head">
+              <span className="brand-card-title">实时预览</span>
+              <span className="brand-preview-state" data-dirty={dirty ? 'true' : 'false'}>
+                {dirty ? '未保存' : '与线上一致'}
+              </span>
+            </div>
+            {previewBrand ? <BrandPreview brand={previewBrand} /> : null}
+            <div className="brand-hint" style={{ marginTop: 12 }}>
+              按钮文字色会根据主色自动选择黑或白（
+              <span style={{ fontFamily: 'ui-monospace, monospace' }}>
+                {previewBrand ? readableOnPrimary(previewBrand.primary_color) : '-'}
+              </span>
+              ），避免浅色主色上出现白字看不清。
+            </div>
+          </PagePanel>
+
+          <PagePanel padded>
+            <div className="brand-card-head">
+              <span className="brand-card-title">我的域名</span>
+              <span className="brand-card-note">只读</span>
+            </div>
+
+            {domains.length === 0 ? (
+              <div className="brand-hint" style={{ padding: '8px 0' }}>
+                还没有绑定域名。请联系平台为你的账户绑定专属域名。
               </div>
-
-              {domains.length === 0 ? (
-                <div style={{ fontSize: 13, color: 'var(--text-tertiary)', padding: '12px 0' }}>
-                  还没有绑定域名。请联系平台为你的账户绑定专属域名。
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {domains.map((d) => (
-                    <div
-                      key={d.host}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 10,
-                        flexWrap: 'wrap',
-                        padding: '9px 12px',
-                        borderRadius: 'var(--radius-sm)',
-                        background: 'var(--bg-elevated)',
-                        border: '1px solid var(--border-default)',
-                      }}
-                    >
-                      <DomainStatusIcon status={d.status} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div
-                          style={{
-                            fontSize: 13,
-                            color: 'var(--text-primary)',
-                            fontFamily: 'ui-monospace, monospace',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                        >
-                          {d.host}
-                        </div>
-                        <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
-                          {d.kind === 'primary' ? '主域名' : '备用域名'}
-                          {d.verified_at ? ` · 检测于 ${formatTime(d.verified_at, 'MM-DD HH:mm')}` : ''}
-                        </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {domains.map((d) => (
+                  <div key={d.host} className="brand-domain">
+                    <DomainStatusIcon status={d.status} />
+                    <div className="brand-domain__body">
+                      <div className="brand-domain__host">{d.host}</div>
+                      <div className="brand-domain__meta">
+                        {d.kind === 'primary' ? '主域名' : '备用域名'}
+                        {d.verified_at ? ` · 检测于 ${formatTime(d.verified_at, 'MM-DD HH:mm')}` : ''}
                       </div>
-                      <Tag
-                        color={d.status === 'active' ? 'green' : d.status === 'pending' ? 'orange' : 'red'}
-                        style={{ margin: 0, fontSize: 11 }}
-                      >
-                        {d.status === 'active' ? '已生效' : d.status === 'pending' ? '待解析' : '异常'}
-                      </Tag>
-                      {d.status === 'active' ? (
-                        <Tooltip title="在新标签页打开">
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={<ExportOutlined />}
-                            href={`https://${d.host}`}
-                            target="_blank"
-                            rel="noreferrer"
-                          />
-                        </Tooltip>
-                      ) : (
+                    </div>
+                    <Tag
+                      color={d.status === 'active' ? 'green' : d.status === 'pending' ? 'orange' : 'red'}
+                      style={{ margin: 0, fontSize: 11 }}
+                    >
+                      {d.status === 'active' ? '已生效' : d.status === 'pending' ? '待解析' : '异常'}
+                    </Tag>
+                    {d.status === 'active' ? (
+                      <Tooltip title="在新标签页打开">
                         <Button
                           type="text"
                           size="small"
-                          loading={checking === d.host}
-                          onClick={() => handleRecheck(d.host)}
-                        >
-                          重新检测
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div
-                style={{
-                  marginTop: 14,
-                  fontSize: 12,
-                  color: 'var(--text-tertiary)',
-                  lineHeight: 1.7,
-                }}
-              >
-                域名由平台统一绑定与备案校验，经销商端不提供新增 / 删除入口。
-                需要更换域名请联系平台运营。
+                          icon={<ExportOutlined />}
+                          href={`https://${d.host}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        />
+                      </Tooltip>
+                    ) : (
+                      <Button
+                        type="text"
+                        size="small"
+                        loading={checking === d.host}
+                        onClick={() => handleRecheck(d.host)}
+                      >
+                        重新检测
+                      </Button>
+                    )}
+                  </div>
+                ))}
               </div>
-            </PagePanel>
-          </PageStack>
-        </Col>
-      </Row>
-    </PageStack>
+            )}
+
+            <div className="brand-hint" style={{ marginTop: 14 }}>
+              域名由平台统一绑定与备案校验，经销商端不提供新增 / 删除入口。需要更换域名请联系平台运营。
+            </div>
+          </PagePanel>
+        </aside>
+      </div>
+    </div>
   );
+}
+
+/**
+ * 首字标记的字符。
+ *
+ * 与 toFormValues / 客户站的规则保持一致：short_name 优先，空则取品牌名首字。
+ * 用 Array.from 按码点切，不用 slice(0,1) —— emoji 是代理对，
+ * 按 UTF-16 切会得到半个字符，渲染出来是个方块。
+ */
+function resolveMarkInitial(brand: Pick<TenantBrand, 'name' | 'short_name'> | null): string {
+  if (!brand) return '品';
+  const short = (brand.short_name ?? '').trim();
+  const full = (brand.name ?? '').trim();
+  return Array.from(short || full)[0] ?? '品';
 }
 
 function DomainStatusIcon({ status }: { status: TenantDomain['status'] }) {
@@ -1128,20 +1242,31 @@ const UPLOAD_SUCCESS_TEXT: Record<BrandImageTarget, string> = {
   favicon_url: '图标已上传并生效',
   support_qr: '二维码已上传并生效',
 };
-
 /**
  * 品牌图片选择器：缩略图 + 上传 / 移除。
  *
  * 上传成功后调用 onUploaded 把整个品牌对象交回父组件 —— 后端在确认上传时
  * 已经把地址写进库里了，所以父组件不用再拉一次、也不用等用户点保存。
  * 这和外观（品牌名、主色等）不同：那些必须点保存才生效。
+ *
+ * 三种落点用同一套控件，但排布不同（variant）：
+ *   · row（默认，Logo / 浏览器标签图标）—— 方块在左、说明和按钮在右，两张并排
+ *   · qr                                   —— 方块在上、按钮在下且同宽，独占左列
+ *
+ * 之前只有一个 compact 布尔，靠「28 还是 44」区分两种尺寸，
+ * 于是二维码也被摆成横排，跟四个 input 挤在一行里。
  */
 function BrandImagePicker({
   value,
   target,
   uploading,
   progress,
-  compact,
+  size = 44,
+  radius = 10,
+  title,
+  hint,
+  fallback,
+  variant = 'row',
   onChange,
   onUploaded,
   onUploadingChange,
@@ -1151,12 +1276,37 @@ function BrandImagePicker({
   target: BrandImageTarget;
   uploading: boolean;
   progress: number;
-  compact?: boolean;
+  /** 方块边长 */
+  size?: number;
+  radius?: number;
+  /** 显示在方块右侧的字段名。二维码那种竖排布局自己带 label，不传 */
+  title?: string;
+  hint?: string;
+  /**
+   * 没有图时的兜底外观。
+   *
+   * 原来是灰底一个「无」字。品牌页的 Logo / 图标实际都有兜底规则
+   * （主色方块 + 首字），灰块既不反映真实效果、又不像能点的空状态。
+   */
+  fallback?: { initial: string; color: string };
+  variant?: 'row' | 'qr';
   onChange: (url: string) => void;
   onUploaded: (brand: TenantBrand) => void;
   onUploadingChange: (active: boolean) => void;
   onProgress: (percent: number) => void;
 }) {
+  const [broken, setBroken] = useState(false);
+
+  /*
+   * 换图时要把「加载失败」标记清掉。
+   *
+   * 上一张图挂了 → broken=true → 之后就算传入新地址，img 也不会重新渲染，
+   * 用户会看到「上传成功了但还是显示的兜底方块」，以为上传没生效。
+   */
+  useEffect(() => {
+    setBroken(false);
+  }, [value]);
+
   const handlePick = async (file: File) => {
     onUploadingChange(true);
     onProgress(0);
@@ -1178,81 +1328,108 @@ function BrandImagePicker({
     }
   };
 
-  const size = compact ? 28 : 44;
+  const showImage = Boolean(value) && !broken;
 
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-      <div
-        style={{
-          width: size,
-          height: size,
-          borderRadius: compact ? 6 : 10,
-          border: '1px solid var(--border-default)',
-          background: 'var(--bg-elevated)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden',
-          flexShrink: 0,
-        }}
-      >
-        {value ? (
-          <img
-            src={value}
-            alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-            /* 图挂了不留破图：直接藏掉，让外面的空态显示出来 */
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).style.display = 'none';
-            }}
-          />
-        ) : (
-          <Text style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>无</Text>
-        )}
-      </div>
-
-      <Space size={8} wrap>
-        <Upload
-          accept={dealerApi.BRAND_IMAGE_TYPES.join(',')}
-          showUploadList={false}
-          disabled={uploading}
-          beforeUpload={(file) => {
-            void handlePick(file as unknown as File);
-            return false;
+  const box = (
+    <div
+      className={`brand-upload__box${showImage ? '' : ' brand-upload__box--empty'}`}
+      style={{ width: size, height: size, borderRadius: radius }}
+    >
+      {showImage ? (
+        <img
+          src={value}
+          alt={title ?? ''}
+          className="brand-upload__img"
+          /* 图挂了不留破图，回落到兜底外观 —— 和客户站的行为一致 */
+          onError={() => setBroken(true)}
+        />
+      ) : fallback ? (
+        <span
+          className="brand-mark-tile"
+          style={{
+            width: '100%',
+            height: '100%',
+            background: fallback.color,
+            color: readableOnPrimary(fallback.color),
+            fontSize: Math.round(size * 0.4),
           }}
         >
-          <Button icon={<UploadOutlined />} loading={uploading} size="small">
-            {uploading ? `上传中 ${progress}%` : value ? '重新上传' : '上传图片'}
-          </Button>
-        </Upload>
-        {value && !uploading ? (
-          <Button size="small" type="text" danger onClick={() => onChange('')}>
-            移除
-          </Button>
-        ) : null}
-      </Space>
+          {fallback.initial}
+        </span>
+      ) : (
+        <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>未上传</span>
+      )}
+    </div>
+  );
 
-      {uploading ? (
-        <div style={{ width: '100%', maxWidth: 220 }}>
-          <div
-            style={{
-              height: 3,
-              borderRadius: 2,
-              background: 'var(--border-default)',
-              overflow: 'hidden',
-            }}
-          >
-            <div
-              style={{
-                width: `${progress}%`,
-                height: '100%',
-                background: 'var(--brand-primary, #6d51fe)',
-                transition: 'width .2s',
-              }}
+  const buttons = (
+    <Space size={8} wrap>
+      <Upload
+        accept={dealerApi.BRAND_IMAGE_TYPES.join(',')}
+        showUploadList={false}
+        disabled={uploading}
+        beforeUpload={(file) => {
+          void handlePick(file as unknown as File);
+          return false;
+        }}
+      >
+        <Button
+          className="brand-upload__btn"
+          icon={<UploadOutlined />}
+          loading={uploading}
+          size={size >= 64 ? 'middle' : 'small'}
+        >
+          {uploading ? `上传中 ${progress}%` : showImage ? '重新上传' : '上传'}
+        </Button>
+      </Upload>
+      {showImage && !uploading ? (
+        <Button size="small" type="text" danger onClick={() => onChange('')}>
+          移除
+        </Button>
+      ) : null}
+    </Space>
+  );
+
+  const progressBar = uploading ? (
+    <div className="brand-upload__bar">
+      <div className="brand-upload__bar-fill" style={{ width: `${progress}%` }} />
+    </div>
+  ) : null;
+
+  /* 竖排：二维码。方块撑满列宽（方形图），按钮跟方块同宽 */
+  if (variant === 'qr') {
+    return (
+      <div className="brand-upload brand-upload--column">
+        {showImage ? (
+          <div className="brand-upload__box brand-upload__box--square">
+            <img
+              src={value}
+              alt="客服二维码"
+              className="brand-upload__img"
+              onError={() => setBroken(true)}
             />
           </div>
-        </div>
-      ) : null}
+        ) : (
+          <div className="brand-upload__box brand-upload__box--square brand-upload__box--empty">
+            <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>未上传</span>
+          </div>
+        )}
+        {buttons}
+        {progressBar}
+      </div>
+    );
+  }
+
+  /* 横排：Logo / 图标 */
+  return (
+    <div className="brand-asset">
+      {box}
+      <div className="brand-asset__body">
+        {title ? <div className="brand-asset__name">{title}</div> : null}
+        {hint ? <div className="brand-asset__hint">{hint}</div> : null}
+        <div className="brand-asset__actions">{buttons}</div>
+        {progressBar}
+      </div>
     </div>
   );
 }

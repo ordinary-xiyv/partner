@@ -1,0 +1,553 @@
+/* ==========================================================================
+   品牌设置页
+   只做布局，不重定义颜色 / 字号 / 圆角 —— 一律用全局 token，
+   和后台其它页面共用一套视觉。这里没有任何硬编码色值。
+   ========================================================================== */
+
+/* ---------- 吸顶操作栏 ----------
+ * 原来「保存」在表单最底部，页面拉到 2000px 之外，改完得一路滚回去找。
+ * 吸附在 shell 顶栏（--header-height）下方，任何时候都能保存。
+ *
+ * 背景必须是不透明的：它下面有表单在滚，半透明会让两段文字叠在一起。
+ * 因为和 --bg-page 同色，静止时它「看不见」，只有内容滚到下面才显出边界。
+ */
+.brand-page {
+  /* 操作栏高度。右栏吸顶的偏移量要用它，抽成变量免得两处对不上。 */
+  --brand-bar-h: 75px;
+
+  /* 客服二维码的边长，也是客服区左列的列宽。
+   *
+   * 两处同一个值是有意的：方块和它上面那列必须等宽，否则「方图 + 等宽按钮」
+   * 这一组就会左右错位。放在这里由 .brand-page 下发，移动端也不用改写 ——
+   * 手机上列宽变成整屏时它还是一个小方图，不会跟着撑满。 */
+  --brand-qr-size: 96px;
+}
+
+.brand-bar {
+  position: sticky;
+  top: var(--header-height);
+  z-index: 30;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  padding: 14px 0 12px;
+  background: var(--bg-page);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.brand-bar__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+.brand-bar__sub {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}
+
+.brand-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* 「有未保存的改动」。只在真改动时出现，不改动时不占位 ——
+ * 常驻一个灰点会让人以为坏了，而忽隐忽现的字会让右边的按钮左右横跳，
+ * 所以这里用 visibility 保留宽度。
+ */
+.brand-dirty {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--accent-text);
+  white-space: nowrap;
+  visibility: hidden;
+}
+
+.brand-dirty[data-on='true'] {
+  visibility: visible;
+}
+
+.brand-dirty::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* ---------- 主体两栏 ---------- */
+.brand-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 372px;
+  gap: 18px;
+  align-items: start;
+  max-width: 1360px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.brand-col-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* 右栏吸顶：改左边表单时预览一直看得见。
+ *
+ * 偏移必须让开两块：shell 顶栏 56px + 本页操作栏。操作栏实测高 75px，
+ * 加起来 131px。原来写 84px（只算了操作栏），滚下去之后预览卡会被
+ * 操作栏盖掉上面一截 —— 实测 sideTop=85 < barBottom=131。
+ *
+ * 用 calc 把两个值都写出来，将来操作栏高度变了只改一个变量。
+ */
+.brand-col-side {
+  position: sticky;
+  top: calc(var(--header-height) + var(--brand-bar-h) + 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  /* 内容比视口高时不能让它在自己内部再滚，否则两层滚动条打架 */
+  max-height: calc(100vh - var(--header-height) - var(--brand-bar-h) - 16px);
+  overflow-y: auto;
+}
+
+/* ---------- 卡片头 ---------- */
+.brand-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.brand-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.brand-card-note {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-align: right;
+}
+
+/* ---------- 12 栅格 ----------
+ * 按语义分宽，不再所有字段都铺满整行：
+ * 品牌名 / 浏览器标题 7，首字标记 / 接口基地址 5，条款隐私备案各 4。
+ */
+.brand-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 14px 12px;
+}
+
+.brand-s4 { grid-column: span 4; }
+.brand-s5 { grid-column: span 5; }
+.brand-s6 { grid-column: span 6; }
+.brand-s7 { grid-column: span 7; }
+.brand-s12 { grid-column: span 12; }
+
+/* antd 的 Form.Item 自带 margin-bottom: 24px，在 grid 里会和 gap 叠加成
+ * 近 40px 的行距。统一清零，只由 gap 控制节奏。
+ */
+.brand-grid .ant-form-item {
+  margin-bottom: 0;
+}
+
+/* ---------- 字段标签里的问号 ---------- */
+.brand-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.brand-info {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  cursor: help;
+  transition: color 0.14s ease;
+}
+
+.brand-info:hover {
+  color: var(--text-secondary);
+}
+
+/* ---------- 首字标记：输入 → 效果 ----------
+ * 原来是一串平铺的「输入框 + 方块 + 一句灰字」，三样东西没有关系感。
+ * 现在做成一条：窄输入框 → 箭号 → 客户站页头的真实样子（方块 + 品牌名）。
+ *
+ * 输入框那个 Form.Item 是 noStyle 的，所以这一行由 flex 直接排；
+ * antd 的 .ant-form-item 还留着一个 margin-bottom，这里一并清掉，
+ * 否则预览条会和输入框错开几像素。
+ */
+.brand-mark-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.brand-mark-row .ant-form-item {
+  margin-bottom: 0;
+}
+
+.brand-mark-arrow {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  user-select: none;
+}
+
+.brand-mark-preview {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  min-width: 0;
+  /* 不写 flex:1。撑满整列时右边会空出一大块，看着像个没填的输入框，
+   * 读不出「这是预览」。按内容收紧，名字过长才截断。 */
+  flex: 0 1 auto;
+  padding: 0 9px 0 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+}
+
+.brand-mark-preview__name {
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 主色方块 + 首字。用于首字标记预览和图片未上传时的占位 ——
+ * 两者是同一个东西，抽成一条规则，改一处两边同步。
+ */
+.brand-mark-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  flex-shrink: 0;
+  user-select: none;
+  overflow: hidden;
+}
+
+/* ---------- 标识：Logo / 图标左右并排 ---------- */
+.brand-assets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.brand-asset {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+  padding-right: 22px;
+}
+
+/* 第二列左侧一条线：两列各管一摊，不靠留白硬撑 */
+.brand-asset + .brand-asset {
+  border-left: 1px solid var(--border-default);
+  padding-left: 22px;
+  padding-right: 0;
+}
+
+.brand-asset__body {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  min-width: 0;
+  gap: 5px;
+}
+
+.brand-asset__name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.brand-asset__hint {
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text-tertiary);
+}
+
+/* 按钮贴底：两列说明文字行数不同，不这么做两个「上传」会一高一低 */
+.brand-asset__actions {
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+/* ---------- 上传控件 ---------- */
+.brand-upload {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* 竖排：二维码那种「方框 + 等宽按钮」。
+ *
+ * 整列宽度锁死成 --brand-qr-size，而不是跟着外层容器 stretch。
+ * 桌面端客服区左列正好也是这个宽度，看起来是撑满；窄屏左列变成整屏宽时，
+ * 它仍然是 96px 一个小方块 —— 不需要写断点兜。
+ *
+ * 踩过的坑：一开始让方块 width:100% + aspect-ratio:1，手机上列宽变整屏
+ * （约 560px）后方块被画成占满屏幕的巨型方块，比整张卡片还高。
+ * 同一个值既当列宽又当方块边长，两处同源，就不会再走散。
+ */
+.brand-upload--column {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: var(--brand-qr-size);
+}
+
+.brand-upload__box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+}
+
+/* 竖排的方图。正方形靠宽高等值保证，不用 aspect-ratio —— 后者一碰到
+ * 外层宽度变化就会把高度也带跑。
+ */
+.brand-upload__box--square {
+  width: var(--brand-qr-size);
+  height: var(--brand-qr-size);
+  border-radius: 10px;
+}
+
+/* 未上传：虚线框，和「已上传的实线框」区分开 */
+.brand-upload__box--empty {
+  border-style: dashed;
+  border-color: var(--border-hover);
+}
+
+.brand-upload__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* 竖排布局（二维码）里按钮要和方块同宽。
+ *
+ * 这条从按钮往上一层层都要撑开，少一层都无效 —— 实测踩过：
+ *   .ant-space        inline-flex，宽度跟着内容
+ *   .ant-space-item   同上
+ *   .ant-upload       Upload 组件自己包的一层，display:block 但宽度随内容
+ *   Button            inline-flex，width:100% 的基准是 .ant-upload
+ * 只给按钮写 100%，它 100% 的是那个 63px 的 .ant-upload，看着像没生效。
+ */
+.brand-upload--column .ant-space,
+.brand-upload--column .ant-space-item,
+.brand-upload--column .ant-upload {
+  width: 100%;
+}
+
+.brand-upload--column .brand-upload__btn {
+  width: 100%;
+}
+
+.brand-upload__bar {
+  width: 100%;
+  max-width: 220px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border-default);
+  overflow: hidden;
+}
+
+.brand-upload__bar-fill {
+  height: 100%;
+  background: var(--accent-primary);
+  transition: width 0.2s;
+}
+
+/* ---------- 品牌色 ---------- */
+.brand-color-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.brand-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.12s ease;
+}
+
+.brand-swatch:hover {
+  transform: scale(1.12);
+}
+
+/* ---------- 客服：左上传 / 右输入 ----------
+ * 原来四个 input 两行、二维码压在最后一条横线上，像是补充说明而不是
+ * 一个平行字段。现在二维码独占左列，四个 input 在右列 2×2。
+ */
+.brand-cs-cols {
+  display: grid;
+  grid-template-columns: var(--brand-qr-size) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.brand-cs-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 12px;
+  min-width: 0;
+}
+
+.brand-cs-fields .ant-form-item {
+  margin-bottom: 0;
+}
+
+/* ---------- 页脚 ---------- */
+.brand-footer-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+/* ---------- 右栏 ---------- */
+.brand-preview-state {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
+.brand-preview-state[data-dirty='true'] {
+  color: var(--accent-text);
+}
+
+.brand-domain {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+}
+
+.brand-domain__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.brand-domain__host {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brand-domain__meta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.brand-hint {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-tertiary);
+}
+
+/* ---------- 响应式 ---------- */
+
+/* 右栏放下方：窄屏时预览在表单下面，改完能立刻看到，不用来回滚 */
+@media (max-width: 1180px) {
+  .brand-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .brand-col-side {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  .brand-bar {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .brand-bar__actions {
+    width: 100%;
+  }
+
+  .brand-s4,
+  .brand-s5,
+  .brand-s6,
+  .brand-s7 {
+    grid-column: span 12;
+  }
+
+  /* 标识退回上下，分隔线跟着转成横线 */
+  .brand-assets {
+    grid-template-columns: 1fr;
+  }
+
+  .brand-asset {
+    padding-right: 0;
+  }
+
+  .brand-asset + .brand-asset {
+    border-left: 0;
+    border-top: 1px solid var(--border-default);
+    padding-left: 0;
+    padding-top: 14px;
+    margin-top: 14px;
+  }
+
+  /* 客服：二维码在上（label 独占一行，不能藏 —— 藏了虚线框就成了无名方块） */
+  .brand-cs-cols {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .brand-cs-fields {
+    grid-template-columns: 1fr;
+  }
+}
