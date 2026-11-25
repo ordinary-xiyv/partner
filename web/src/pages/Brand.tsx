@@ -63,20 +63,26 @@ const PRESET_COLORS = [
 ];
 
 /**
- * 表单只覆盖这 8 个核心字段，与 lc_distribution_merchants 上的 8 个 brand_* 列一一对应：
+ * 表单只覆盖这几个核心字段，与 lc_distribution_merchants 上的 brand_* 列一一对应：
  *   name → brand_name        short_name → brand_short_name
  *   logo_url → brand_logo_url            primary_color → brand_primary_color
  *   page_title → brand_page_title        favicon_url → brand_favicon_url
- *   tagline → brand_tagline              api_base_url → brand_api_base_url
+ *   api_base_url → brand_api_base_url
  *
  * 客服联系方式（brand_support）在下面单独一段，因为它是一个 jsonb 对象，
- * 不是单列；首页配置（brand_landing）本期不做。
+ * 不是单列；首页配置（brand_landing）在本页另一处。
+ *
+ * ★ 这里曾经还有一个 tagline（「一句话介绍」，对应 brand_tagline 列）。
+ *   2026-11-25 删掉了：客户站（web-user）里**没有任何一处渲染它** ——
+ *   全局搜 tagline 只命中类型声明，没有消费方。表单上那句
+ *   「登录页副标题与首页品牌区展示」是假的，登录页副标题和首页品牌区
+ *   实际都用 landing.hero_title / hero_subtitle，跟这一格无关。
+ *   留着只会让商户白填一个永远不出现的内容。
  */
 type FormValues = {
   name: string;
   short_name?: string;
   page_title: string;
-  tagline?: string;
   api_base_url?: string;
   logo_url?: string;
   favicon_url?: string;
@@ -98,7 +104,6 @@ function toFormValues(brand: TenantBrand): FormValues {
     name: brand.name,
     short_name: brand.short_name,
     page_title: brand.page_title,
-    tagline: brand.tagline,
     api_base_url: brand.api_base_url,
     logo_url: brand.logo_url,
     favicon_url: brand.favicon_url,
@@ -182,14 +187,12 @@ function buildPatch(
   const nextName = values.name.trim();
   const nextShort = values.short_name?.trim() ?? '';
   const nextTitle = values.page_title.trim();
-  const nextTagline = values.tagline?.trim() ?? '';
   const nextAPI = values.api_base_url?.trim() ?? '';
 
   // 品牌名是必填列，且它会带动首字标记/标题的默认值，所以只要有变化就一起算
   if (nextName && nextName !== brand.name) patch.name = nextName;
   if (nextShort !== (brand.short_name ?? '')) patch.short_name = nextShort;
   if (nextTitle && nextTitle !== brand.page_title) patch.page_title = nextTitle;
-  if (nextTagline !== (brand.tagline ?? '')) patch.tagline = nextTagline;
   if (nextAPI !== (brand.api_base_url ?? '')) patch.api_base_url = nextAPI;
 
   /*
@@ -538,7 +541,6 @@ export default function Brand() {
                 }
                 if (changed.short_name !== undefined) next.short_name = changed.short_name;
                 if (changed.page_title !== undefined) next.page_title = changed.page_title;
-                if (changed.tagline !== undefined) next.tagline = changed.tagline;
                 if (changed.api_base_url !== undefined) next.api_base_url = changed.api_base_url;
                 if (changed.logo_url !== undefined) next.logo_url = changed.logo_url;
                 if (changed.favicon_url !== undefined) next.favicon_url = changed.favicon_url;
@@ -629,14 +631,6 @@ export default function Brand() {
                   </Form.Item>
                 </Col>
               </Row>
-
-              <Form.Item
-                name="tagline"
-                label="一句话介绍"
-                extra="登录页副标题与首页品牌区展示，留空则不显示"
-              >
-                <Input placeholder="如：企业级大模型接入服务" maxLength={40} />
-              </Form.Item>
 
               <Form.Item
                 name="page_title"

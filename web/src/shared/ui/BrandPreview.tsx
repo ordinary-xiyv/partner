@@ -15,7 +15,7 @@ import './brand-preview.css';
  * 只给一个色块看不出这些问题。这里直接渲染一个迷你控制台：
  * 侧栏 + 标题 + 主按钮 + 次按钮 + 选中菜单 + 链接。
  */
-export function BrandPreview({ brand }: { brand: Pick<TenantBrand, 'name' | 'short_name' | 'logo_url' | 'primary_color' | 'page_title' | 'tagline'> }) {
+export function BrandPreview({ brand }: { brand: Pick<TenantBrand, 'name' | 'short_name' | 'logo_url' | 'primary_color' | 'page_title'> }) {
   const { resolved } = useTheme();
   const palette = useMemo(
     () => deriveBrandPalette(resolved, brand.primary_color),
@@ -71,7 +71,13 @@ export function BrandPreview({ brand }: { brand: Pick<TenantBrand, 'name' | 'sho
         </div>
 
         <div className="lynx-brand-preview__main">
-          <div className="lynx-brand-preview__title">{brand.tagline || '你的 API 控制台'}</div>
+          {/*
+            这里原本显示 brand.tagline（「一句话介绍」）。2026-11-25 那一格从
+            后台表单里删了 —— 客户站根本没有渲染它的地方，预览里还照原样展示
+            反而在骗商户「填了就长这样」。改成侧栏那个选中项的实际名字，
+            和左边导航的「控制台首页」对上，预览才自洽。
+          */}
+          <div className="lynx-brand-preview__title">控制台首页</div>
           <div className="lynx-brand-preview__hint">主色 / 状态色 / 按钮文字色联动效果</div>
 
           <div className="lynx-brand-preview__buttons">

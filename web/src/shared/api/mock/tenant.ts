@@ -19,7 +19,6 @@ export const mockTenants: TenantBrand[] = [
     short_name: '云',
     primary_color: '#0d9488',
     page_title: '云启智能 · API 控制台',
-    tagline: '企业级大模型接入服务',
     api_base_url: 'https://api.yunqi-ai.com/v1',
     logo_url: '',
     support: {
@@ -57,7 +56,6 @@ export const mockTenants: TenantBrand[] = [
     short_name: '星',
     primary_color: '#d97706',
     page_title: '星瀚算力 · 开发者控制台',
-    tagline: '高性价比 GPU 与大模型算力',
     api_base_url: 'https://api.xinghan-ai.cn/v1',
     logo_url: '',
     support: {
@@ -98,7 +96,6 @@ export const mockDefaultTenant: TenantBrand = {
   short_name: 'L',
   primary_color: '#6d51fe',
   page_title: 'API 控制台',
-  tagline: '统一接入主流大模型',
   logo_url: '',
   support: {
     email: 'support@lynx.example',

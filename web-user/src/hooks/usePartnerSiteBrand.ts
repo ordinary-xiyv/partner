@@ -21,7 +21,17 @@ export interface PartnerSiteBrand {
   primary_color: string;
   page_title: string;
   favicon_url: string;
-  tagline: string;
+  /**
+   * 一句话介绍。
+   *
+   * 后端还在下发这个键（`brand_tagline` 列还在），但客户站**从来没有渲染过它**。
+   * 2026-11-25 已把伙伴后台那个表单一并删掉，这里保留读取只是为了兼容旧响应：
+   * 缺键时读成 undefined，不影响任何逻辑。
+   *
+   * 不要再把它接进任何界面 —— 需要「一句话文案」的地方用 landing 里的
+   * hero_title / hero_subtitle，那才是真正被首页读取的字段。
+   */
+  tagline?: string;
   /**
    * 接口基地址（伙伴后台「接口基地址」那一格）。
    *

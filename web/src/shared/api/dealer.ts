@@ -819,7 +819,6 @@ interface PartnerBrandRes {
   primary_color: string;
   page_title: string;
   favicon_url: string;
-  tagline: string;
   api_base_url: string;
   support?: Record<string, unknown> | null;
   landing?: Record<string, unknown> | null;
@@ -842,7 +841,6 @@ function toTenantBrand(b: PartnerBrandRes): TenantBrand {
     primary_color: b.primary_color || '#6d51fe',
     page_title: b.page_title || b.name || b.merchant_name || '',
     favicon_url: b.favicon_url || undefined,
-    tagline: b.tagline || undefined,
     api_base_url: b.api_base_url || undefined,
     // 后端未配置时给的是空对象，转成 undefined 让页面显示「未填写」而不是空对象
     support: hasKeys(b.support) ? (b.support as TenantBrand['support']) : undefined,

@@ -72,7 +72,14 @@ export interface TenantBrand {
   page_title: string;
   /** favicon URL；空则用主色 + 首字动态生成 SVG */
   favicon_url?: string;
-  /** 副标题 / 一句话介绍 */
+  /**
+   * 一句话介绍。
+   *
+   * 2026-11-25 起后台表单已移除这一格 —— 客户站（web-user）里没有任何
+   * 一处渲染它，商户填了也永远不会出现在页面上。字段保留在类型里是因为
+   * 后端 lc_distribution_merchants 还有 brand_tagline 列、接口也照旧下发，
+   * 前端只是不再提供编辑入口，历史数据读到也不该报错。
+   */
   tagline?: string;
   /** 该租户的接口基地址（接入文档展示用）。空则用平台默认域名 */
   api_base_url?: string;
@@ -194,7 +201,6 @@ export interface TenantBrandUpdatePayload {
   primary_color?: string;
   page_title?: string;
   favicon_url?: string;
-  tagline?: string;
   api_base_url?: string;
   support?: TenantSupport;
   /**
