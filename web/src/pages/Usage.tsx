@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, DatePicker, Select, Tag, Typography } from 'antd';
+import { Button, DatePicker, Select, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { ReloadOutlined, SearchOutlined } from '@ant-design/icons';
-import { type Dayjs } from 'dayjs';
+import dayjs, { type Dayjs } from 'dayjs';
 import {
   AppEmpty,
   AppPageHeader,
@@ -35,6 +35,40 @@ const TYPE_META: Record<number, { label: string; color: string }> = {
   8: { label: '补扣', color: 'orange' },
 };
 
+/**
+ * 默认时间范围：近 7 天（今天往前数 6 天，到今天结束）。
+ *
+ * 为什么必须有默认值，而不能留空：
+ *
+ * dealer.ts 的 fetchUsageLogs 里有一条约定 —— 「不带时间范围」会被翻译成
+ * `all_history=1`（因为页面语义是「不筛时间 = 看全部」）。这本身没错，
+ * 但**进页面时 range 是 null**，于是首屏就按全部历史查：扫描范围覆盖
+ * logs 的全部分区（线上 106 个），叠加 Count 全量统计，这是「加载很慢、
+ * 等久报错」最直接的原因。
+ *
+ * 改成默认近 7 天后，首屏只扫最近 7 天的数据；需要看更早的记录，
+ * 用日期选择器自己选区间即可（清空选择会回到这个默认 7 天，不是全部历史 ——
+ * 见下面 resetRange / onChange 的处理）。
+ */
+const DEFAULT_RANGE_DAYS = 7;
+
+/**
+ * 用户可手动选择的最大跨度（含首尾）。
+ *
+ * 为什么卡在 31 天：logs 是按天分区的表（线上 100+ 个分区），
+ * 时间跨度直接决定要扫多少个分区。不设上限时，一次「选个大范围」
+ * 就能把单次查询拖到几十秒，表现就是「点了筛选一直转圈」。
+ *
+ * 与后端上限的关系：billing/summary 允许最多 93 天（且是 >= 93 就拒，
+ * 实际最大 92 天），所以 31 天不会触发后端 400。
+ * 如果以后要放宽，别超过 92，否则汇总那块会整个变成 400。
+ */
+const MAX_RANGE_DAYS = 31;
+
+function buildDefaultRange(): [Dayjs, Dayjs] {
+  return [dayjs().subtract(DEFAULT_RANGE_DAYS - 1, 'day').startOf('day'), dayjs().endOf('day')];
+}
+
 export default function Usage() {
   const [rows, setRows] = useState<UsageLog[]>([]);
   const [total, setTotal] = useState(0);
@@ -54,7 +88,11 @@ export default function Usage() {
    * 后端给了 5 种类型，直接按 5 种筛更准确，也省掉一层有损映射。
    */
   const [typeFilter, setTypeFilter] = useState<number | undefined>(undefined);
-  const [range, setRange] = useState<[Dayjs, Dayjs] | null>(null);
+  /*
+   * 注意类型是 [Dayjs, Dayjs] 而非 `| null`：默认值一定有，
+   * RangePicker 清空时我们回落到默认区间（见 onChange），不会真的变成空。
+   */
+  const [range, setRange] = useState<[Dayjs, Dayjs]>(buildDefaultRange);
 
   const buildQuery = useCallback(
     () => ({
@@ -62,15 +100,24 @@ export default function Usage() {
       page_size: pageSize,
       model_name: modelFilter || undefined,
       /*
-       * range 的两个元素都要判空，不能只判 range 本身。
+       * 类型筛选。
        *
-       * RangePicker 在「只选了开始日期、还没选结束日期」以及清空过程中，
-       * onChange 可能给到 [Dayjs, null]。原写法 `range ? range[1].endOf('day')...`
-       * 只挡了 range 为 null 的情况，[x, null] 会直接抛
+       * 这里曾经漏过 —— useCallback 的依赖数组里明明有 typeFilter，
+       * 返回的对象里却没有 type 字段，于是「全部类型」下拉选了也不生效：
+       * onChange 触发重渲染、useCallback 重建、请求也发了，但发出去的参数
+       * 和选之前一模一样，列表自然纹丝不动。因为依赖数组是对的，lint 看不出来。
+       */
+      type: typeFilter,
+      /*
+       * range 现在一定有值（默认近 7 天），但仍然逐项判空：
+       *
+       * RangePicker 在「只选了开始日期、还没选结束日期」时会回调 [Dayjs, null]。
+       * onChange 里虽然已经把这种半选状态回落到默认区间，但 buildQuery 是
+       * 独立函数，不该依赖调用方的保证 —— 一旦哪天有人把 setRange 直接接到
+       * RangePicker 上，[x, null] 就会让 range[1].endOf() 抛
        * TypeError: Cannot read properties of null (reading 'endOf')。
-       * 而那个异常是在 try 块里同步抛出的，外面只有 finally 没有 catch ——
-       * 于是 loading 被复位、表格数据却停在上一次的结果，用户看到的就是
-       * 「筛选点了没反应，数据不更新」。
+       * 那个异常在 try 块里同步抛出，外面只有 finally 没有 catch，
+       * 表现就是「筛选点了没反应，数据不更新」—— 历史上踩过这个坑。
        */
       start_time: range?.[0] ? range[0].startOf('day').unix() : undefined,
       end_time: range?.[1] ? range[1].endOf('day').unix() : undefined,
@@ -348,23 +395,6 @@ export default function Usage() {
         }
       />
 
-      {/*
-       * 汇总口径必须说清：它来自 billing/summary（账期聚合），
-       * 不随「模型筛选」变化，也不等于当前页日志相加。
-       * 上一版让人以为四个卡片跟着筛选走，实际是另一套口径，对不上账。
-       */}
-      <Alert
-        type="info"
-        showIcon
-        style={{ fontSize: 12 }}
-        message={
-          summary
-            ? `汇总区间 ${summary.start_date} ~ ${summary.end_date}，账单口径（含退款冲销），不随下方模型/状态筛选变化`
-            : '汇总数据暂不可用'
-        }
-        description="下方表格是逐条调用明细，可以按模型、状态、时间筛选；顶部四个数字是账期汇总，两者口径不同。"
-      />
-
       {/* 汇总指标 */}
       <div className="lynx-stat-grid">
         <StatCard
@@ -448,7 +478,7 @@ export default function Usage() {
               value={range}
               onChange={(v) => {
                 /*
-                 * 只有「两个日期都选好」才当成有效区间，否则一律当清空。
+                 * 只有「两个日期都选好」才当成有效区间，否则回落到默认近 7 天。
                  *
                  * RangePicker 在交互过程中会多次回调：
                  *   · 只点了一个日期 → [Dayjs, null]
@@ -457,16 +487,83 @@ export default function Usage() {
                  * buildQuery 里的 range[1].endOf() 抛异常，整次加载静默失败 ——
                  * 表现就是「日期筛选点了没反应，列表还是老数据」。
                  *
-                 * 现在把「半选」当成没选：列表立刻按全部时间加载，
-                 * 用户选完第二个日期时再按区间筛一次。
+                 * 现在把「半选 / 清空」都当成「回到默认 7 天」：
+                 * 用户清空日期时看到的是近 7 天，而不是「全部历史」——
+                 * 后者会把首屏那次的慢查询重新引回来。
                  */
                 const start = v?.[0];
                 const end = v?.[1];
-                setRange(start && end ? [start, end] : null);
+                if (!start || !end) {
+                  setRange(buildDefaultRange());
+                  setPage(1);
+                  return;
+                }
+                /*
+                 * 跨度兜底。
+                 *
+                 * disabledDate 已经在 UI 上挡住超过 31 天的选择，但它挡不全 ——
+                 * 本次选择的第一下点击时 info.from 是空的（还没定下任何一端），
+                 * 所以「首屏已有近 7 天区间，用户直接把开始日拖到 300 天前」
+                 * 这条路径能绕过 disabledDate，必须在这里兜。
+                 *
+                 * 夹的方向：保留用户刚选的**开始日**，把结束日收到 start+30。
+                 * 反过来（保结束日、把开始日往后挪）出现过一版，实际体验是
+                 * 「我明明点了 1 月 1 日，它自己跳走了」—— 和用户意图相反。
+                 *
+                 * maxEnd 再和「今天」取小：开始日选得很近时（比如今天），
+                 * start+30 会落到未来，而库里没有未来日志，没必要发出去。
+                 */
+                const rawMaxEnd = start.add(MAX_RANGE_DAYS - 1, 'day').endOf('day');
+                const today = dayjs();
+                const maxEnd = rawMaxEnd.isAfter(today) ? today : rawMaxEnd;
+                if (end.diff(start, 'day') > MAX_RANGE_DAYS - 1) {
+                  setRange([start.startOf('day'), maxEnd]);
+                } else {
+                  setRange([start, end]);
+                }
                 setPage(1);
               }}
               placeholder={['开始日期', '结束日期']}
-              allowClear
+              /*
+               * 限制可选跨度最多 31 天。
+               *
+               * 为什么要有这个限制：logs 是按天分区的表（线上 100+ 个分区），
+               * 时间跨度越大，要扫的分区越多、Count 越慢。跨度放开到「任意区间」时，
+               * 用户随手选个大范围就能把一次查询拖到几十秒。
+               *
+               * ★ 这里踩过一次坑，记下来别再犯：
+               *   rc-picker 的 disabledDate 第二个参数是 `{ type, from }`，
+               *   其中 from 是**日期对象**（本次选择里用户先定下的那一端，
+               *   也就是「另一端」），不是 'start' | 'end' 字符串。
+               *   见 node_modules/rc-picker/es/interface.d.ts 的 DisabledDate
+               *   与 PickerInput/hooks/useRangeDisabledDate.js —— 后者把
+               *   getFromDate(...) 的结果合并进 info 后再回调。
+               *   最初写成 `from === 'start'` 判断，条件恒为 false，
+               *   等于整段跨度限制一行没生效（只剩 onChange 兜底在夹）。
+               *
+               * 所以正确写法是：拿到另一端日期后，直接卡「与它相距 ≤ 30 天」
+               * （含首尾共 31 天）。from 为空说明本次还没定下任何一端，
+               * 第一下随便选，由第二次点击时的 from 来约束。
+               *
+               * 注意：这里只是交互层约束。若将来支持通过 URL 参数注入区间，
+               * 必须在 buildQuery 或后端再补一次跨度校验，别只靠 UI 挡。
+               */
+              disabledDate={(current, info) => {
+                if (!current) return false;
+                // 未来日期一律不可选（库里不可能有未来日志）
+                if (current.isAfter(dayjs(), 'day')) return true;
+                const from = (info as { from?: Dayjs } | undefined)?.from;
+                if (from) {
+                  return Math.abs(current.diff(from, 'day')) > MAX_RANGE_DAYS - 1;
+                }
+                return false;
+              }}
+              /*
+               * 关掉 allowClear：清空在语义上是「看全部时间」，
+               * 而我们不希望用户无意间触发一次全历史扫描。
+               * 想看更早的数据，直接把开始日期往前拖即可（上限 31 天）。
+               */
+              allowClear={false}
               style={{ width: 250 }}
             />
             <Button
@@ -475,7 +572,11 @@ export default function Usage() {
               onClick={() => {
                 setModelFilter('');
                 setTypeFilter(undefined);
-                setRange(null);
+                /*
+                 * 重置回默认近 7 天，而不是「全部时间」。
+                 * 理由同上：全部时间会重新触发全历史扫描。
+                 */
+                setRange(buildDefaultRange());
                 setPage(1);
               }}
             >

@@ -90,6 +90,9 @@ func buildRouter() *gin.Engine {
 	ready := auth.Group("")
 	ready.Use(partner.PartnerReady())
 	ready.GET("/users", partner.PartnerUsersAPI)
+	// models 必须排在 /logs 之前：gin 的路由树里 "/logs/models" 是独立静态段，
+	// 但先注册更保险，避免后续有人给 /logs 加 /:id 这类参数路由时把它吃掉。
+	ready.GET("/logs/models", partner.PartnerLogModelsAPI)
 	ready.GET("/logs", partner.PartnerLogsAPI)
 	ready.GET("/daily-trend", partner.PartnerDailyTrendAPI)
 	ready.GET("/billing/summary", partner.PartnerBillingSummaryAPI)

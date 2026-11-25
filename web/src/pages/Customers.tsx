@@ -7,7 +7,6 @@ import {
   Tag,
   Tooltip,
   Typography,
-  Alert,
 } from 'antd';
 import type { TableColumnsType } from 'antd';
 import {
@@ -47,10 +46,19 @@ export default function Customers() {
    * 两边的数字天然一致。
    */
   const [status, setStatus] = useState<0 | 1 | 2>(0);
-  /** 用量区间（后端 billing 返回的实际区间，用于表头说明） */
-  const [usageRange, setUsageRange] = useState<{ start?: string; end?: string }>({});
-  /** 账单只返回了前 100 名活跃客户，超出部分无法匹配 */
-  const [usageTruncated, setUsageTruncated] = useState(false);
+  /*
+   * usageRange / usageTruncated 已随页面顶部那条说明 Alert 一起移除。
+   *
+   * 它们只服务于那段说明文案（「消耗数据区间 X ~ Y，为净消耗」以及
+   * 「活跃客户超过 100 名，仅前 100 名能匹配到消耗数据」），文案删掉后
+   * 两个 state 就没有消费方了，留着只是每次 load 白 setState 一次。
+   *
+   * 需要注意的是：usage_truncated 原本是**唯一**告知「部分客户匹配不到
+   * 消耗数据」的地方。现在表格里那些「—」只靠单元格 Tooltip
+   * （「账单接口未返回该客户数据」）解释，用户无法区分「这个客户真没消耗」
+   * 和「他被 100 名截断挤掉了」。若以后要恢复提示，数据源还在
+   * fetchCustomers 返回的 res.start_date / res.end_date / res.usage_truncated。
+   */
 
   /*
    * 新建客户 / 调额度 / 重置密码 / 启停 —— 四组状态与处理函数已整体移除。
@@ -82,8 +90,7 @@ export default function Customers() {
       });
       setRows(res.items);
       setTotal(res.total);
-      setUsageRange({ start: res.start_date, end: res.end_date });
-      setUsageTruncated(Boolean(res.usage_truncated));
+      // 不要在这里重新加 setUsageRange / setUsageTruncated，对应的 ui 已移除，原因见文件上方注释
     } catch (err) {
       notifyApiError(err, '客户列表加载失败');
     } finally {
@@ -243,26 +250,6 @@ export default function Customers() {
           <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>
             刷新
           </Button>
-        }
-      />
-
-      {/*
-       * 说明「本月消耗」这一列的区间，避免被误读成余额。
-       */}
-      <Alert
-        type="info"
-        showIcon
-        style={{ fontSize: 12 }}
-        message={
-          usageRange.start
-            ? `消耗数据区间 ${usageRange.start} ~ ${usageRange.end}，为净消耗（含退款冲销）`
-            : '消耗数据来自账单接口，暂未取到'
-        }
-        description={
-          <>
-            「—」表示该客户在此区间内没有消耗记录，账单接口只返回有消耗的客户。
-            {usageTruncated && ' 活跃客户超过 100 名，仅前 100 名能匹配到消耗数据。'}
-          </>
         }
       />
 

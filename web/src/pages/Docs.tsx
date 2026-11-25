@@ -476,15 +476,6 @@ export default function Docs() {
         />
       )}
 
-      {siteId && (
-        <Alert
-          type="info"
-          showIcon
-          message={`文档按站点隔离，当前站点：${siteId}`}
-          description="这里的改动只会影响你自己的域名，其他分销商的站点不受影响；同样，他们的文档你也看不到。"
-        />
-      )}
-
       <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 16, alignItems: 'start' }}>
         {/* 左：分类树 */}
         <PagePanel padded>

@@ -644,8 +644,13 @@ export async function fetchUsageLogs(query: UsageQuery = {}): Promise<ListResult
    *   type        → type（后端原生就有，直接透传）
    *
    * 特别注意：后端在「既没给时间范围、也没给 all_history=1」时会**默认只看今天**。
-   * 页面的语义是「不带时间条件 = 看全部」，所以不传时间时显式带 all_history=1。
+   * 所以这里拿不到时间范围时显式带 all_history=1，保持「不筛时间 = 看全部」的语义。
    * all_history 只接受空或 "1"，传 "0" 会 400（已实测确认）。
+   *
+   * 但调用方（用量页）现在一定带默认的近 7 天范围，正常情况下走不到 all_history
+   * 这条分支 —— 它只在有人显式传空区间时兜底。留着的代价是：一旦真的传空，
+   * 后端会按全部历史扫 logs 的全部分区，很慢。需要「全部历史」的场景应当
+   * 由调用方显式传一个足够宽的时间区间，而不是依赖这个开关。
    */
   const hasTimeRange = Boolean(query.start_time || query.end_time);
 
@@ -740,33 +745,24 @@ function toDateStr(ts: number): string {
 }
 
 /**
- * 筛选器用的模型名列表（去重）。
+ * 筛选器用的模型名列表（去重、已 trim、已排序）。
  *
- * 后端没有独立的模型目录接口，只能从日志里取。取一页（上限 100）足够覆盖
- * 常用模型，且不必为了填一个下拉框去翻几十页。
+ * 走专用的 /logs/models（后端只做 SELECT DISTINCT model_name），
+ * 不再用 `/logs?page_size=100&all_history=1` 去重。
+ *
+ * 旧做法的两个问题：
+ *   1. 性能：为了填一个下拉框，把整段历史日志跑一遍完整分页查询（含 Count），
+ *      和主列表抢同一张表。首屏因此变成两次全量扫描。
+ *   2. 正确性：只取前 100 条日志的模型去重，下拉列表天然不全 ——
+ *      实测库里有 135 种模型，超出那 100 条日志覆盖范围的模型用户根本选不到。
+ *
+ * trim / 去重 / 排序现在由后端做（见 ListPartnerLogModels）。前端不再重复处理，
+ * 但仍保留 mock 分支的同等行为，保证 mock 与真实接口返回形状一致。
  */
 export async function fetchModelNames(): Promise<string[]> {
   if (USE_MOCK) return delay([...new Set(mockUsageLogs.map((l) => l.model_name))].sort(), 180);
-  const res = await request<{ items: PartnerLogRow[]; total: number }>({
-    url: EP.dealer.usage,
-    params: { page: 1, page_size: 100, all_history: 1 },
-  }, { silent: true });
-  /*
-   * trim 之后再聚合。
-   *
-   * 库里存在带前导空格的模型名（实测见过 ' doubao-seedance-2-0-260128'）。
-   * 不 trim 的话下拉里会出现两个看起来一模一样、点起来结果不同的选项，
-   * 而且选中带空格的那个后，后端用 LIKE '% doubao...%' 去匹配 ——
-   * 命中与否取决于数据里空格的数量，用户完全无法预期。
-   *
-   * 反过来，trim 之后下拉里的值就是干净的名字，后端 LIKE 也能正常模糊匹配。
-   */
-  const names = [...new Set(
-    (res?.items ?? [])
-      .map((r) => (r.model_name ?? '').trim())
-      .filter(Boolean),
-  )].sort();
-  return names;
+  const res = await request<{ items: string[] }>({ url: EP.dealer.usageModels }, { silent: true });
+  return res?.items ?? [];
 }
 
 /**

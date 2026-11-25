@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   Button,
   Col,
   ColorPicker,
@@ -19,7 +18,6 @@ import {
   CheckCircleFilled,
   ExclamationCircleFilled,
   ExportOutlined,
-  InfoCircleOutlined,
   LoadingOutlined,
   ReloadOutlined,
   SaveOutlined,
@@ -518,21 +516,6 @@ export default function Brand() {
       />
 
       <UseMockNotice />
-
-      {/* 关键概念澄清：域名只决定皮肤，不决定权限 */}
-      <Alert
-        type="info"
-        showIcon
-        icon={<InfoCircleOutlined />}
-        message="域名决定「看到谁的品牌」，登录账号决定「能看到谁的数据」"
-        description={
-          <span style={{ fontSize: 12, lineHeight: 1.7 }}>
-            你的客户访问你绑定的域名时，会看到这里配置的 logo、品牌名与主色。
-            但这只是外观——客户能查到的始终只有自己账号下的数据，改域名或换浏览器都不会多看到别人一条记录。
-            域名绑定由平台配置，这里只读展示。
-          </span>
-        }
-      />
 
       <Row gutter={[16, 16]}>
         {/* ---------- 左：表单 ---------- */}

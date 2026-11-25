@@ -54,6 +54,18 @@ export const EP = {
     // 用量 —— 日志真实存在；汇总走 billing/summary；导出未实现
     usage: '/api/partner/logs',
     /*
+     * 模型名清单。
+     *
+     * 专门开这个端点，是因为原来 fetchModelNames 用
+     * `/logs?page_size=100&all_history=1` 去重来填下拉框 ——
+     * 为了几十个选项把整段历史日志跑一遍分页查询（含 Count），
+     * 和主列表抢同一张表，是首屏慢的主因之一。
+     *
+     * 后端只做 DISTINCT 取一列，不分页、不统计总数。
+     */
+    usageModels: '/api/partner/logs/models',
+
+    /*
      * 用量汇总没有独立接口，由 dealer.ts 的 fetchUsageSummary() 走
      * billingSummary + 日期区间拼出来，所以这里保持 null。
      *
