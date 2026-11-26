@@ -18,7 +18,12 @@ check_origin() {
      valid "$value" '^http://host\.docker\.internal:[0-9]{1,5}$'; then
     return 0
   fi
-  fail "$name must use HTTPS; local HTTP requires SITE_ALLOW_INSECURE_HTTP=true and host.docker.internal"
+  # Trusted intranet only: the site credential travels in clear text to the upstream.
+  if [ "${SITE_ALLOW_INTRANET_HTTP:-false}" = true ] &&
+     valid "$value" '^http://((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(:[0-9]{1,5})?$'; then
+    return 0
+  fi
+  fail "$name must use HTTPS; HTTP requires SITE_ALLOW_INSECURE_HTTP=true (host.docker.internal) or SITE_ALLOW_INTRANET_HTTP=true (IPv4)"
 }
 check_origin SITE_API_ORIGIN "${SITE_API_ORIGIN:-}"
 check_origin SITE_PARTNER_API_ORIGIN "${SITE_PARTNER_API_ORIGIN:-}"

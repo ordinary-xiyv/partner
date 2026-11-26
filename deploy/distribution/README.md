@@ -6,7 +6,7 @@
 
 1. 在原平台 admin 的商户管理中绑定站点 ID、域名并保存一次性部署凭证。后端须已执行商户表和 `has_own_web` 的手工 SQL。
 2. 在本目录执行 `cp .env.example .env` 并设置文件权限为 `chmod 600 .env`。把 admin 一次性显示的 64 位小写十六进制部署凭证直接填入 `SITE_CREDENTIAL`，再填写 `SITE_PROJECT_NAME`、`SITE_ID`、`SITE_DOMAIN`、`SITE_API_ORIGIN` 和 `SITE_PARTNER_API_ORIGIN`。`.env` 已被 Git 忽略，不要把它放进前端构建环境或提交到仓库。
-3. 站点 ID、域名须与 admin 绑定值一致。`SITE_API_ORIGIN` 指向共享 user API，`SITE_PARTNER_API_ORIGIN` 指向伙伴后端可访问的 HTTPS 入口；两者不能填同一个服务。不要在两者后面加路径或 `/`。
+3. 站点 ID、域名须与 admin 绑定值一致。`SITE_API_ORIGIN` 指向共享 user API，`SITE_PARTNER_API_ORIGIN` 指向伙伴后端；两者不能填同一个服务，不要在后面加路径或 `/`。生产环境两者都应是受信证书的 HTTPS 域名；无域名的内网部署见「访问与检查」末尾的内网上游说明。
 4. 确保用户浏览器最终通过该站点域名的 HTTPS 访问。宿主机 Nginx/Caddy 可终止 TLS，再将原始 `Host` 转发至 `127.0.0.1:SITE_HTTP_PORT`。构建时 `VITE_API_URL` 固定为空，浏览器只访问同域路径。
 
 ## 打包镜像
@@ -66,3 +66,5 @@ server {
 ```
 
 容器会校验两个上游的 TLS 证书。若只在同一宿主机联调，可把上游写为 `http://host.docker.internal:<端口>` 并设置 `SITE_ALLOW_INSECURE_HTTP=true`；相应后端须监听 Docker 网关可访问的地址，单独监听 `127.0.0.1` 不够。联调时若用 `localhost` 直接打开页面，还需设置 `SITE_ENFORCE_HOST=false`；远程浏览器通过 HTTP IP 访问可能无法使用密码登录所需的 `crypto.subtle`，请用本机端口转发或 HTTPS。
+
+上游在可信内网、没有域名时（例如后端在另一台内网机器上），可把上游写为 `http://<内网IPv4>(:<端口>)` 并设置 `SITE_ALLOW_INTRANET_HTTP=true`。注意 `X-Site-Credential` 会以明文随请求发往 HTTP 上游，只在网络路径完全可信时使用；跨不可信网络的部署必须回到 HTTPS 域名。
