@@ -137,6 +137,99 @@ func TestRealDBPartnerUsersUsageMatchesOnDerivedTable(t *testing.T) {
 }
 
 /*
+ * 真实库验证：billing/summary 改成「完结天读 lc_log_daily_summaries + 缺口现算」后，
+ * 新两段合并的结果必须与全区间现算（旧实现口径）逐行一致。
+ *
+ * 本地真实库的汇总表覆盖 2026-06-01 ~ 2026-11-23，而 logs 有到今天的数据 ——
+ * 正好同时命中「汇总段」「缺口现算段（11-24/25 的空窗 + 今天）」两段路径。
+ *
+ * ★ 只做 SELECT，不写任何数据。
+ */
+func TestRealDBPartnerBillingSummaryMergesDailySummary(t *testing.T) {
+	dsn := os.Getenv("PARTNER_VERIFY_DSN")
+	if dsn == "" {
+		t.Skip("未设置 PARTNER_VERIFY_DSN，跳过真实库验证")
+	}
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	prevDB, prevLog := model.DB, model.LOG_DB
+	model.DB, model.LOG_DB = db, db
+	t.Cleanup(func() { model.DB, model.LOG_DB = prevDB, prevLog })
+
+	// 汇总表没数据就没法验证两段路径，直接跳过（CI 环境/干净库）
+	var covered int64
+	if err := db.Table("lc_log_daily_summaries").Count(&covered).Error; err != nil {
+		t.Skipf("lc_log_daily_summaries 不可用：%v", err)
+	}
+	if covered == 0 {
+		t.Skip("汇总表为空，跳过两段合并验证")
+	}
+
+	const merchantID int64 = 1
+	now := time.Now()
+	start, end, err := partnerBillingDates("", "", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lo, hi := start.Unix(), end.AddDate(0, 0, 1).Unix()
+
+	type row struct {
+		UserID       int64
+		RequestCount int64
+		Quota        int64
+	}
+	// 基准：全区间现算（旧实现口径原样）
+	var base []row
+	if err := db.Table("logs").
+		Joins("JOIN users ON users.id = logs.user_id").
+		Where("users.merchant_id = ? AND users.role IN ?", merchantID, []int{0, 1}).
+		Where("logs.type IN ? AND logs.created_at >= ? AND logs.created_at < ?",
+			[]int{model.LogTypeConsume, model.LogTypeRefund, model.LogTypePreConsume, model.LogTypeAdditionalCharge}, lo, hi).
+		Select(`logs.user_id AS user_id,
+			COALESCE(SUM(CASE WHEN logs.type IN (?, ?) THEN 1 ELSE 0 END), 0) AS request_count,
+			COALESCE(SUM(CASE WHEN logs.type IN (?, ?, ?) THEN logs.quota WHEN logs.type = ? THEN -logs.quota ELSE 0 END), 0) AS quota`,
+			model.LogTypeConsume, model.LogTypePreConsume,
+			model.LogTypeConsume, model.LogTypePreConsume, model.LogTypeAdditionalCharge, model.LogTypeRefund).
+		Group("logs.user_id").Scan(&base).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	// 新实现
+	result, err := QueryPartnerBillingSummary(merchantID, start.Format("2006-01-02"), end.Format("2006-01-02"), 1, 10000, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[int64]PartnerBillingUser{}
+	for _, it := range result.Items {
+		got[it.UserID] = it
+	}
+	// 现算里出现、但新结果没有的用户（quota=0 时可能出现行合并差异，逐行核对）
+	byUser := map[int64]row{}
+	for _, r := range base {
+		byUser[r.UserID] = r
+	}
+	if len(got) != len(base) {
+		t.Fatalf("用户数不一致：基准 %d，新实现 %d", len(base), len(got))
+	}
+	for uid, b := range byUser {
+		g, ok := got[uid]
+		if !ok {
+			t.Fatalf("用户 %d 在新实现里缺失", uid)
+		}
+		if g.Quota != b.Quota || g.RequestCount != b.RequestCount {
+			t.Fatalf("用户 %d 不一致：基准 quota=%d req=%d，新实现 quota=%d req=%d",
+				uid, b.Quota, b.RequestCount, g.Quota, g.RequestCount)
+		}
+	}
+	t.Logf("billing 两段合并与全量现算逐行一致：%d 个用户，总额 %d，请求数 %d",
+		result.TotalUsers, result.TotalQuota, result.TotalRequests)
+}
+
+/*
 耗时对比：同一条业务路径，本月区间 vs 近三个月区间。
 
 改动的意义在于「耗时不再随区间跨度暴涨」。旧写法两个区间都会把
