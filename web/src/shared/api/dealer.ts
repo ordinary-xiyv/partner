@@ -29,6 +29,7 @@ import type { TenantBrand, TenantBrandUpdatePayload, TenantDomain } from '../typ
 import type {
   Customer,
   CustomerCreatePayload,
+  CustomerSortKey,
   DealerProfile,
   OverviewStats,
   TrendPoint,
@@ -299,6 +300,19 @@ export async function fetchOverviewTrend(): Promise<TrendPoint[]> {
 }
 
 // ── 客户管理 ─────────────────────────────────────────────────
+/**
+ * 客户端可排的列。
+ *
+ * 键名与后端 partnerUserSortColumns 白名单一一对应，改名要两边一起改。
+ * amount_cny 与 used_quota 在后端映射到同一个聚合列（固定汇率），
+ * 但这里必须分开列出来 —— 前端表头要区分是哪一列被点了。
+ *
+ * 类型定义在 types/dealer.ts 并从这里再导出：它被页面直接 import，
+ * 而 shared 对 api 层只做 `export * as dealerApi` 命名空间导出，
+ * 类型放那里页面取不到。
+ */
+export type { CustomerSortKey } from '../types/dealer';
+
 export interface CustomerQuery {
   page?: number;
   page_size?: number;
@@ -317,11 +331,23 @@ export interface CustomerQuery {
    * 后端 /users 不带额度，「剩余额度 / 累计消耗 / 请求数」三列只能从
    * billing/summary 拿。合并要多发一个请求，列表页需要、详情页不需要，
    * 所以做成开关而不是无条件执行。
+   *
+   * ★ 后端升级后 /users 会直接返回 used_quota / request_count，
+   * 此时这个开关只作为「后端没给就补一次」的兜底，见 fetchCustomers。
    */
   withUsage?: boolean;
+  /**
+   * 排序列。
+   *
+   * ★ 必须交给后端排，不能在前端用 sorter 比较函数 —— 那样只能排当前页
+   * 这几条，用户永远看不到「全站消耗最高的客户」。
+   * 详见 web/src/pages/Customers.tsx 里关于排序的说明。
+   */
+  sort?: CustomerSortKey;
+  order?: 'asc' | 'desc';
 }
 
-/** GET /api/partner/users 的原始返回行 —— 只有这 7 个字段 */
+/** GET /api/partner/users 的原始返回行 */
 interface PartnerUserRow {
   id: number;
   username: string;
@@ -330,6 +356,14 @@ interface PartnerUserRow {
   phone?: string;
   status: number;
   created_time?: string;
+  /*
+   * 本月用量。后端用 LEFT JOIN 聚合回来，没有日志时这三个键整个不出现
+   * （Go 侧是指针 + omitempty）。所以这里必须是可选，不能给默认 0 ——
+   * 「没数据」和「消耗为 0」在界面上是两个不同的显示。
+   */
+  used_quota?: number;
+  request_count?: number;
+  used_amount_cny?: number;
 }
 
 /**
@@ -351,6 +385,10 @@ function toCustomer(u: PartnerUserRow): Customer {
      */
     status: u.status === 2 ? 2 : 1,
     created_at: u.created_time ? Math.floor(new Date(u.created_time).getTime() / 1000) || 0 : 0,
+    // undefined 原样透传，不要写成 `?? 0` —— 那会把「没有数据」变成「消耗 0」
+    used_quota: u.used_quota,
+    request_count: u.request_count,
+    used_amount_cny: u.used_amount_cny,
   };
 }
 
@@ -399,6 +437,10 @@ export async function fetchCustomers(
       page_size: query.page_size ?? 10,
       ...(query.keyword?.trim() ? { keyword: query.keyword.trim() } : {}),
       ...(query.status ? { status: query.status } : {}),
+      // 排序交给服务端：ORDER BY 与 LIMIT/OFFSET 在同一个 SQL 里，
+      // 切出来的才是全量排序后的第 N 页
+      ...(query.sort ? { sort: query.sort } : {}),
+      ...(query.order ? { order: query.order } : {}),
     },
   });
 
@@ -409,21 +451,25 @@ export async function fetchCustomers(
   let endDate: string | undefined;
   let usageTruncated = false;
 
-  if (query.withUsage && items.length > 0) {
-    /*
-     * 用量合并。拉一页尽可能大的账单行（后端 page_size 上限 100），按 user_id 建索引。
-     *
-     * 为什么用 billing 而不是 logs 逐人查：
-     *   logs 是明细，要给每人求和得翻完所有页；billing 本身就是按人聚合的。
-     *
-     * 注意两个真实约束（实测确认）：
-     * 1. billing 只返回**区间内有消耗**的客户。实测某商户 107 个客户里只有 5 个
-     *    本月有消耗，其余 102 人压根不在 items 里 —— 它们必须显示「—」，
-     *    而不是 0（0 会被读成"这个月没花钱"，而真相是"这个月没有数据"）。
-     * 2. 后端按 quota DESC 排序且只给前 100 条。活跃客户超过 100 个时，
-     *    靠后的客户无法匹配，此时 usageTruncated 置 true，页面要说明这一点，
-     *    否则用户会以为那些客户的消耗真的查不到。
-     */
+  /*
+   * ★ 用量数据的来源，后端升级前后不一样。
+   *
+   * 后端现在（partner_users.go 的 ListPartnerUsersWith）直接用 LEFT JOIN
+   * 把本月用量聚合进 /users 的返回里，所以正常情况下**一个请求就够了**。
+   *
+   * 下面这段 billing 合并只作为向后兼容的兜底：如果后端还是老版本
+   * （没下发 used_quota 字段），就照旧拉一次 billing 补上，
+   * 避免前后端不是同时发版时页面突然所有用量列都变「—」。
+   *
+   * 兜底分支保留了原来的两个硬约束，它们现在只影响老后端：
+   * 1. billing 只返回区间内有消耗的客户，查不到的必须显示「—」而不是 0
+   * 2. billing 按 quota DESC 只给前 100 条，超出的匹配不到，usageTruncated 置 true
+   */
+  const backendHasUsage = items.some(
+    (c) => c.used_quota !== undefined || c.request_count !== undefined,
+  );
+
+  if (query.withUsage && items.length > 0 && !backendHasUsage) {
     const range = currentMonthRange();
     try {
       const billing = await fetchBilling({ ...range, page: 1, page_size: 100 });

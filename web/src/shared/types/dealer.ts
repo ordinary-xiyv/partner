@@ -33,9 +33,11 @@ export interface DealerProfile {
 /**
  * 客户行。
  *
- * 基础字段来自 GET /api/partner/users（后端只给这 7 个，没有额度也没有用量）；
- * used_quota / request_count / used_amount_cny 三个是可选的补充字段，
- * 只有「我的客户」页顺带拉了 GET /api/partner/billing/summary 并成功合并时才存在。
+ * 基础字段来自 GET /api/partner/users。
+ *
+ * used_quota / request_count / used_amount_cny 三个是可选字段，来源有两代：
+ *   · 新后端：/users 直接用 LEFT JOIN 聚合 logs 一起返回（partner_users.go）
+ *   · 老后端：只能由「我的客户」页额外拉 billing/summary 再合并
  *
  * 为什么做成可选而不是必填 0：
  *   必填 0 会让表格把「后端没给」渲染成「这个客户消耗了 0 元」，
@@ -53,12 +55,29 @@ export interface Customer {
   /** 秒级时间戳，0 表示后端没给 */
   created_at: number;
 
-  /** ↓ 以下来自 billing/summary（按当前查询的日期范围聚合），可能不存在 */
+  /** ↓ 本月用量，由后端 JOIN logs 聚合；没有数据时是整个键缺失，不是 0 */
   /** 净消耗额度 = 消费 + 预扣 + 补扣 − 退款 */
   used_quota?: number;
   used_amount_cny?: number;
   request_count?: number;
 }
+
+/**
+ * 「我的客户」可排的列。
+ *
+ * 键名与后端 partnerUserSortColumns 白名单一一对应，改名必须两边一起改 ——
+ * 后端白名单是全库排序的唯一入口，键名对不上会静默回落成按 id 排序。
+ *
+ * 为什么必须有这个类型而不是随便传 string：
+ *   排序列是拼进 ORDER BY 的，后端只能靠白名单校验。前端这一侧同样约束住，
+ *   才能在改列名时让编译器报错，而不是等上线后发现排序悄悄失效。
+ */
+export type CustomerSortKey =
+  | 'id'
+  | 'created_at'
+  | 'used_quota'
+  | 'used_amount_cny'
+  | 'request_count';
 
 /**
  * 新建客户入参。
