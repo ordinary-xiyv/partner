@@ -21,6 +21,7 @@ package partner
  */
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -295,5 +296,198 @@ func TestPartnerUsersUsageSameAsUnfilteredBaseline(t *testing.T) {
 			t.Fatalf("第 %d 行 request_count 不一致：旧 %d，新 %d",
 				i, oldRows[i].RequestCount, newRows[i].RequestCount)
 		}
+	}
+}
+
+/*
+ * buildUsageSortFixture 造一个能同时触发两条排序路径的库：
+ *
+ *   商户 11：25 个客户（超过 partnerUserSortScalarMaxUsers=20）
+ *           → 按用量排序走派生表聚合路径
+ *   商户 22：2 个客户 → 走标量相关子查询路径
+ *
+ * 数据特意造了一组「同值并列」（u102/u103 都是 400）验证次级排序，
+ * 一个负数（退款让 used_quota 变 -50）验证 ASC/DESC 都不乱，
+ * 一批无日志客户验证 NULLS LAST 沉底。
+ */
+func buildUsageSortFixture(t *testing.T, name string) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(
+		sqlite.Open("file:"+name+"?mode=memory&cache=private"),
+		&gorm.Config{Logger: logger.Default.LogMode(logger.Silent)},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec(`CREATE TABLE users (
+		id integer primary key, merchant_id integer, username text, display_name text,
+		email text, phone text, role integer, status integer, created_time datetime,
+		deleted_at datetime
+	)`).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec(`CREATE TABLE logs (
+		id integer primary key, user_id integer, created_at bigint, type bigint,
+		quota bigint, username text
+	)`).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Now()
+	ts := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, time.Local).Unix()
+
+	// 商户 11：u101..u125
+	for id := 101; id <= 125; id++ {
+		if err := db.Exec(
+			"INSERT INTO users (id, merchant_id, username, display_name, email, role, status) VALUES (?, 11, ?, ?, '', 1, 1)",
+			id, fmt.Sprintf("u%d", id), fmt.Sprintf("客%d", id),
+		).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	// 商户 22：两个客户
+	for _, id := range []int{201, 202} {
+		if err := db.Exec(
+			"INSERT INTO users (id, merchant_id, username, display_name, email, role, status) VALUES (?, 22, ?, ?, '', 1, 1)",
+			id, fmt.Sprintf("m%d", id), fmt.Sprintf("乙%d", id),
+		).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// 用量：u101=600(请求2)  u102=400(请求1)  u103=400(请求1，与102并列)  u104=-50(请求0)  其余无日志
+	logs := []struct {
+		id     int
+		userID int
+		typ    int
+		quota  int64
+	}{
+		{1, 101, model.LogTypeConsume, 500},
+		{2, 101, model.LogTypePreConsume, 100},
+		{3, 102, model.LogTypeConsume, 400},
+		{4, 103, model.LogTypeConsume, 400},
+		{5, 104, model.LogTypeRefund, 50},
+		{6, 201, model.LogTypeConsume, 77},
+	}
+	for _, l := range logs {
+		if err := db.Exec(
+			"INSERT INTO logs (id, user_id, created_at, type, quota, username) VALUES (?, ?, ?, ?, ?, '')",
+			l.id, l.userID, ts, l.typ, l.quota,
+		).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	return db
+}
+
+/*
+ * ★ 双路径一致性 + 排序正确性。
+ *
+ * 生产代码按客户数在「标量子查询」和「派生表聚合」之间分流（见
+ * partner_users.go 的形态取舍说明）。两条路径的计费口径和 NULL 语义
+ * 必须完全一致 —— 否则同一个商户的客户数涨过阈值那天，列表数字会
+ * 悄悄变形。这个测试把两条路径都逼出来逐项比对。
+ */
+func TestPartnerUsersUsageSortPathsAgree(t *testing.T) {
+	db := buildUsageSortFixture(t, "partner_usage_sort_paths")
+	prevDB, prevLog := model.DB, model.LOG_DB
+	model.DB, model.LOG_DB = db, db
+	t.Cleanup(func() { model.DB, model.LOG_DB = prevDB, prevLog })
+
+	/* --- 派生表路径：商户 11 有 25 个客户 > 20，按消耗降序 --- */
+	page, err := ListPartnerUsersWith(PartnerUserQuery{
+		MerchantID: 11, Page: 1, PageSize: 30,
+		Sort: "used_quota", Order: "desc",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Total != 25 {
+		t.Fatalf("商户 11 应有 25 个客户，实际 %d", page.Total)
+	}
+
+	// 期望顺序：600 → 400(id 大者在前) → -50 → 20 个 NULL（按 id 降序沉底）
+	wantOrder := []int64{101, 103, 102, 104, 125, 124, 123, 122, 121, 120, 119, 118, 117, 116, 115, 114, 113, 112, 111, 110, 109, 108, 107, 106, 105}
+	wantQuota := map[int64]int64{101: 600, 103: 400, 102: 400, 104: -50}
+	if len(page.Items) != len(wantOrder) {
+		t.Fatalf("应返回 %d 行，实际 %d", len(wantOrder), len(page.Items))
+	}
+	for i, want := range wantOrder {
+		got := page.Items[i]
+		if got.ID != want {
+			t.Fatalf("第 %d 行应为 u%d，实际 u%d（顺序：检查 DESC 并列次级排序 / NULLS LAST）", i, want, got.ID)
+		}
+		if q, ok := wantQuota[want]; ok {
+			if got.UsedQuota == nil || *got.UsedQuota != q {
+				t.Fatalf("u%d used_quota 期望 %d，实际 %v", want, q, got.UsedQuota)
+			}
+		} else if got.UsedQuota != nil {
+			t.Fatalf("u%d 无日志，used_quota 应为 nil，实际 %d", want, *got.UsedQuota)
+		}
+	}
+
+	/* --- 派生表路径：按请求数升序，NULL 仍要沉底 --- */
+	asc, err := ListPartnerUsersWith(PartnerUserQuery{
+		MerchantID: 11, Page: 1, PageSize: 30,
+		Sort: "request_count", Order: "asc",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 请求 ASC：u104(0) → u103(1) → u102(1) → u101(2) → NULL 按 id 降序
+	wantAsc := []int64{104, 103, 102, 101, 125, 124, 123, 122, 121, 120, 119, 118, 117, 116, 115, 114, 113, 112, 111, 110, 109, 108, 107, 106, 105}
+	for i, want := range wantAsc {
+		if asc.Items[i].ID != want {
+			t.Fatalf("request_count ASC 第 %d 行应为 u%d，实际 u%d", i, want, asc.Items[i].ID)
+		}
+	}
+
+	/*
+	 * --- 标量路径：keyword 把商户 11 收窄到 9 个客户（≤20）---
+	 *
+	 * 同一批用户，换路径后 used_quota 必须和派生表路径完全一致。
+	 * keyword "u10" 命中 u101..u109（LIKE %u10%）。
+	 */
+	narrow, err := ListPartnerUsersWith(PartnerUserQuery{
+		MerchantID: 11, Page: 1, PageSize: 30,
+		Sort: "used_quota", Order: "desc", Keyword: "u10",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if narrow.Total != 9 {
+		t.Fatalf("keyword 收窄后应有 9 个客户，实际 %d", narrow.Total)
+	}
+	wantNarrow := []int64{101, 103, 102, 104, 109, 108, 107, 106, 105}
+	for i, want := range wantNarrow {
+		got := narrow.Items[i]
+		if got.ID != want {
+			t.Fatalf("标量路径第 %d 行应为 u%d，实际 u%d", i, want, got.ID)
+		}
+		if q, ok := wantQuota[want]; ok {
+			if got.UsedQuota == nil || *got.UsedQuota != q {
+				t.Fatalf("标量路径 u%d used_quota 期望 %d，实际 %v（与派生表路径口径不一致）", want, q, got.UsedQuota)
+			}
+		} else if got.UsedQuota != nil {
+			t.Fatalf("标量路径 u%d 无日志，used_quota 应为 nil，实际 %d", want, *got.UsedQuota)
+		}
+	}
+
+	/* --- 标量路径：商户 22（2 客户）隔离性 —— 聚合绝不能带上商户 11 的数字 --- */
+	p22, err := ListPartnerUsersWith(PartnerUserQuery{
+		MerchantID: 22, Page: 1, PageSize: 10,
+		Sort: "used_quota", Order: "desc",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p22.Total != 2 || len(p22.Items) != 2 {
+		t.Fatalf("商户 22 应有 2 个客户，实际 total=%d", p22.Total)
+	}
+	if p22.Items[0].ID != 201 || p22.Items[0].UsedQuota == nil || *p22.Items[0].UsedQuota != 77 {
+		t.Fatalf("商户 22 首行应为 u201(77)，实际 %+v", p22.Items[0])
+	}
+	if p22.Items[1].ID != 202 || p22.Items[1].UsedQuota != nil {
+		t.Fatalf("商户 22 次行应为 u202(nil)，实际 %+v", p22.Items[1])
 	}
 }

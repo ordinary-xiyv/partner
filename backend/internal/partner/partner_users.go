@@ -88,10 +88,9 @@ func validPartnerUserStatus(status int) bool {
  * （partnerQuotaCNY = quota / 500000），排序结果完全一致，
  * 所以 used_amount_cny 直接映射到 used_quota，少一个聚合列。
  *
- * ★ 用量三列指向的是 Select 里的**别名**，不是某个 JOIN 出来的表。
- *   它们是标量相关子查询（见下面构造 usageUsedQuota 的地方），没有
- *   `usage` 这个表了 —— 改成这一形态后 ORDER BY 必须用别名，
- *   写成 usage.used_quota 会报「列不存在」。
+ * ★ 用量三列指向的是 Select 里的**输出别名**。两条路径（标量子查询 /
+ *   派生表 JOIN）都会把聚合列命名为 used_quota / request_count 输出，
+ *   所以 ORDER BY 统一写别名，两种形态通用。
  */
 var partnerUserSortColumns = map[string]string{
 	"id":              "users.id",
@@ -100,6 +99,15 @@ var partnerUserSortColumns = map[string]string{
 	"used_amount_cny": "used_quota",
 	"request_count":   "request_count",
 }
+
+/*
+ * 按用量排序时，客户数不超过该阈值仍走标量相关子查询，超过才切派生表聚合。
+ *
+ * 两种成本的交叉点：标量路径按用量排序时每个客户执行一次子查询（无法 LIMIT
+ * 下推），客户少时总耗时毫秒级，且完全不用扫区间日志；派生表路径固定要扫
+ * 一遍区间日志（大商户更快，小商户反而亏）。20 是两条成本曲线的交叉量级。
+ */
+const partnerUserSortScalarMaxUsers = 20
 
 /*
  * 需要用量聚合才能排的列。
@@ -215,85 +223,68 @@ func ListPartnerUsersWith(q PartnerUserQuery) (PartnerUserPage, error) {
 	}
 
 	/*
-	 * 用量聚合 —— 用「标量相关子查询」，不是 LEFT JOIN 一个聚合子查询。
+	 * ★ 用量聚合有两套形态，按场景二选一 —— 这是线上两次翻车换来的取舍。
 	 *
-	 * ★ 这是线上 3.8 秒（本月）/ 9.8 秒（近三月）的解法，换掉的正是原来那个
-	 *   `LEFT JOIN (SELECT ... FROM logs WHERE created_at BETWEEN ... GROUP BY user_id)`。
+	 * 形态一：标量相关子查询（每行 users 做一次 user_id 索引查找）。
+	 *   - 默认视图（按 id / 开户时间排）时 LIMIT 会下推，子查询只对当前页
+	 *     那 10 行执行。3000 个客户的大商户实测 0.28 ms，客户数涨不影响。
+	 *   - 但按用量排序时必须先算出全部客户的用量才能 ORDER BY，无法下推：
+	 *     子查询执行次数 = 客户数。627 客户 × 本月 1500 万行日志，线上实测
+	 *     41~60 秒（网关超时）—— 这就是本次要修的故障。
 	 *
-	 * 慢的原因不是「没加商户过滤」那么简单 —— 加了也没用，因为：
+	 * 形态二：派生表聚合（logs 按区间 GROUP BY 一次，再 JOIN 回 users）。
+	 *   - 按用量排序只扫一遍本商户在区间内的日志，耗时与客户数无关：
+	 *     1500 万行实测 630 ms（热缓存）。
+	 *   - 代价是无论如何都要扫区间日志：一个只有 1 个客户的小商户也会从
+	 *     27 ms 变成秒级 —— 那正是上一轮修掉的 3.8 秒故障，不能倒退。
 	 *
-	 *   只要 logs 的聚合写在**派生表 / IN 子查询 / JOIN users** 里，
-	 *   Postgres 的优化器一律选 **全分区 Seq Scan + Hash(GROUP BY)**，
-	 *   `logs.user_id` 上的索引完全不会用。它估算「本商户 id 集合可能覆盖整段
-	 *   数据的很大比例」，认为顺序扫更便宜 —— 均匀分布下这个估算并不离谱。
+	 * 所以用 result.Total（Count 反正要算，零成本）分流：
+	 *   客户数 ≤ partnerUserSortScalarMaxUsers → 标量子查询（loops ≤ 20，毫秒级）
+	 *   客户数 > 20 且按用量排序              → 派生表聚合（扫一遍区间日志）
+	 *   客户数 > 20 但默认排序                → 标量子查询（LIMIT 下推只算 10 行）
 	 *
-	 *   后果是耗时只取决于「全平台该时间段的日志量」，与本商户毫无关系：
-	 *   线上那个只有 1 个客户、0 条日志的商户，每次翻页都要把全平台本月的
-	 *   日志完整扫一遍再丢掉，于是 3.8 秒。
-	 *
-	 *   实测（2000 万行 logs、按月 8 分区、商户只有 5 个客户，本月区间）：
-	 *     原写法（只 created_at）              Parallel Seq Scan 697,665 行  119.8 ms
-	 *     user_id IN (SELECT ...)              Hash Semi Join + Seq Scan     58.8 ms
-	 *     user_id = ANY(ARRAY(SELECT ...))     Seq Scan + Filter(ANY)        64.6 ms
-	 *     嵌套 JOIN users（billing 同形）       Hash Join + Seq Scan          56.7 ms
-	 *     ── 以上四种，全都不走 user_id 索引 ──
-	 *     字面量 user_id IN (3001,...,3005)    Index Scan                    0.6 ms
-	 *     标量相关子查询（本文件现在用的）      Bitmap Index Scan per row      0.8 ms
-	 *
-	 *   换成标量相关子查询后，每一行 users 都变成一次 `user_id = users.id` 的
-	 *   索引查找，扫描行数从「全平台整段」降到「本页用户自己的日志」。
-	 *   93 天最坏区间也只要 2.5 ms（实测）。
-	 *
-	 * ★ 额外的好处：ORDER BY 走 users 自身列（默认 id DESC）时，LIMIT 会下推，
-	 *   子查询只对**当前页那 10 行**执行。3000 个客户的大商户实测 0.28 ms ——
-	 *   即客户数增长不影响默认视图的耗时。
-	 *
-	 * ★ 代价：按用量排序（ORDER BY usage.used_quota）时无法下推，
-	 *   必须先把本商户所有客户的用量都算出来才能排序。此时耗时 ≈ 客户数 ×
-	 *   单次索引查找。3000 客户实测 701 ms。这是唯一无法避免的取舍 ——
-	 *   全库排序本来就要求全量聚合。客户数在千级以内可接受。
-	 *
-	 * 计费口径必须与 QueryPartnerBillingSummary 完全一致，否则「本月消耗」这一列
-	 * 排出来的顺序会和概览页/账单页的数字对不上：
-	 *   消费(2) + 预扣(7) + 补扣(8) − 退款(6)
-	 * request_count 只数消费(2) 和预扣(7)，与账单接口同口径。
+	 * 两种形态的计费口径完全一致：消费(2) + 预扣(7) + 补扣(8) − 退款(6)，
+	 * request_count 只数消费(2) 和预扣(7)，与 QueryPartnerBillingSummary 同口径，
+	 * 由 partner_users_usage_scope_test.go（sqlite 双路径一致性）和
+	 * partner_users_perf_realdb_test.go（真实库逐行比对）共同守护。
 	 *
 	 * 不做成「把 billing 换到 SQL 里做」的原因：billing 那个接口按 quota DESC
 	 * 只给前 100 条（它自己是分页的），所以用它做排序数据源天生缺尾部数据。
 	 * 聚合写进这条查询后没有 100 条上限，全量都能参与排序。
 	 */
 	usageJoined := false
-	needUsageColumns := partnerUserUsageSortColumns[sortKey]
+	needUsageSort := partnerUserUsageSortColumns[sortKey]
 	// 两个用量表达式在下面按区间拼好，Select 和 ORDER BY 共用同一份 ——
 	// 排序键必须指回 Select 里的别名，不能让两处各写一遍 SQL 片段。
 	var usageUsedQuota, usageRequestCount string
+	var usageLo, usageHi int64
 	if model.LOG_DB != nil && model.DB != nil && model.LOG_DB == model.DB {
 		start, end, err := partnerBillingDates(q.StartDate, q.EndDate, time.Now())
 		if err != nil {
 			return PartnerUserPage{}, err
 		}
-		lo, hi := start.Unix(), end.AddDate(0, 0, 1).Unix()
+		usageLo, usageHi = start.Unix(), end.AddDate(0, 0, 1).Unix()
 		usageJoined = true
 		usageUsedQuota = fmt.Sprintf(`(
 			SELECT SUM(CASE WHEN type IN (%d, %d, %d) THEN quota WHEN type = %d THEN -quota ELSE 0 END)
 			FROM logs
 			WHERE logs.user_id = users.id AND created_at >= %d AND created_at < %d
 		)`, model.LogTypeConsume, model.LogTypePreConsume, model.LogTypeAdditionalCharge,
-			model.LogTypeRefund, lo, hi)
+			model.LogTypeRefund, usageLo, usageHi)
 		usageRequestCount = fmt.Sprintf(`(
 			SELECT SUM(CASE WHEN type IN (%d, %d) THEN 1 ELSE 0 END)
 			FROM logs
 			WHERE logs.user_id = users.id AND created_at >= %d AND created_at < %d
-		)`, model.LogTypeConsume, model.LogTypePreConsume, lo, hi)
+		)`, model.LogTypeConsume, model.LogTypePreConsume, usageLo, usageHi)
 	}
 	/*
-	 * 库是分开的（logs 和 users 不在同一个库）就 JOIN 不了。
+	 * 库是分开的（logs 和 users 不在同一个库）就聚合不了。
 	 *
 	 * 这时按用量排序无法做到全库准确，宁可返回明确错误，也不要悄悄退回 id 排序
 	 * —— 那会让用户以为「按消耗排好了」，看到的却是开户时间顺序。
 	 * 与 billing 接口在这种情况下返回 503 是同一个判断。
 	 */
-	if needUsageColumns && !usageJoined {
+	if needUsageSort && !usageJoined {
 		return PartnerUserPage{}, errPartnerBillingSeparateDB
 	}
 
@@ -301,16 +292,41 @@ func ListPartnerUsersWith(q PartnerUserQuery) (PartnerUserPage, error) {
 		return PartnerUserPage{}, err
 	}
 
-	/*
-	 * 用量列在 Select 里，但排序键可能指向它 —— 两件事互不依赖，
-	 * 没算用量的时候（库分离、且没按用量排）只查用户自身字段。
-	 */
-	if usageJoined {
+	// 路径分流，依据见上面的形态取舍说明。
+	sortViaDerived := needUsageSort && result.Total > partnerUserSortScalarMaxUsers
+
+	switch {
+	case sortViaDerived:
+		/*
+		 * 派生表聚合：logs 按区间 GROUP BY 一次。
+		 *
+		 * ★ 子查询里必须带商户的 user_id 范围（IN 本商户客户集合），
+		 *   否则聚合的是全平台日志 —— 小商户也要替全平台买单，那就是
+		 *   上一轮修掉的 3.8 秒故障复发。
+		 */
+		merchantUsers := model.DB.Table("users").
+			Select("id").
+			Where("merchant_id = ? AND deleted_at IS NULL AND role IN ?", q.MerchantID,
+				[]int{common.RoleGuestUser, common.RoleCommonUser})
+		usageSub := model.LOG_DB.Table("logs").
+			Select(`user_id,
+				SUM(CASE WHEN type IN (?, ?, ?) THEN quota WHEN type = ? THEN -quota ELSE 0 END) AS used_quota,
+				SUM(CASE WHEN type IN (?, ?) THEN 1 ELSE 0 END) AS request_count`,
+				model.LogTypeConsume, model.LogTypePreConsume, model.LogTypeAdditionalCharge, model.LogTypeRefund,
+				model.LogTypeConsume, model.LogTypePreConsume).
+			Where("created_at >= ? AND created_at < ?", usageLo, usageHi).
+			Where("user_id IN (?)", merchantUsers).
+			Group("user_id")
+		query = query.Joins("LEFT JOIN (?) AS usage ON usage.user_id = users.id", usageSub)
+		query = query.Select(`users.id, users.username, users.display_name, users.email, users.phone,
+			users.status, users.created_time,
+			usage.used_quota AS used_quota, usage.request_count AS request_count`)
+	case usageJoined:
 		query = query.Select(`users.id, users.username, users.display_name, users.email, users.phone,
 			users.status, users.created_time,
 			` + usageUsedQuota + ` AS used_quota,
 			` + usageRequestCount + ` AS request_count`)
-	} else {
+	default:
 		query = query.Select("id, username, display_name, email, phone, status, created_time")
 	}
 
@@ -327,7 +343,7 @@ func ListPartnerUsersWith(q PartnerUserQuery) (PartnerUserPage, error) {
 	 * 第 1 页和第 2 页会出现重复或缺漏。
 	 */
 	orderBy := sortColumn + " " + strings.ToUpper(order)
-	if needUsageColumns {
+	if needUsageSort {
 		orderBy += " NULLS LAST"
 	}
 	orderBy += ", users.id DESC"
