@@ -56,7 +56,7 @@ export default function Header({
   const { locale } = useLocale();
   const { user, isEnterprise, isOrgOwner, isPlatformWorker } = useUser();
   const { has } = usePermissions();
-  const { status, siteLogosThemed, siteAppearance, partnerBrand, loading: statusLoading } = useStatus();
+  const { status, siteLogosThemed, siteAppearance, partnerBrand } = useStatus();
   const { resolved: themeResolved } = useTheme();
   const { openLogin } = useAuthModal();
   const location = useLocation();
@@ -156,22 +156,72 @@ export default function Header({
     [isWhiteLabelSite, partnerBrand, themeResolved, siteLogosThemed],
   );
 
-  const cachedResolve = remoteLogoSrc ? getSiteLogoResolve(remoteLogoSrc) : undefined;
+  /*
+   * 加载结果记的是「哪一张图」，不是布尔值。
+   *
+   * ★ 为什么不能用 useState(false) + useEffect 翻牌：那样**首帧必然画首字**。
+   *   实测连续刷新三轮，中间态分别是 209ms / 9ms / 11ms —— 后两次比一帧
+   *   （16.7ms）还短，屏幕上根本画不出那一帧，但 DOM 里确实先渲染了首字。
+   *   用户说「刷新会先显示首字」，说的就是这个必然发生的第一帧。
+   *
+   *   改成从模块级缓存 getSiteLogoResolve 直接派生后，缓存命中时第一帧
+   *   就能判定「这张图之前加载成功过」，直接画图，中间态归零。
+   *
+   * ★ 为什么不用 effect 同步：effect 在 paint 之后才跑，改了状态又要再 paint
+   *   一次 —— 中间那一帧正是我们要消掉的东西。派生值在 render 期就算好，
+   *   没有第二帧。
+   *
+   * 记 src 而不是布尔值，是为了换图时自动失效：商户上传了新 logo，
+   * 上一张的「已就绪」不能被当成新图的，否则会先画一张不存在的图。
+   */
+  const [readyLogoSrc, setReadyLogoSrc] = React.useState<string | null>(null);
+  const [brokenLogoSrc, setBrokenLogoSrc] = React.useState<string | null>(null);
 
-  const [logoBroken, setLogoBroken] = React.useState(
-    () => cachedResolve === 'broken',
+  const logoBroken = Boolean(
+    remoteLogoSrc
+      && (brokenLogoSrc === remoteLogoSrc || getSiteLogoResolve(remoteLogoSrc) === 'broken'),
   );
 
-  React.useEffect(() => {
-    if (!remoteLogoSrc) {
-      setLogoBroken(false);
-      return;
-    }
-    const cached = getSiteLogoResolve(remoteLogoSrc);
-    setLogoBroken(cached === 'broken');
-  }, [remoteLogoSrc]);
+  /*
+   * 这张图有没有真正解码完成。
+   *
+   * <img> 一挂上 DOM 就算「在渲染」了，但图片字节还没下载完，浏览器画出来的
+   * 是一片空白。实测（mock 一张延迟 800ms 的图）：
+   *   t=302ms  slot 里有 <img>，但视觉空白
+   *   t=1102ms 图解码完成才看得见
+   * 这 800ms 里品牌名已经显示了、左边却空着，然后 logo「啪」地出现 ——
+   * 和先画首字再换图是同一种闪烁，只是换了形态。
+   *
+   * 处理办法不是「等图加载完才显示品牌名」（那会拖慢首屏可读性），
+   * 而是：图没就绪时继续画首字方块，就绪后无缝换成图。
+   */
+  const logoReady = Boolean(
+    remoteLogoSrc
+      && (readyLogoSrc === remoteLogoSrc || getSiteLogoResolve(remoteLogoSrc) === 'remote'),
+  );
 
-  const showLogoImage = Boolean(remoteLogoSrc && !statusLoading && !logoBroken);
+  /*
+   * 只要有 logo 就画图，**不等 statusLoading**。
+   *
+   * ★ 这里曾经写的是 `remoteLogoSrc && !statusLoading && !logoBroken`，那个
+   *   `!statusLoading` 是「只有一个平台 logo 来源」时代的遗留：当年 logo 只能
+   *   从平台状态接口拿，状态没回来就无从判断有没有 logo，索性等它。
+   *
+   *   现在白标站的 logo 来自伙伴品牌（独立的 /api/partner/public/site-brand），
+   *   和平台那 6 个接口毫无关系。继续等 statusLoading 的后果是实测过的：
+   *      t=249ms  伙伴品牌已到，drawing 首字「Q」
+   *      t=4144ms 平台 6 个接口才返回，statusLoading 转 false，换成真 logo
+   *   —— 首字在页头上挂了近 4 秒再跳成 logo，这就是「刷新闪一下」的来源。
+   *
+   *   去掉之后：
+   *     · 白标站  → 伙伴品牌一到就出图，不再经过首字
+   *     · 非白标站 → siteLogosThemed 初值是 {light:null,dark:null}，平台没回来时
+   *                remoteLogoSrc 本来就是 undefined，这一条对它是冗余的，去掉无影响
+   *
+   * 末尾的 logoReady 不是「等平台」，而是「等这张图片自己的字节」——
+   * 见上面 logoReady 的注释，它只在图还没解码完时短暂为 false。
+   */
+  const showLogoImage = Boolean(remoteLogoSrc && !logoBroken && logoReady);
 
   /*
    * 并排显示的品牌名。
@@ -232,14 +282,15 @@ export default function Header({
    * 这样就不会出现「只有一个孤零零的方块」或者「一个名字孤零零挂着、
    * 旁边没有图形」的观感。
    *
-   * 注意 statusLoading：首屏状态没回来之前 showLogoImage 是 false、
-   * brandInitial 也是空，两者都假，这一帧不会画任何东西（也不会闪一下名字）。
+   * 首屏那一帧两个都可能是假（伙伴品牌还没到 → brandInitial 空），
+   * 此时什么都不画，也不会先闪一下名字。
    */
   const hasBrandMark = showLogoImage || showLogoFallback;
 
   const handleLogoError = () => {
     if (!remoteLogoSrc) return;
-    setLogoBroken(true);
+    setReadyLogoSrc(null);
+    setBrokenLogoSrc(remoteLogoSrc);
     setSiteLogoResolve(remoteLogoSrc, 'broken');
   };
 
@@ -257,9 +308,17 @@ export default function Header({
    * 现在不再依赖图片加载时序，这个问题从根上没有了。
    */
   const handleLogoLoad = () => {
-    if (remoteLogoSrc) {
-      setSiteLogoResolve(remoteLogoSrc, 'remote');
-    }
+    if (!remoteLogoSrc) return;
+    /*
+     * setSiteLogoResolve 写在 setState 前面 —— 它只影响**下一次**挂载，
+     * 和这一帧无关，所以顺序其实无关紧要；但先写缓存能让「同一帧里
+     * 又有别的组件挂载 Header」这种极端情况下也拿到最新结果。
+     *
+     * 真正决定这一帧的是 readyLogoSrc：它一变，logoReady 立刻为 true。
+     */
+    setSiteLogoResolve(remoteLogoSrc, 'remote');
+    setBrokenLogoSrc(null);
+    setReadyLogoSrc(remoteLogoSrc);
   };
 
   useEffect(() => {
@@ -457,16 +516,33 @@ export default function Header({
                 : 'app-header-logo__slot'
             }
           >
-            {showLogoImage ? (
+            {/*
+             * ★ <img> 必须常驻，不能和首字互斥。
+             *
+             * 图未解码完时我们画首字、同时把 <img> 留在 DOM 里但不可见
+             * （.is-pending 设 opacity:0）。如果按原来的三分支互斥写法，
+             * 图没就绪 → 渲染首字 → <img> 不挂载 → onLoad 永远不会触发 →
+             * logoReady 永远 false → 永远卡在首字。
+             *
+             * 用 opacity 而不是 display:none / visibility:hidden 隐藏：
+             * 后两者在部分浏览器里仍会触发加载，但 opacity 最稳妥，
+             * 且不占位（position:absolute 由 CSS 处理，避免撑开槽宽）。
+             */}
+            {remoteLogoSrc && !logoBroken ? (
               <img
                 src={remoteLogoSrc}
                 alt=""
                 role="presentation"
-                className="app-header-logo__img"
+                className={
+                  showLogoImage
+                    ? 'app-header-logo__img'
+                    : 'app-header-logo__img is-pending'
+                }
                 onLoad={handleLogoLoad}
                 onError={handleLogoError}
               />
-            ) : showLogoFallback ? (
+            ) : null}
+            {!showLogoImage && showLogoFallback ? (
               <span className="app-header-logo__mark" aria-hidden>
                 {brandInitial}
               </span>

@@ -79,6 +79,9 @@
   align-items: center;
   justify-content: flex-start;
   overflow: hidden;
+  /* 定位上下文：让未就绪的 <img>（.is-pending，绝对定位）以槽位为参照，
+     而不是往上找到某个祖先元素跑出去。 */
+  position: relative;
 }
 
 .app-header-logo__img {
@@ -88,6 +91,27 @@
   max-width: 100%;
   object-fit: contain;
   object-position: left center;
+}
+
+/*
+ * 图还没解码完时的 <img>：留在 DOM 里等 onLoad，但视觉上完全让位给首字方块。
+ *
+ * 为什么不能直接不渲染它（Header.tsx 里已说明）：不挂载就收不到 onLoad，
+ * 会永远卡在首字。所以它必须在 DOM 里。
+ *
+ * 为什么用 position:absolute 而不是 opacity:0 就够了：
+ * 图片在加载完成前虽然画不出东西，但浏览器已经知道它的固有尺寸（有尺寸时），
+ * 会先按那个宽度占位，把首字方块挤到一边。绝对定位让它彻底脱离布局，
+ * 首字才能稳稳待在 32px 那个位置上。
+ *
+ * 父级 .app-header-logo__slot 已经有 overflow:hidden，逃不出去。
+ */
+.app-header-logo__img.is-pending {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /*

@@ -1,0 +1,311 @@
+{
+  "version": 2,
+  "categories": [
+    {
+      "slug": "getting-started",
+      "parent_slug": "",
+      "title_zh": "入门",
+      "title_en": "Getting Started",
+      "sort": 10
+    },
+    {
+      "slug": "model-guides",
+      "parent_slug": "",
+      "title_zh": "模型指南",
+      "title_en": "Model Guides",
+      "sort": 20
+    },
+    {
+      "slug": "api-reference",
+      "parent_slug": "",
+      "title_zh": "API 参考",
+      "title_en": "API Reference",
+      "sort": 90
+    },
+    {
+      "slug": "images",
+      "parent_slug": "api-reference",
+      "title_zh": "图片",
+      "title_en": "Images",
+      "sort": 10
+    },
+    {
+      "slug": "management",
+      "parent_slug": "api-reference",
+      "title_zh": "管理",
+      "title_en": "Management",
+      "sort": 20
+    },
+    {
+      "slug": "chat",
+      "parent_slug": "api-reference",
+      "title_zh": "聊天",
+      "title_en": "Chat",
+      "sort": 30
+    },
+    {
+      "slug": "video",
+      "parent_slug": "api-reference",
+      "title_zh": "视频",
+      "title_en": "Video",
+      "sort": 40
+    },
+    {
+      "slug": "video-openai-compatible",
+      "parent_slug": "video",
+      "title_zh": "OpenAI 兼容",
+      "title_en": "OpenAI Compatible",
+      "sort": 10
+    }
+  ],
+  "articles": [
+    {
+      "slug": "auth",
+      "category_slug": "getting-started",
+      "title_zh": "认证",
+      "title_en": "Authentication",
+      "sort": 10,
+      "file": "getting-started/auth.md"
+    },
+    {
+      "slug": "quickstart",
+      "category_slug": "getting-started",
+      "title_zh": "快速开始",
+      "title_en": "Quick Start",
+      "sort": 20,
+      "file": "getting-started/quickstart.md"
+    },
+    {
+      "slug": "openai-chat-params",
+      "category_slug": "getting-started",
+      "title_zh": "通用 OpenAI Chat 参数",
+      "title_en": "OpenAI Chat Parameters",
+      "sort": 30,
+      "file": "getting-started/openai-chat-params.md"
+    },
+    {
+      "slug": "deepseek",
+      "category_slug": "model-guides",
+      "title_zh": "DeepSeek",
+      "title_en": "DeepSeek",
+      "sort": 10,
+      "file": "model-guides/deepseek.md"
+    },
+    {
+      "slug": "glm",
+      "category_slug": "model-guides",
+      "title_zh": "智谱 GLM",
+      "title_en": "Zhipu GLM",
+      "sort": 20,
+      "file": "model-guides/glm.md"
+    },
+    {
+      "slug": "qwen",
+      "category_slug": "model-guides",
+      "title_zh": "通义 Qwen",
+      "title_en": "Qwen",
+      "sort": 30,
+      "file": "model-guides/qwen.md"
+    },
+    {
+      "slug": "kimi",
+      "category_slug": "model-guides",
+      "title_zh": "Kimi",
+      "title_en": "Kimi",
+      "sort": 40,
+      "file": "model-guides/kimi.md"
+    },
+    {
+      "slug": "minimax",
+      "category_slug": "model-guides",
+      "title_zh": "MiniMax",
+      "title_en": "MiniMax",
+      "sort": 50,
+      "file": "model-guides/minimax.md"
+    },
+    {
+      "slug": "doubao-seed",
+      "category_slug": "model-guides",
+      "title_zh": "豆包 Seed",
+      "title_en": "Doubao Seed",
+      "sort": 60,
+      "file": "model-guides/doubao-seed.md"
+    },
+    {
+      "slug": "seedance-video",
+      "category_slug": "model-guides",
+      "title_zh": "Seedance 视频",
+      "title_en": "Seedance Video",
+      "sort": 70,
+      "file": "model-guides/seedance-video.md"
+    },
+    {
+      "slug": "seedance-avatar",
+      "category_slug": "model-guides",
+      "title_zh": "Seedance 2.0 虚拟人",
+      "title_en": "Seedance 2.0 Avatar",
+      "sort": 80,
+      "file": "model-guides/seedance-avatar.md"
+    },
+    {
+      "slug": "seedance-portrait",
+      "category_slug": "model-guides",
+      "title_zh": "Seedance 真人人像",
+      "title_en": "Seedance Portrait",
+      "sort": 90,
+      "file": "model-guides/seedance-portrait.md"
+    },
+    {
+      "slug": "claude",
+      "category_slug": "model-guides",
+      "title_zh": "Claude（Anthropic）",
+      "title_en": "Claude (Anthropic)",
+      "sort": 100,
+      "file": "model-guides/claude.md"
+    },
+    {
+      "slug": "image-generations",
+      "category_slug": "images",
+      "title_zh": "文生图（OpenAI Images）",
+      "title_en": "Image Generations (OpenAI Images)",
+      "sort": 10,
+      "file": "api-reference/images/openai-images.md"
+    },
+    {
+      "slug": "seedream-image",
+      "category_slug": "images",
+      "title_zh": "Seedream（图片生成）",
+      "title_en": "Seedream (Image Generation)",
+      "sort": 20,
+      "file": "api-reference/images/seedream.md"
+    },
+    {
+      "slug": "qwen-image",
+      "category_slug": "images",
+      "title_zh": "Qwen-Image",
+      "title_en": "Qwen-Image",
+      "sort": 30,
+      "file": "api-reference/images/qwen-image.md"
+    },
+    {
+      "slug": "list-models",
+      "category_slug": "management",
+      "title_zh": "列出可用模型",
+      "title_en": "List Models",
+      "sort": 10,
+      "file": "api-reference/management/list-models.md"
+    },
+    {
+      "slug": "get-account-balance",
+      "category_slug": "management",
+      "title_zh": "查询账户余额",
+      "title_en": "Get Account Balance",
+      "sort": 20,
+      "file": "api-reference/management/get-account-balance.md"
+    },
+    {
+      "slug": "chat-completions",
+      "category_slug": "chat",
+      "title_zh": "对话补全（OpenAI Chat Completions）",
+      "title_en": "Chat Completions (OpenAI Compatible)",
+      "sort": 10,
+      "file": "api-reference/chat/chat-completions.md"
+    },
+    {
+      "slug": "open-airesponses",
+      "category_slug": "chat",
+      "title_zh": "文本生成（OpenAI Responses API）",
+      "title_en": "Text Generation (OpenAI Responses API)",
+      "sort": 20,
+      "file": "api-reference/chat/openai-responses.md"
+    },
+    {
+      "slug": "anthropic-messages",
+      "category_slug": "chat",
+      "title_zh": "Claude Messages（Anthropic 格式）",
+      "title_en": "Claude Messages (Anthropic Format)",
+      "sort": 30,
+      "file": "api-reference/chat/anthropic-messages.md"
+    },
+    {
+      "slug": "create-video",
+      "category_slug": "video-openai-compatible",
+      "title_zh": "创建视频任务",
+      "title_en": "Create Video Task",
+      "sort": 10,
+      "file": "api-reference/video/create-video.md"
+    },
+    {
+      "slug": "get-video-task",
+      "category_slug": "video-openai-compatible",
+      "title_zh": "查询视频任务",
+      "title_en": "Get Video Task",
+      "sort": 20,
+      "file": "api-reference/video/get-video-task.md"
+    },
+    {
+      "slug": "get-video-content",
+      "category_slug": "video-openai-compatible",
+      "title_zh": "下载视频内容",
+      "title_en": "Get Video Content",
+      "sort": 30,
+      "file": "api-reference/video/get-video-content.md"
+    },
+    {
+      "slug": "create-video-alt",
+      "category_slug": "video-openai-compatible",
+      "title_zh": "创建视频任务（别名路径）",
+      "title_en": "Create Video Task (Alias Path)",
+      "sort": 40,
+      "file": "api-reference/video/create-video-alt.md"
+    },
+    {
+      "slug": "get-video-alt",
+      "category_slug": "video-openai-compatible",
+      "title_zh": "查询视频任务（别名路径）",
+      "title_en": "Get Video Task (Alias Path)",
+      "sort": 50,
+      "file": "api-reference/video/get-video-alt.md"
+    },
+    {
+      "slug": "minimax-h3",
+      "category_slug": "video",
+      "title_zh": "Minimax H3",
+      "title_en": "Minimax H3",
+      "sort": 30,
+      "file": "api-reference/video/minimax-h3.md"
+    },
+    {
+      "slug": "wan30-video",
+      "category_slug": "video",
+      "title_zh": "wan3.0-video",
+      "title_en": "wan3.0 Video",
+      "sort": 40,
+      "file": "api-reference/video/wan3-video.md"
+    },
+    {
+      "slug": "seedance-ark",
+      "category_slug": "video",
+      "title_zh": "视频生成 API（Seedance · 火山 Ark 协议兼容）",
+      "title_en": "Video Generation API (Seedance, Ark Compatible)",
+      "sort": 50,
+      "file": "api-reference/video/seedance-ark.md"
+    },
+    {
+      "slug": "seedance-errors",
+      "category_slug": "video",
+      "title_zh": "Seedance 视频 API 错误响应",
+      "title_en": "Seedance Video API Errors",
+      "sort": 60,
+      "file": "api-reference/video/seedance-errors.md"
+    },
+    {
+      "slug": "seedance-material-library",
+      "category_slug": "video",
+      "title_zh": "Seedance 素材库 API 接入",
+      "title_en": "Seedance Material Library API",
+      "sort": 70,
+      "file": "api-reference/video/seedance-material-library.md"
+    }
+  ]
+}

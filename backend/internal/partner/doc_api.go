@@ -323,7 +323,7 @@ AdminDocSeedImportAPI POST /api/partner/docs/import/seed?mode=skip|overwrite
 把内置的默认文档模板导入当前商户的站点。
 
 为什么需要这个接口：新商户的文档表是空的，后台打开文档页一片空白，
-只能从零手写。而这套模板（入门 / 模型指南 / API 参考，45 篇）本来就是
+只能从零手写。而这套模板（入门 / 模型指南 / API 参考，31 篇）本来就是
 为这个产品写好的，不该让每个商户重复劳动。
 
 mode 默认 skip（只补缺，不动已有内容）。overwrite 才会覆盖同 slug 的

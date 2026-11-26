@@ -261,13 +261,20 @@ func TestImportDocSeedNestedCategoryParents(t *testing.T) {
 		t.Fatal("chat 的父分类应是 api-reference")
 	}
 
-	// 三层：chat-openai-chat-completions → chat → api-reference
-	completion, ok := bySlug["chat-openai-chat-completions"]
+	// 三层：video-openai-compatible → video → api-reference
+	video, ok := bySlug["video"]
 	if !ok {
-		t.Fatal("缺少 chat-openai-chat-completions 分类")
+		t.Fatal("缺少 video 分类")
 	}
-	if completion.ParentID == nil || *completion.ParentID != chat.ID {
-		t.Fatal("chat-openai-chat-completions 应挂在 chat 下")
+	if video.ParentID == nil || *video.ParentID != apiRef.ID {
+		t.Fatal("video 的父分类应是 api-reference")
+	}
+	compatible, ok := bySlug["video-openai-compatible"]
+	if !ok {
+		t.Fatal("缺少 video-openai-compatible 分类")
+	}
+	if compatible.ParentID == nil || *compatible.ParentID != video.ID {
+		t.Fatal("video-openai-compatible 应挂在 video 下")
 	}
 
 	// 公网树必须能建出东西来，否则客户站会显示「文档不存在」
@@ -295,10 +302,10 @@ func TestDocSeedLoads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("种子解析失败：%v", err)
 	}
-	if len(seed.Categories) < 10 {
+	if len(seed.Categories) < 8 {
 		t.Fatalf("分类只有 %d 条，明显少了", len(seed.Categories))
 	}
-	if len(seed.Articles) < 40 {
+	if len(seed.Articles) < 30 {
 		t.Fatalf("文章只有 %d 条，明显少了", len(seed.Articles))
 	}
 

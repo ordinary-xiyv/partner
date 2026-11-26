@@ -344,7 +344,7 @@ export default function Docs() {
    * 导入内置默认文档。
    *
    * 为什么要有这个入口：新站点的文档表是空的，后台打开就是一片空白，
-   * 只能从零手写分类和文章。而这套模板（入门 / 模型指南 / API 参考，45 篇）
+   * 只能从零手写分类和文章。而这套模板（入门 / 模型指南 / API 参考，31 篇）
    * 本来就是为这个产品写的，每个商户重复劳动没有意义。
    *
    * 默认走 skip（只补缺、不动已有内容）。已有内容时再问一次要不要覆盖 ——
@@ -498,7 +498,7 @@ export default function Docs() {
                 loading={seedImporting}
                 onClick={confirmSeedImport}
               >
-                导入默认文档（45 篇）
+                导入默认文档（31 篇）
               </Button>
               <Button size="small" style={{ marginTop: 8 }} onClick={openNewCategory}>
                 新建第一个分类

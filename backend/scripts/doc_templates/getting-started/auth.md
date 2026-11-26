@@ -1,0 +1,43 @@
+# 认证
+
+## API Token
+
+1. 登录控制台 → **令牌管理** → 创建令牌
+2. 复制完整 Key（仅显示一次），格式：`sk-...`
+3. 所有对外 API 请求携带：
+
+```http
+Authorization: Bearer sk-your-api-key
+```
+
+## 多协议兼容
+
+同一 Token，按 SDK 选择不同路径：
+
+| 协议 | 适用 | 端点 |
+|------|------|------|
+| OpenAI Chat | DeepSeek、GLM、Qwen、Kimi、豆包对话 | `POST /v1/chat/completions` |
+| OpenAI Responses | OpenAI 原生 Responses 客户端 | `POST /v1/responses` |
+| Anthropic | Claude（若 `/v1/models` 返回） | `POST /v1/messages` |
+| 兼容火山V3 Video | Seedance 视频 | `POST /api/v3/contents/generations/tasks` |
+
+## 环境
+
+| 环境 | Base URL | 说明 |
+|------|----------|------|
+| 生产 | `{{baseUrl}}` | curl 示例直接用此域名 + 路径（如 `/v1/models`） |
+| OpenAI SDK | `{{baseUrl}}/v1` | `OpenAI(base_url=...)` 需带 `/v1` |
+| Anthropic SDK | `{{baseUrl}}` | 不带 `/v1` |
+
+## 常见错误
+
+| 状态码 | 含义 |
+|--------|------|
+| 401 | Token 无效或未携带 |
+| 403 | IP 白名单限制 |
+| 429 | 限流 |
+| 402/403 | 额度不足（视网关配置） |
+
+## 可用模型
+
+调用前执行 `GET /v1/models`，返回的 `data[].id` 即为 **`model` 字段**应填写的值。详见 API 参考 → **模型列表**。

@@ -134,7 +134,7 @@ func buildRouter() *gin.Engine {
 	ready.PUT("/docs/articles/:id", partner.AdminDocArticleUpdateAPI)
 	ready.DELETE("/docs/articles/:id", partner.AdminDocArticleDeleteAPI)
 	/*
-	 * 导入内置默认文档（入门 / 模型指南 / API 参考，45 篇）。
+	 * 导入内置默认文档（入门 / 模型指南 / API 参考，31 篇）。
 	 *
 	 * 新商户的文档表是空的，没有这个接口就只能从零手写分类和文章。
 	 * 幂等：mode=skip（默认）只补缺失，mode=overwrite 才覆盖同 slug 的内容，
