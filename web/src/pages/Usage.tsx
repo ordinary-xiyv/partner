@@ -236,7 +236,6 @@ export default function Usage() {
       title: '时间',
       dataIndex: 'created_at',
       width: 158,
-      sorter: (a, b) => a.created_at - b.created_at,
       render: (ts: number) => (
         <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{formatTime(ts)}</span>
       ),
@@ -258,7 +257,6 @@ export default function Usage() {
       dataIndex: 'prompt_tokens',
       width: 92,
       align: 'right',
-      sorter: (a, b) => a.prompt_tokens - b.prompt_tokens,
       render: (n: number) => (
         <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
           {formatNumber(n)}
@@ -282,7 +280,6 @@ export default function Usage() {
       dataIndex: 'cache_read',
       width: 92,
       align: 'right',
-      sorter: (a, b) => a.cache_read - b.cache_read,
       render: (n: number) => (
         <span
           style={{
@@ -300,7 +297,6 @@ export default function Usage() {
       dataIndex: 'completion_tokens',
       width: 92,
       align: 'right',
-      sorter: (a, b) => a.completion_tokens - b.completion_tokens,
       render: (n: number) => (
         <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
           {formatNumber(n)}
@@ -312,7 +308,6 @@ export default function Usage() {
       dataIndex: 'quota',
       width: 110,
       align: 'right',
-      sorter: (a, b) => a.quota - b.quota,
       render: (q: number, row) => (
         <span
           style={{
@@ -351,7 +346,6 @@ export default function Usage() {
       dataIndex: 'use_time',
       width: 90,
       align: 'right',
-      sorter: (a, b) => a.use_time - b.use_time,
       render: (t: number) => (
         <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{formatDuration(t)}</span>
       ),
