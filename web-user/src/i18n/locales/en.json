@@ -3623,6 +3623,7 @@
   "org.memberManageHint": "Manage member status, per-member quota, and password resets in one place.",
   "org.memberReadonlyHint": "You are an org member and can view organization info. Contact an org admin to change members or quota.",
   "org.noMembers": "No members yet. Create a member account to collaborate.",
+  "org.noMembersHint": "No members yet. Member accounts are provisioned by the platform — contact your platform admin to add one.",
   "org.noOrganizations": "No organizations yet. Create an organization to assign members and quota.",
   "org.platformManageHint": "View org pool quota, member assignment, and basics—keep admin actions clear.",
   "recommended": "Recommended",

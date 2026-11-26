@@ -4,12 +4,11 @@ import { Menu } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   HomeOutlined, KeyOutlined, BarChartOutlined,
-  CreditCardOutlined, FileTextOutlined, ReadOutlined,
+  FileTextOutlined, ReadOutlined,
   TeamOutlined,
   CommentOutlined, PictureOutlined, CameraOutlined,
   AppstoreOutlined, ExportOutlined,
   AccountBookOutlined,
-  IdcardOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useUser } from '../contexts/UserContext';
@@ -154,14 +153,18 @@ export default function MainLayout() {
 
 function MainLayoutShell() {
   const { t } = useTranslation();
-  const { user, logout, isEnterprise, isOrgOwner, isPlatformWorker } = useUser();
+  const { user, logout, isEnterprise, isOrgOwner } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
   const { isOpen: sidebarOpen, closeSidebar } = useAppSidebar()!;
   const { isDesktop } = useBreakpoint();
   const sidebarNavRef = React.useRef<HTMLElement>(null);
 
-  const showPersonalTopup = !isEnterprise || isPlatformWorker;
+  /*
+   * 「充值」与「订阅」不再作为侧栏入口对外开放（个人、企业账号一视同仁）。
+   * 页面与路由都还在（/topup、/subscription），只是不给菜单入口；
+   * 若后续要连路由一起关，改 App.tsx，别以为删菜单就关了。
+   */
 
   // ── 菜单结构（用户区按设计稿分组标题；管理员区折叠分类）────────────
 
@@ -200,9 +203,7 @@ function MainLayoutShell() {
       categoryKey: 'billing-center',
       title: t('sidebar.billingCenter'),
       items: [
-        ...(showPersonalTopup ? [{ key: '/topup', label: t('topUp'), icon: <CreditCardOutlined /> }] : []),
         { key: '/billing', label: t('billing'), icon: <FileTextOutlined /> },
-        { key: '/subscription', label: t('subscription'), icon: <IdcardOutlined /> },
       ],
     },
 
@@ -226,11 +227,7 @@ function MainLayoutShell() {
           label: t('sidebar.orgDiscountRules'),
           icon: <FileTextOutlined />,
         }] : []),
-        ...(isEnterprise ? [{
-          key: '/org/bank-transfer',
-          label: t('sidebar.corporateTopup'),
-          icon: <CreditCardOutlined />,
-        }] : []),
+        // 对公充值入口已按要求对企业账号下线（功能页仍可直接输 URL 访问）
       ],
     }] : []),
   ];

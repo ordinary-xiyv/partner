@@ -63,12 +63,11 @@ const RECOMMEND_BANNER_IMAGES = [
   '/images/dashboard/recommend-3.png',
 ] as const;
 
-/** 快捷入口图标：API Key / 文档 / 日志 / 充值 */
+/** 快捷入口图标：API Key / 文档 / 日志（充值入口已下线，原 quick-4 不再使用） */
 const QUICK_ENTRY_ICONS = [
   '/images/dashboard/quick/quick-1.svg',
   '/images/dashboard/quick/quick-2.svg',
   '/images/dashboard/quick/quick-3.svg',
-  '/images/dashboard/quick/quick-4.svg',
 ] as const;
 
 function bindDashPanelWheelGuard(
@@ -395,7 +394,7 @@ function modelCardTags(model: CatalogCardDTO, t: (key: string) => string): strin
 
 export default function Dashboard() {
   const { t, i18n } = useTranslation();
-  const { user, isEnterprise, isPlatformWorker } = useUser();
+  const { user } = useUser();
   const qpu = useQuotaPerUnit();
   const cc = useCurrency();
   const navigate = useNavigate();
@@ -414,8 +413,8 @@ export default function Dashboard() {
   const chartScrollRef = useRef<HTMLDivElement>(null);
   const canReadAllLogs = hasPermission(user, 'log_read_all');
   const displayQuota = getUserDisplayQuota(user);
-  const showPersonalTopup = !isEnterprise || isPlatformWorker;
-  const topupTarget = showPersonalTopup ? '/topup' : '/org/bank-transfer';
+  // 「账户充值」按钮与快捷入口「充值」已下线（个人、企业一视同仁）。
+  // 充值页 /topup、对公充值页 /org/bank-transfer 的路由仍在，这里只是不再给入口。
 
   const hour = new Date().getHours();
   const greetingKey = hour < 12 ? 'goodMorning' : hour < 18 ? 'goodAfternoon' : 'goodEvening';
@@ -760,9 +759,6 @@ export default function Dashboard() {
               <div className={styles.balancePanel}>
                 <div className={styles.balancePanelHead}>
                   <span className={styles.balanceLabel}>{t('currentBalance')}</span>
-                  <button type="button" className={styles.btnTopup} onClick={() => navigate(topupTarget)}>
-                    {t('accountTopup')}
-                  </button>
                 </div>
                 <div className={styles.balanceAmount}>
                   <QuotaAmount
@@ -979,14 +975,6 @@ export default function Dashboard() {
                   aria-hidden
                 />
                 {t('dashboard.callLogs')}
-              </button>
-              <button type="button" className={styles.quickItem} onClick={() => navigate(topupTarget)}>
-                <span
-                  className={styles.quickIcon}
-                  style={{ WebkitMaskImage: `url(${QUICK_ENTRY_ICONS[3]})`, maskImage: `url(${QUICK_ENTRY_ICONS[3]})` }}
-                  aria-hidden
-                />
-                {t('topUp')}
               </button>
             </div>
           </div>

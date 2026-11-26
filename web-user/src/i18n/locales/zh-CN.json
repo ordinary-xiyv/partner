@@ -3633,6 +3633,7 @@
   "org.memberManageHint": "统一管理成员状态、个人额度与密码重置。",
   "org.memberReadonlyHint": "你当前是企业成员，可查看组织信息，如需调整成员或额度请联系组织管理员。",
   "org.noMembers": "当前还没有成员，先创建一个成员账号开始协作。",
+  "org.noMembersHint": "当前还没有成员。成员账号由平台侧开通，如需添加请联系平台管理员。",
   "org.noOrganizations": "当前还没有组织，先创建一个组织以便分配成员与额度。",
   "org.platformManageHint": "查看组织池额度、成员归属与基础信息，保持管理动作集中清晰。",
   "recommended": "推荐",

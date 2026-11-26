@@ -2130,6 +2130,7 @@
   "org.newOrganization": "Organisasi Baharu",
   "org.newPasswordLabel": "Kata Laluan Baharu * (min 8 aksara)",
   "org.noMembers": "Tiada ahli lagi. Cipta akaun ahli untuk bekerjasama.",
+  "org.noMembersHint": "Tiada ahli lagi. Akaun ahli disediakan oleh platform — sila hubungi pentadbir platform.",
   "org.noOrganizations": "Tiada organisasi lagi. Cipta organisasi untuk menetapkan ahli dan kuota.",
   "org.operationFailed": "Gagal",
   "org.optional": "Pilihan",

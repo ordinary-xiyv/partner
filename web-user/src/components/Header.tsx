@@ -76,7 +76,8 @@ export default function Header({
 
   const canUserManage = has('user_manage');
   const showLogSummaries = canAccessLogSummaries(user);
-  const showPersonalTopup = !isEnterprise || isPlatformWorker;
+  // 「充值」「订阅」不再对外开放侧栏/菜单入口（个人、企业一视同仁），
+  // 页面与路由仍在，只是不给入口。与 MainLayout 的侧栏口径保持一致。
   const showThemeSwitcher = siteAppearance.layout_config.show_theme_switcher;
   const showLanguageSwitcher = siteAppearance.layout_config.show_language_switcher;
 
@@ -305,8 +306,6 @@ export default function Header({
       title: t('sidebar.billing'),
       items: [
         { to: '/billing', label: t('billing') },
-        ...(showPersonalTopup ? [{ to: '/topup', label: t('topUp') }] : []),
-        { to: '/subscription', label: t('subscription') },
       ],
     },
     ...((isEnterprise || canUserManage) ? [{
@@ -323,7 +322,7 @@ export default function Header({
         ...(isOrgOwner ? [{ to: '/org-bills', label: t('orgBills') }] : []),
         ...((isEnterprise && !isPlatformWorker) ? [
           { to: '/org/discount-rules', label: t('sidebar.orgDiscountRules') },
-          { to: '/org/bank-transfer', label: t('sidebar.corporateTopup') },
+          // 对公充值入口已按要求对企业账号下线（功能页仍可直接输 URL 访问）
         ] : []),
       ],
     }] : []),

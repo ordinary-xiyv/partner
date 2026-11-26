@@ -24,13 +24,12 @@ import {
   SearchOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { isChineseLocale } from '../i18n/resolveLocale';
 import { notifyApiError, notifyApiErrorFromErr, notifyApiSuccess } from '../lib/notifyApi';
 
 import {
   getOrgs, updateOrg, deleteOrg,
   getOrgMembers, resetMemberPassword,
-  createOrgSubAccount, removeOrgSubAccount, removeOrgMember,
+  removeOrgSubAccount, removeOrgMember,
 } from '../api';
 import API from '../api';
 import { formatTime, toQuota, fromQuota, renderAmount } from '../utils';
@@ -143,28 +142,8 @@ function sumMembersAllocatedRemain(
 }
 
 /**
- * 个人配额上限（quota 内部单位）：总池 − 已消耗 − 其他有限额成员剩余额度 + 当前成员已用额度。
- * 后端返回 available_quota_limit 时优先使用后端值，保持校验和展示一致。
- * 企业总池为 0 时视为无上限，返回 null（不做前端封顶）。
+ * 组织剩余池额度：优先用后端算好的 pool_remaining，缺失时退化为 quota − used_quota。
  */
-/** 配额内部单位 → 当前币种金额数值（与 renderAmount / formatQuota 一致） */
-function quotaUnitsToLocalCurrencyAmount(quotaUnits: number, qpu: number, rate: number): number {
-  if (!quotaUnits || !Number.isFinite(quotaUnits)) return 0;
-  return (quotaUnits / qpu) * rate;
-}
-
-/** 中文大额可读：「x.x万」，未满 1 万返回 null */
-function formatWanCnAbbrev(localCurrencyAmount: number): string | null {
-  if (!Number.isFinite(localCurrencyAmount) || localCurrencyAmount < 10000) return null;
-  const w = localCurrencyAmount / 10000;
-  const s = w >= 100
-    ? w.toFixed(1).replace(/\.0$/, '')
-    : w >= 10
-      ? w.toFixed(1).replace(/\.0$/, '')
-      : w.toFixed(2).replace(/\.?0+$/, '');
-  return `${s}万`;
-}
-
 function orgPoolRemaining(org: Organization | null | undefined): number {
   if (!org) return 0;
   if (org.pool_remaining != null && Number.isFinite(org.pool_remaining)) {
@@ -191,6 +170,11 @@ function renderMemberRemaining(
   return inner;
 }
 
+/**
+ * 个人配额上限（quota 内部单位）：总池 − 已消耗 − 其他有限额成员剩余额度 + 当前成员已用额度。
+ * 后端返回 available_quota_limit 时优先使用后端值，保持校验和展示一致。
+ * 企业总池为 0 时视为无上限，返回 null（不做前端封顶）。
+ */
 function computeMaxMemberQuotaUnits(
   org: Organization,
   members: OrgMemberWithUser[],
@@ -233,10 +217,7 @@ function OrgOwnerView() {
   const [org, setOrg] = useState<Organization | null>(null);
   const [members, setMembers] = useState<OrgMemberWithUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [createVisible, setCreateVisible] = useState(false);
-  const [createConfirmVisible, setCreateConfirmVisible] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const submittingRef = useRef(false);
+  // 创建子账号的入口已移除，submitting 一并删掉（它只服务于那个流程）
 
   const [roleEditTarget, setRoleEditTarget] = useState<OrgMemberWithUser | null>(null);
   const [roleEditValue, setRoleEditValue] = useState('member');
@@ -253,15 +234,8 @@ function OrgOwnerView() {
   // 成员额度管理
   const [quotaEditTarget, setQuotaEditTarget] = useState<OrgMemberWithUser | null>(null);
 
-  // 新建成员表单
-  const [newUsername, setNewUsername] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [newDisplayName, setNewDisplayName] = useState('');
-  const [newEmail, setNewEmail] = useState('');
-  const [newMemberRole, setNewMemberRole] = useState('member');
-  const [newQuotaLimit, setNewQuotaLimit] = useState('');
+  // 新建成员表单（已随按钮一起移除，见 page header 处的注释）
 
-  const createMemberFormRef = useRef<HTMLFormElement>(null);
   const resetPwdFormRef = useRef<HTMLFormElement>(null);
   const roleEditFormRef = useRef<HTMLFormElement>(null);
 
@@ -279,77 +253,6 @@ function OrgOwnerView() {
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
-
-  const resetForm = () => {
-    setNewUsername(''); setNewPassword(''); setNewDisplayName('');
-    setNewEmail(''); setNewMemberRole('member'); setNewQuotaLimit('');
-    setCreateConfirmVisible(false);
-  };
-
-  /** 校验通过后打开二次确认（额度文案），确认后再提交 API */
-  const handleCreateMemberFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (submittingRef.current) return;
-    if (!newUsername.trim()) {
-      notifyApiError(t('org.enterUsername'), { toastId: 'org-err' });
-      return;
-    }
-    if (newPassword.length < 8) {
-      notifyApiError(t('org.passwordMinChars'), { toastId: 'org-err' });
-      return;
-    }
-    const complexityError = validatePasswordComplexity(newPassword);
-    if (complexityError) {
-      notifyApiError(t(complexityError), { toastId: 'org-err' });
-      return;
-    }
-    const maxUnits = org ? computeMaxMemberQuotaUnits(org, members, null) : null;
-    if (maxUnits !== null && newQuotaLimit.trim() !== '') {
-      const q = toQuota(Number(newQuotaLimit), qpu);
-      if (Number.isFinite(q) && q > maxUnits) {
-        notifyApiError(t('org.quotaExceedsRemaining', { max: renderAmount(maxUnits, 4, qpu) }), { toastId: 'org-err' });
-        return;
-      }
-    }
-    setCreateConfirmVisible(true);
-  };
-
-  const submitCreateMemberConfirmed = async () => {
-    if (submittingRef.current) return;
-    submittingRef.current = true;
-    setSubmitting(true);
-    try {
-      const res = await createOrgSubAccount({
-        username: newUsername.trim(),
-        password: newPassword,
-        display_name: newDisplayName.trim(),
-        email: newEmail.trim(),
-        role: newMemberRole,
-        quota_limit: newQuotaLimit ? toQuota(Number(newQuotaLimit), qpu) : 0,
-      });
-      if (res.data.success) {
-        notifyApiSuccess(t('org.subAccountCreated'));
-        setCreateConfirmVisible(false);
-        setCreateVisible(false);
-        resetForm();
-        fetchAll();
-      } else notifyApiError(res.data.message || t('org.createFailed'), { toastId: 'org-err' });
-    } catch (err: unknown) {
-      notifyApiErrorFromErr(err, { fallbackKey: 'org.createFailedRetry', toastId: 'org-err' });
-    }
-    finally { setSubmitting(false); submittingRef.current = false; }
-  };
-
-  const createMemberConfirmQuotaUnits = newQuotaLimit.trim() === '' ? 0 : toQuota(Number(newQuotaLimit), qpu);
-  const createMemberConfirmBody = (() => {
-    const localAmt = quotaUnitsToLocalCurrencyAmount(createMemberConfirmQuotaUnits, qpu, cc.rate);
-    const wanAbbr = isChineseLocale(i18n.language) ? formatWanCnAbbrev(localAmt) : null;
-    const wanPart = wanAbbr ? `（${wanAbbr}）` : '';
-    return t('org.createMemberQuotaConfirmBody', {
-      amount: renderAmount(createMemberConfirmQuotaUnits, 4, qpu),
-      wanPart,
-    });
-  })();
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -575,10 +478,6 @@ function OrgOwnerView() {
   const orgUsedDisplay = renderAmount(Number(org?.used_quota || 0), 4, qpu);
   const orgAllocatedDisplay = renderAmount(membersAllocatedQuota, 4, qpu);
 
-  const maxNewMemberQuotaUnits = useMemo(
-    () => (org ? computeMaxMemberQuotaUnits(org, members, null) : null),
-    [org, members],
-  );
   const maxEditMemberQuotaUnits = useMemo(
     () => (org && quotaEditTarget
       ? computeMaxMemberQuotaUnits(org, members, quotaEditTarget.user_id)
@@ -597,14 +496,18 @@ function OrgOwnerView() {
               {t('org.refresh')}
             </Button>
             {settingsControl}
-            {isOrgOwner && (
-              <Button icon={<PlusOutlined />} type="primary" onClick={() => {
-                setNewMemberRole('member');
-                setCreateVisible(true);
-              }}>
-                {t('org.newMember')}
-              </Button>
-            )}
+            {/*
+             * 「新建成员账号」按钮已移除（2026-11-26）。
+             *
+             * 企业登录后不允许在这里自行创建子账号，成员由平台侧开通。
+             * 对应的抽屉、二次确认、表单状态一并删除 —— 留着的话
+             * createVisible 永远是 false，是一整段永远跑不到的死代码，
+             * 以后读代码的人会以为这个功能还在。
+             *
+             * 如果将来要恢复：从 git 历史找回这一段按钮、下面的
+             * 「新建子账号抽屉」与「确认创建」两个 FormDrawer，
+             * 以及 newUsername/newPassword/... 那组表单状态。
+             */}
           </Space>
         }
       />
@@ -651,87 +554,22 @@ function OrgOwnerView() {
           scroll: { x: 'max(100%, 1040px)' },
           pagination: localListPagination(),
           locale: {
-            emptyText: <AppEmpty icon="👥" message={t('org.noMembers')} />,
+            /*
+             * 用 noMembersHint 而不是 noMembers（2026-11-26）。
+             *
+             * 原文案是「先创建一个成员账号开始协作」，但创建按钮已经移除了 ——
+             * 照着它去点会找不到入口，等于文案在误导用户。
+             * 新文案说明「成员由平台侧开通」，指向真实可行的下一步。
+             */
+            emptyText: <AppEmpty icon="👥" message={t('org.noMembersHint')} />,
           },
         }}
       />
 
-      {/* ── 新建子账号抽屉 ── */}
-      <FormDrawer
-        title={t('org.newMemberAccount')}
-        open={createVisible}
-        onClose={() => { setCreateVisible(false); resetForm(); }}
-        onSubmit={() => createMemberFormRef.current?.requestSubmit()}
-        loading={submitting && !createConfirmVisible}
-        width={480}
-      >
-        <form ref={createMemberFormRef} onSubmit={handleCreateMemberFormSubmit} style={{ display: 'grid', gap: 14 }}>
-          <LabelInput
-            label={t('org.usernameLabel')}
-            value={newUsername} onChange={setNewUsername}
-            placeholder={t('org.usernamePlaceholder')}
-          />
-          <LabelInput
-            label={t('org.passwordLabel')}
-            type="password" value={newPassword} onChange={setNewPassword}
-          />
-          <LabelInput
-            label={t('org.displayName')}
-            value={newDisplayName} onChange={setNewDisplayName}
-            placeholder={t('org.optional')}
-          />
-          <LabelInput
-            label={t('org.email')}
-            type="email" value={newEmail} onChange={setNewEmail}
-            placeholder={t('org.optional')}
-          />
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>{t('role')}</label>
-            <select
-              value={newMemberRole}
-              onChange={(e) => setNewMemberRole(e.target.value)}
-              style={selectFieldStyle}
-            >
-              <option value="viewer">{t('org.roleViewer')}</option>
-              <option value="member">{t('org.roleMember')}</option>
-              {isOrgBillingOwner && <option value="admin">{t('org.roleAdmin')}</option>}
-            </select>
-            <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6 }}>
-              {isOrgBillingOwner ? t('org.subAccountRoleHint') : t('org.subAccountRoleHintOrgAdmin')}
-            </div>
-          </div>
-          <LabelInput
-            label={`${t('org.personalQuotaCap')}（${cc.symbol}）`}
-            type="number"
-            value={newQuotaLimit}
-            onChange={setNewQuotaLimit}
-            placeholder="0"
-            min={0}
-            max={maxNewMemberQuotaUnits != null ? fromQuota(maxNewMemberQuotaUnits, qpu) : undefined}
-            step="any"
-          />
-          {maxNewMemberQuotaUnits != null && (
-            <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-              {t('org.quotaMaxAvailable', { amount: renderAmount(maxNewMemberQuotaUnits, 4, qpu) })}
-            </div>
-          )}
-        </form>
-      </FormDrawer>
-
-      <FormDrawer
-        title={t('org.createMemberConfirmTitle')}
-        open={createConfirmVisible}
-        onClose={() => setCreateConfirmVisible(false)}
-        onSubmit={() => void submitCreateMemberConfirmed()}
-        loading={submitting}
-        submitText={t('org.confirm')}
-        width={440}
-      >
-        <div style={{ fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.65 }}>
-          {createMemberConfirmBody}
-        </div>
-      </FormDrawer>
-
+      {
+        /* 「新建子账号抽屉」与「创建确认抽屉」已随按钮一起移除（2026-11-26）。
+           恢复办法见 page header 处 onOpenChange 附近的注释。 */
+      }
       {/* ── 重置密码抽屉 ── */}
       <FormDrawer
         title={t('org.resetPasswordTitle', { username: resetPwdTarget?.username || '' })}

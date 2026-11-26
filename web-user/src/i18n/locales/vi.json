@@ -2130,6 +2130,7 @@
   "org.newOrganization": "Tổ chức mới",
   "org.newPasswordLabel": "Mật khẩu mới * (tối thiểu 8 ký tự)",
   "org.noMembers": "Chưa có thành viên. Tạo tài khoản thành viên để cộng tác.",
+  "org.noMembersHint": "Chưa có thành viên. Tài khoản thành viên do nền tảng tạo — vui lòng liên hệ quản trị viên nền tảng.",
   "org.noOrganizations": "Chưa có tổ chức. Tạo tổ chức để phân công thành viên và hạn mức.",
   "org.operationFailed": "Thất bại",
   "org.optional": "Tùy chọn",
