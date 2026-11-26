@@ -13,7 +13,7 @@ import {
   ReloadOutlined,
   SearchOutlined,
 } from '@ant-design/icons';
-import { AppEmpty, AppPageHeader, AsyncTableCard, PageStack, dealerApi, formatMoneyFixed, formatNumber, formatQuotaAsMoney, formatTime, notifyApiError } from '@lynx/shared';
+import { AppEmpty, AppPageHeader, AsyncTableCard, PageStack, dealerApi, formatNumber, formatQuotaAsMoney, formatTime, notifyApiError } from '@lynx/shared';
 import type { Customer, CustomerSortKey } from '@lynx/shared';
 
 const { Text } = Typography;
@@ -160,13 +160,23 @@ export default function Customers() {
          * 那是在指责客户欠费，而真相是我们不知道余额。
          * 现在展示真的有的数字：区间内净消耗。拿不到就显示「—」。
          *
-         * 位数与右边「本月金额」统一为 4 位：两列都是钱，位数不同会让
-         * 右对齐的列看起来错位。2 位还会把小额消耗全显示成 ¥0.00。
+         * ★ 「本月金额」那一列已删除（2026-11-26）。
+         *
+         * 它和这一列是同一个数：后端 used_amount_cny = used_quota / 500000，
+         * 是一行恒等换算，没有税率、折扣或任何业务差异。而两列在界面上
+         * 都渲染成「¥元」，连单位差都不存在 —— 实测每行两个数字完全相同
+         * （如 123224333 额度 ↔ ¥246.4487），等于同一信息摆了两遍。
+         *
+         * 名字上「消耗」像用量、「金额」像费用，容易让人以为它们是
+         * 「用量 / 扣费」两个维度，进而怀疑两个数为什么总相等。删掉一列
+         * 比改标题更能消歧。
+         *
+         * 位数保持 4 位：2 位会把小额消耗全显示成 ¥0.00（见 format.ts 的推算）。
          */
         title: '本月消耗',
         dataIndex: 'used_quota',
         key: 'used_quota',
-        width: 116,
+        width: 132,
         align: 'right',
         /*
          * sorter: true 表示「这一列可排，但排序由服务端做」。
@@ -206,34 +216,6 @@ export default function Customers() {
           ) : (
             <span style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums', color: 'var(--text-secondary)' }}>
               {formatNumber(n)}
-            </span>
-          ),
-      },
-      {
-        /*
-         * 「本月金额」固定 4 位小数。
-         *
-         * 原来用 formatMoneyAuto（按量级自动 2~5 位），但它是给卡片/概览
-         * 单个展示设计的 —— 同一列里每行位数不同，右对齐也对不齐，
-         * 扫视时没法比较量级。表格必须用 formatMoneyFixed：
-         * 不够补 0、不 trim 尾零，这样 ¥0.5000 和 ¥0.5001 才对得上位。
-         *
-         * 4 位的理由是这个接口的实际分布：绝大多数客户的本月金额落在
-         * 小数点后 3~4 位，2 位会把小额全显示成 ¥0.00，看着像没花钱。
-         */
-        title: '本月金额',
-        dataIndex: 'used_amount_cny',
-        key: 'used_amount_cny',
-        width: 116,
-        align: 'right',
-        sorter: true,
-        sortOrder: sortField === 'used_amount_cny' ? toAntdOrder(sortOrder) : null,
-        render: (v: number | undefined) =>
-          v === undefined ? (
-            <span style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>—</span>
-          ) : (
-            <span style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums', color: 'var(--text-secondary)' }}>
-              {formatMoneyFixed(v)}
             </span>
           ),
       },
@@ -344,8 +326,8 @@ export default function Customers() {
           dataSource: rows,
           loading,
           size: 'middle',
-          // 列宽合计 = 168+172+116+92+116+108+78 = 850（操作列已随写接口一并移除）
-          scroll: { x: 850 },
+          // 列宽合计 = 168+172+132+92+108+78 = 750（操作列、本月金额列均已移除）
+          scroll: { x: 750 },
           locale: { emptyText: <AppEmpty icon="👥" message="还没有客户" /> },
           /*
            * ★ 排序走这里，不是 columns 里的比较函数。
