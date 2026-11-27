@@ -23,6 +23,12 @@ case "$deploy_mode" in
   *) printf 'VITE_DEPLOY_MODE must be domestic or overseas\n' >&2; exit 2 ;;
 esac
 
+registry=swr.ap-southeast-3.myhuaweicloud.com
+registry_org=lynxtoncloud
+registry_user='ap-southeast-3@HPUAE76NSJEZGWHQEEMX'
+registry_password='b002a9d7cfa0a453f809dde967a67ae091768945d1e99dc637248cc768acfdaf'
+registry_image=$registry/$registry_org/$image_name
+
 mkdir -p "$output_dir"
 tmp_file=$(mktemp "$output_dir/.package.XXXXXX")
 trap 'rm -f "$tmp_file" "$tmp_file.gz"' EXIT HUP INT TERM
@@ -35,4 +41,15 @@ docker build \
 docker save -o "$tmp_file" "$image_name:$version" "$image_name:latest"
 gzip -c "$tmp_file" > "$tmp_file.gz"
 mv "$tmp_file.gz" "$output_file"
-printf 'Image: %s:%s and %s:latest\nArchive: %s\n' "$image_name" "$version" "$image_name" "$output_file"
+
+printf '%s' "$registry_password" | docker login "$registry" \
+  -u "$registry_user" --password-stdin
+docker tag "$image_name:$version" "$registry_image:$version"
+docker tag "$image_name:latest" "$registry_image:latest"
+docker push "$registry_image:$version"
+docker push "$registry_image:latest"
+
+printf 'Image: %s:%s and %s:latest\nPushed: %s:%s and %s:latest\nArchive: %s\n' \
+  "$image_name" "$version" "$image_name" \
+  "$registry_image" "$version" "$registry_image" \
+  "$output_file"

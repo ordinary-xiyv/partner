@@ -19,13 +19,15 @@
 
 脚本以本仓库的 `web-user/` 为构建上下文，执行 Bun 安装和 Vite 构建，生成 `lynxton-partner-web-user:2026.11.23` 与 `lynxton-partner-web-user:latest` 两个标签，并导出 `dist/lynxton-partner-web-user-2026.11.23.tar.gz`。`dist/` 被 Git 忽略。国内模式可用 `VITE_DEPLOY_MODE=domestic ./package-image.sh 2026.11.23`；不传时为 `overseas`。站点身份和凭证仅在容器启动时注入，不进入镜像。
 
+打包完成后脚本自动登录华为云 SWR（`swr.ap-southeast-3.myhuaweicloud.com`，组织 `lynxtoncloud`），并把版本标签和 `latest` 推送到 `swr.ap-southeast-3.myhuaweicloud.com/lynxtoncloud/<镜像名>`。登录凭据写在脚本内，不要泄露到仓库之外。第二个参数可覆盖镜像名（不含标签），例如 `./package-image.sh 2026.11.23 partner-web-user`，推送地址会随之变为 `swr.ap-southeast-3.myhuaweicloud.com/lynxtoncloud/partner-web-user`。
+
 异机部署时，把 tar.gz 和本目录的 Compose、Nginx 模板、启动脚本复制到目标机器，然后导入镜像：
 
 ```bash
 docker load -i dist/lynxton-partner-web-user-2026.11.23.tar.gz
 ```
 
-若使用镜像仓库，打包时第二个参数填写完整镜像名（不含标签），例如 `./package-image.sh 2026.11.23 registry.example.com/team/partner-web-user`；再分别 `docker push` 版本标签和 `latest`，部署环境把 `SITE_IMAGE_NAME` 设为该镜像名。生产站点建议把 `SITE_IMAGE_TAG` 固定为已发布的版本号，避免不同站点在不同时刻拉到不同的 `latest`。
+部署环境把 `SITE_IMAGE_NAME` 设为完整推送地址（含仓库和组织），例如 `swr.ap-southeast-3.myhuaweicloud.com/lynxtoncloud/lynxton-partner-web-user`，并提前在目标机器上完成 `docker login`。生产站点建议把 `SITE_IMAGE_TAG` 固定为已发布的版本号，避免不同站点在不同时刻拉到不同的 `latest`。
 
 ## 启动
 
